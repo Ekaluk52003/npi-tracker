@@ -4,8 +4,8 @@
             hx-get="{% if active_tab == 'gantt' %}{% url 'project-gantt' project.pk %}{% elif active_tab == 'list' %}{% url 'project-list' project.pk %}{% else %}{% url 'project-milestones' project.pk %}{% endif %}"
             hx-target="#content" hx-swap="innerHTML" hx-push-url="true" name="stage">
         <option value="" {% if not stage_filter %}selected{% endif %}>All Stages</option>
-        <option value="etb" {% if stage_filter == 'etb' %}selected{% endif %}>ETB</option>
-        <option value="ps" {% if stage_filter == 'ps' %}selected{% endif %}>PS</option>
-        <option value="fas" {% if stage_filter == 'fas' %}selected{% endif %}>FAS</option>
+        {% for s in project_stages %}
+        <option value="{{ s.pk }}" {% if stage_filter == s.pk|stringformat:"d" %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
     </select>
 </div>

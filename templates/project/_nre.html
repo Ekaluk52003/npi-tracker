@@ -44,7 +44,7 @@
                 <td class="px-3 py-2 text-[var(--text-muted)]">{{ nre.pk }}</td>
                 <td class="px-3 py-2">
                     <span class="font-medium">{{ nre.desc }}</span>
-                    {% if nre.stage %}<span class="ml-1 stage-pill-sm">{{ nre.get_stage_display }}</span>{% endif %}
+                    {% if nre.stage %}<span class="ml-1 stage-pill-sm" style="background:{{ nre.stage.color }}22;color:{{ nre.stage.color }}">{{ nre.stage.name }}</span>{% endif %}
                 </td>
                 <td class="px-3 py-2 text-[var(--text-muted)]">{{ nre.supplier }}</td>
                 <td class="px-3 py-2 text-center">{{ nre.qty }}</td>

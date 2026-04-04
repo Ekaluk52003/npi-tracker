@@ -1,5 +1,5 @@
 .claude
-
+.playwright-mcp
 # Python
 *.py[cod]
 __pycache__/

@@ -23,7 +23,7 @@
                 <div class="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
                     {% if issue.owner %}<span>Owner: {{ issue.owner }}</span>{% endif %}
                     {% if issue.due %}<span>Due: {{ issue.due|date:"M d" }}</span>{% endif %}
-                    {% if issue.stage %}<span class="stage-pill-sm">{{ issue.get_stage_display }}</span>{% endif %}
+                    {% if issue.stage %}<span class="stage-pill-sm" style="background:{{ issue.stage.color }}22;color:{{ issue.stage.color }}">{{ issue.stage.name }}</span>{% endif %}
                 </div>
                 {% if issue.impact %}<div class="mt-1 text-xs px-2 py-1 bg-red-500/10 text-red-400 rounded">{{ issue.impact }}</div>{% endif %}
             </div>

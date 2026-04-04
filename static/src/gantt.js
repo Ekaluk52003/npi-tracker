@@ -4,12 +4,6 @@
  * from JSON data embedded in Django templates.
  */
 
-const STAGE_COLORS = {
-  etb: '#f59e0b',
-  ps: '#8b5cf6',
-  fas: '#06b6d4',
-};
-
 function parseDate(s) {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
@@ -54,9 +48,11 @@ function getWeeks(minDate, maxDate) {
 const WK_W = 80;
 const STATUS_LABELS = { open: 'Open', inprogress: 'In Progress', done: 'Done', blocked: 'Blocked' };
 
-function stageTag(stage) {
+function stageTag(stage, color) {
   if (!stage) return '';
-  return `<span class="stage-tag ${stage}">${stage.toUpperCase()}</span>`;
+  const bg = color ? color + '22' : 'var(--surface2)';
+  const fg = color || 'var(--text-muted)';
+  return `<span class="stage-tag" style="background:${bg};color:${fg};border:1px solid ${fg}33">${esc(stage).toUpperCase()}</span>`;
 }
 
 function getMondayAligned(minDate, maxDate) {
@@ -131,7 +127,7 @@ export function renderProjectGantt(containerId, dataId) {
     return `<div class="task-row status-${t.status}">
       <div class="tc-cell tc-item">${row.num}</div>
       <div class="tc-cell tc-task">
-        <div>${esc(t.name)}${stageTag(t.stage)}</div>
+        <div>${esc(t.name)}${stageTag(t.stage, t.stage_color)}</div>
         ${t.remark ? `<div class="tc-remark">${esc(t.remark)}</div>` : ''}
       </div>
       <div class="tc-cell tc-who"><span class="who-pill" title="${esc(t.who)}">${esc(t.who)}</span></div>
@@ -295,7 +291,7 @@ export function renderPortfolioGantt(containerId, dataId) {
       `<div style="position:absolute;left:${i * PCELL_W}px;top:0;width:${PCELL_W}px;height:100%;border-right:1px solid var(--border);${i === todayWkIdx ? 'background:rgba(79,126,248,0.06)' : ''}"></div>`
     ).join('');
 
-    // Stage bars
+    // Stage bars — use stage color from data, fall back to status-based color
     const bars = p.stages.map(stg => {
       if (!stg.date) return '';
       const stDate = parseDate(stg.date);
@@ -303,8 +299,8 @@ export function renderPortfolioGantt(containerId, dataId) {
       endDate.setDate(endDate.getDate() + 5);
       const barLeft = (stDate - weeks[0]) / (7 * 86400000) * PCELL_W;
       const barWidth = Math.max(PCELL_W * 0.7, (endDate - stDate) / (7 * 86400000) * PCELL_W);
-      const col = PG_STAGE_COLOR[stg.status] || '#3b82f6';
-      const bg = PG_STAGE_BG[stg.status] || 'rgba(59,130,246,0.15)';
+      const col = stg.color || PG_STAGE_COLOR[stg.status] || '#3b82f6';
+      const bg = col + '2e';
       const isCurrent = currentStage && stg.stage_id === currentStage.stage_id;
       return `<div style="position:absolute;left:${barLeft}px;top:7px;height:22px;width:${barWidth}px;background:${bg};border:${isCurrent ? 2 : 1}px solid ${col};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${col};overflow:hidden;white-space:nowrap;z-index:2;${isCurrent ? 'box-shadow:0 0 0 3px ' + col + '33' : ''}" title="${esc(stg.name)}: ${stg.date}">${esc(stg.name)}${isCurrent ? ' \u25cf' : ''}</div>`;
     }).join('');
@@ -344,4 +340,3 @@ function esc(s) {
   if (!s) return '';
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-

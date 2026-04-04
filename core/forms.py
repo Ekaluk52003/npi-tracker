@@ -36,6 +36,14 @@ class TaskForm(forms.ModelForm):
             'stage': forms.Select(attrs={'class': select_cls}),
         }
 
+    def __init__(self, *args, project=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if project:
+            self.fields['stage'].queryset = project.stages.all()
+        elif self.instance and self.instance.pk:
+            self.fields['stage'].queryset = self.instance.project.stages.all()
+        self.fields['stage'].empty_label = '— None —'
+
 
 class IssueForm(forms.ModelForm):
     class Meta:
@@ -57,6 +65,10 @@ class IssueForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if project:
             self.fields['linked_tasks'].queryset = project.tasks.all()
+            self.fields['stage'].queryset = project.stages.all()
+        elif self.instance and self.instance.pk:
+            self.fields['stage'].queryset = self.instance.project.stages.all()
+        self.fields['stage'].empty_label = '— None —'
 
 
 class TeamMemberForm(forms.ModelForm):
@@ -95,17 +107,25 @@ class NREItemForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if project:
             self.fields['linked_tasks'].queryset = project.tasks.all()
+            self.fields['stage'].queryset = project.stages.all()
+        elif self.instance and self.instance.pk:
+            self.fields['stage'].queryset = self.instance.project.stages.all()
+        self.fields['stage'].empty_label = '— None —'
 
 
 class BuildStageForm(forms.ModelForm):
     class Meta:
         model = BuildStage
         fields = [
+            'name', 'full_name', 'color',
             'status', 'planned_date', 'actual_date', 'build_qty', 'build_location',
             'bom_revision', 'customer_approval', 'qty_produced', 'qty_passed',
             'approval_notes', 'notes',
         ]
         widgets = {
+            'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. EVT, DVT, PVT'}),
+            'full_name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Engineering Verification Test'}),
+            'color': forms.TextInput(attrs={'class': input_cls, 'type': 'color'}),
             'status': forms.Select(attrs={'class': select_cls}),
             'planned_date': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
             'actual_date': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),

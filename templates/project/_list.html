@@ -25,7 +25,7 @@
                 <td class="px-3 py-2 text-[var(--text-muted)]">{{ task.pk }}</td>
                 <td class="px-3 py-2">
                     <span class="font-medium">{{ task.name }}</span>
-                    {% if task.stage %}<span class="ml-1 stage-pill-sm">{{ task.get_stage_display }}</span>{% endif %}
+                    {% if task.stage %}<span class="ml-1 stage-pill-sm" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
                 </td>
                 <td class="px-3 py-2 text-[var(--text-muted)] text-xs max-w-[200px] truncate">{{ task.remark|truncatewords:10 }}</td>
                 <td class="px-3 py-2"><span class="text-xs px-2 py-0.5 rounded-full bg-[var(--surface2)] text-[var(--text-muted)]">{{ task.who }}</span></td>

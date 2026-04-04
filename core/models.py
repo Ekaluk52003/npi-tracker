@@ -92,19 +92,18 @@ class Project(models.Model):
 
     def create_default_stages(self):
         defaults = [
-            ('etb', 'ETB', 'External Test Build', 1),
-            ('ps', 'PS', 'Pre-Series Build', 2),
-            ('fas', 'FAS', 'First Article Sample', 3),
+            ('ETB', 'External Test Build', '#f59e0b', 1),
+            ('PS', 'Pre-Series Build', '#8b5cf6', 2),
+            ('FAS', 'First Article Sample', '#06b6d4', 3),
         ]
-        for stage_id, name, full_name, order in defaults:
+        for name, full_name, color, order in defaults:
             BuildStage.objects.get_or_create(
-                project=self, stage_id=stage_id,
-                defaults={'name': name, 'full_name': full_name, 'sort_order': order}
+                project=self, name=name,
+                defaults={'full_name': full_name, 'color': color, 'sort_order': order}
             )
 
 
 class BuildStage(models.Model):
-    STAGE_CHOICES = [('etb', 'ETB'), ('ps', 'PS'), ('fas', 'FAS')]
     STATUS_CHOICES = [
         ('planned', 'Planned'), ('ready', 'Ready'), ('in-progress', 'In Progress'),
         ('completed', 'Completed'), ('on-hold', 'On Hold'),
@@ -115,9 +114,9 @@ class BuildStage(models.Model):
     ]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='stages')
-    stage_id = models.CharField(max_length=10, choices=STAGE_CHOICES)
-    name = models.CharField(max_length=10)
+    name = models.CharField(max_length=50)
     full_name = models.CharField(max_length=100)
+    color = models.CharField(max_length=7, default='#3b82f6')
     planned_date = models.DateField(null=True, blank=True)
     actual_date = models.DateField(null=True, blank=True)
     build_qty = models.IntegerField(default=0)
@@ -134,7 +133,7 @@ class BuildStage(models.Model):
 
     class Meta:
         ordering = ['sort_order']
-        unique_together = ['project', 'stage_id']
+        unique_together = ['project', 'name']
 
     def __str__(self):
         return f"{self.project.name} — {self.name}"
@@ -156,17 +155,17 @@ class BuildStage(models.Model):
 
     @property
     def gate_readiness(self):
-        tasks = self.project.tasks.filter(stage=self.stage_id)
+        tasks = self.tasks.all()
         total_tasks = tasks.count()
         done_tasks = tasks.filter(status='done').count()
         task_pct = round(done_tasks / total_tasks * 100) if total_tasks else 100
 
-        nre_items = self.project.nre_items.filter(stage=self.stage_id)
+        nre_items = self.nre_items.all()
         total_nre = nre_items.count()
         nre_with_po = nre_items.exclude(po_status='no-po').count()
         nre_pct = round(nre_with_po / total_nre * 100) if total_nre else 100
 
-        open_issues = self.project.issues.filter(stage=self.stage_id).exclude(status='resolved').count()
+        open_issues = self.issues.exclude(status='resolved').count()
         issue_pct = 0 if open_issues else 100
 
         auto_gates = [
@@ -213,7 +212,6 @@ class Task(models.Model):
         ('open', 'Open'), ('inprogress', 'In Progress'),
         ('done', 'Done'), ('blocked', 'Blocked'),
     ]
-    STAGE_CHOICES = [('', '— None —'), ('etb', 'ETB'), ('ps', 'PS'), ('fas', 'FAS')]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks')
     name = models.CharField(max_length=300)
@@ -224,7 +222,7 @@ class Task(models.Model):
     start = models.DateField()
     end = models.DateField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
-    stage = models.CharField(max_length=10, blank=True, default='', choices=STAGE_CHOICES)
+    stage = models.ForeignKey(BuildStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
     sort_order = models.IntegerField(default=0)
 
     class Meta:
@@ -236,6 +234,10 @@ class Task(models.Model):
     @property
     def status_label(self):
         return dict(self.STATUS_CHOICES).get(self.status, self.status)
+
+    @property
+    def stage_name(self):
+        return self.stage.name if self.stage else ''
 
     @property
     def open_issues(self):
@@ -251,7 +253,6 @@ class Issue(models.Model):
         ('open', 'Open'), ('investigating', 'Investigating'),
         ('resolved', 'Resolved'),
     ]
-    STAGE_CHOICES = [('', '— None —'), ('etb', 'ETB'), ('ps', 'PS'), ('fas', 'FAS')]
     SEVERITY_ORDER = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='issues')
@@ -262,7 +263,7 @@ class Issue(models.Model):
     owner = models.CharField(max_length=200, blank=True)
     due = models.DateField(null=True, blank=True)
     impact = models.CharField(max_length=500, blank=True)
-    stage = models.CharField(max_length=10, blank=True, default='', choices=STAGE_CHOICES)
+    stage = models.ForeignKey(BuildStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='issues')
     linked_tasks = models.ManyToManyField(Task, blank=True, related_name='linked_issues')
 
     class Meta:
@@ -278,6 +279,10 @@ class Issue(models.Model):
     @property
     def status_label(self):
         return dict(self.STATUS_CHOICES).get(self.status, self.status)
+
+    @property
+    def stage_name(self):
+        return self.stage.name if self.stage else ''
 
 
 class TeamMember(models.Model):
@@ -312,7 +317,6 @@ class NREItem(models.Model):
         ('po-received', 'PO Received'), ('invoiced', 'Invoiced'),
         ('paid', 'Paid'),
     ]
-    STAGE_CHOICES = [('', '— None —'), ('etb', 'ETB'), ('ps', 'PS'), ('fas', 'FAS')]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='nre_items')
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='Stencil')
@@ -325,7 +329,7 @@ class NREItem(models.Model):
     due = models.DateField(null=True, blank=True)
     qty = models.IntegerField(default=1)
     notes = models.TextField(blank=True)
-    stage = models.CharField(max_length=10, blank=True, default='', choices=STAGE_CHOICES)
+    stage = models.ForeignKey(BuildStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='nre_items')
     linked_tasks = models.ManyToManyField(Task, blank=True, related_name='linked_nre')
 
     class Meta:
@@ -349,3 +353,7 @@ class NREItem(models.Model):
     @property
     def currency_symbol(self):
         return {'THB': '฿', 'USD': '$', 'EUR': '€'}.get(self.currency, self.currency)
+
+    @property
+    def stage_name(self):
+        return self.stage.name if self.stage else ''

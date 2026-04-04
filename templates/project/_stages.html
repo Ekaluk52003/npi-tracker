@@ -1,3 +1,8 @@
+<div class="flex items-center justify-between mb-4">
+    <div></div>
+    <button hx-get="{% url 'stage-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+            class="action-btn text-xs">+ Add Stage</button>
+</div>
 <div class="flex flex-col lg:flex-row gap-4 items-start">
     {% for stage in stages %}
     {% if not forloop.first %}
@@ -6,14 +11,20 @@
     <div class="flex-1 bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 w-full min-w-[280px]">
         <!-- Header -->
         <div class="flex items-center justify-between mb-3">
-            <div>
-                <h3 class="text-lg font-bold">{{ stage.name }}</h3>
-                <div class="text-xs text-[var(--text-muted)]">{{ stage.full_name }}</div>
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full shrink-0" style="background:{{ stage.color }}"></span>
+                <div>
+                    <h3 class="text-lg font-bold">{{ stage.name }}</h3>
+                    <div class="text-xs text-[var(--text-muted)]">{{ stage.full_name }}</div>
+                </div>
             </div>
             <div class="flex items-center gap-2">
                 <span class="stage-pill stage-{{ stage.status }}">{{ stage.status_label }}</span>
-                <button hx-get="{% url 'stage-edit' project.pk stage.stage_id %}" hx-target="#modal-container" hx-swap="innerHTML"
+                <button hx-get="{% url 'stage-edit' project.pk stage.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
                         class="text-xs text-[var(--accent)] hover:underline">Edit</button>
+                <button hx-post="{% url 'stage-delete' project.pk stage.pk %}" hx-confirm="Delete stage '{{ stage.name }}'? Tasks, issues, and NRE items linked to this stage will be unlinked."
+                        hx-target="#content" hx-swap="innerHTML"
+                        class="text-xs text-red-400 hover:underline">Del</button>
             </div>
         </div>
 
@@ -46,7 +57,7 @@
             <!-- Manual checklist -->
             {% for item in stage.gate.manual_items %}
             <div class="flex items-center gap-2 text-[11px] py-0.5 cursor-pointer hover:bg-[var(--surface2)] rounded px-1 -mx-1"
-                 hx-post="{% url 'gate-toggle' project.pk stage.stage_id item.pk %}"
+                 hx-post="{% url 'gate-toggle' project.pk stage.pk item.pk %}"
                  hx-target="#content" hx-swap="innerHTML">
                 {% csrf_token %}
                 <span class="{% if item.checked %}text-emerald-400{% else %}text-[var(--text-muted)]{% endif %}">{% if item.checked %}&#10003;{% else %}&#9633;{% endif %}</span>
@@ -75,6 +86,10 @@
         {% if stage.notes %}
         <div class="border-t border-[var(--border)] pt-2 text-xs text-[var(--text-muted)]">{{ stage.notes }}</div>
         {% endif %}
+    </div>
+    {% empty %}
+    <div class="w-full text-center py-8 text-[var(--text-muted)]">
+        No stages defined. Click "+ Add Stage" to create one.
     </div>
     {% endfor %}
 </div>

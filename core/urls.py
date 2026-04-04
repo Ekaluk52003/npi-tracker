@@ -38,9 +38,11 @@ urlpatterns = [
     path('project/<int:pk>/nre/<int:nid>/edit/', views.nre_edit, name='nre-edit'),
     path('project/<int:pk>/nre/<int:nid>/delete/', views.nre_delete, name='nre-delete'),
 
-    # Build Stage edit + gate toggle
-    path('project/<int:pk>/stages/<str:stage_id>/edit/', views.stage_edit, name='stage-edit'),
-    path('project/<int:pk>/stages/<str:stage_id>/gate/<int:gid>/toggle/', views.gate_toggle, name='gate-toggle'),
+    # Build Stage CRUD + gate toggle
+    path('project/<int:pk>/stages/create/', views.stage_create, name='stage-create'),
+    path('project/<int:pk>/stages/<int:sid>/edit/', views.stage_edit, name='stage-edit'),
+    path('project/<int:pk>/stages/<int:sid>/delete/', views.stage_delete, name='stage-delete'),
+    path('project/<int:pk>/stages/<int:sid>/gate/<int:gid>/toggle/', views.gate_toggle, name='gate-toggle'),
 
     # Portfolio issues modal
     path('project/<int:pk>/issues-modal/', views.project_issues_modal, name='project-issues-modal'),

@@ -25,8 +25,8 @@ class ProjectAdmin(admin.ModelAdmin):
 
 @admin.register(BuildStage)
 class BuildStageAdmin(admin.ModelAdmin):
-    list_display = ['project', 'name', 'status', 'planned_date']
-    list_filter = ['status', 'stage_id']
+    list_display = ['project', 'name', 'full_name', 'status', 'color', 'planned_date']
+    list_filter = ['status']
 
 
 @admin.register(GateChecklistItem)
@@ -36,13 +36,13 @@ class GateChecklistItemAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['name', 'project', 'section', 'status', 'start', 'end']
-    list_filter = ['status', 'stage']
+    list_display = ['name', 'project', 'section', 'status', 'stage', 'start', 'end']
+    list_filter = ['status']
 
 
 @admin.register(Issue)
 class IssueAdmin(admin.ModelAdmin):
-    list_display = ['title', 'project', 'severity', 'status']
+    list_display = ['title', 'project', 'severity', 'status', 'stage']
     list_filter = ['severity', 'status']
 
 
@@ -53,5 +53,5 @@ class TeamMemberAdmin(admin.ModelAdmin):
 
 @admin.register(NREItem)
 class NREItemAdmin(admin.ModelAdmin):
-    list_display = ['desc', 'project', 'category', 'cost', 'po_status']
+    list_display = ['desc', 'project', 'category', 'cost', 'po_status', 'stage']
     list_filter = ['category', 'po_status']

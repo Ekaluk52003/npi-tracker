@@ -1,3 +1,4 @@
+import json
 from datetime import date, timedelta
 from itertools import groupby
 from django.shortcuts import render, get_object_or_404, redirect
@@ -31,6 +32,7 @@ def _project_ctx(project, tab, extra=None):
         'active_tab': tab,
         'open_issue_count': project.issues.exclude(status='resolved').count(),
         'nre_no_po_count': project.nre_items.filter(po_status='no-po').count(),
+        'project_stages': list(project.stages.all()),
     }
     if extra:
         ctx.update(extra)
@@ -58,9 +60,9 @@ def _fmt_volume(val):
 
 
 def _gantt_data_for_project(project, stage_filter=''):
-    tasks = project.tasks.all()
-    if stage_filter:
-        tasks = tasks.filter(stage=stage_filter)
+    tasks = project.tasks.select_related('stage').all()
+    if stage_filter and stage_filter.isdigit():
+        tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
     for section, group in groupby(tasks, key=lambda t: t.section):
         task_list = list(group)
@@ -74,7 +76,8 @@ def _gantt_data_for_project(project, stage_filter=''):
                 'start': t.start.isoformat(),
                 'end': t.end.isoformat(),
                 'status': t.status,
-                'stage': t.stage,
+                'stage': t.stage.name if t.stage else '',
+                'stage_color': t.stage.color if t.stage else '',
                 'remark': t.remark[:60] if t.remark else '',
                 'open_issues': t.linked_issues.exclude(status='resolved').count(),
             } for t in task_list],
@@ -85,8 +88,9 @@ def _gantt_data_for_project(project, stage_filter=''):
     stages_data = []
     for s in project.stages.all():
         stages_data.append({
-            'stage_id': s.stage_id,
+            'stage_id': s.pk,
             'name': s.name,
+            'color': s.color,
             'status': s.status,
             'planned_date': s.planned_date.isoformat() if s.planned_date else None,
             'actual_date': s.actual_date.isoformat() if s.actual_date else None,
@@ -110,8 +114,9 @@ def _portfolio_gantt_data(projects):
             if d:
                 all_dates.append(d)
             stages.append({
-                'stage_id': s.stage_id,
+                'stage_id': s.pk,
                 'name': s.name,
+                'color': s.color,
                 'status': s.status,
                 'date': d.isoformat() if d else None,
             })
@@ -120,7 +125,7 @@ def _portfolio_gantt_data(projects):
             'id': p.pk,
             'name': p.name,
             'color': p.color,
-            'current_stage': current.stage_id if current else None,
+            'current_stage': current.pk if current else None,
             'current_stage_label': current.name if current else '—',
             'status': p.overall_status,
             'stages': stages,
@@ -165,7 +170,7 @@ def portfolio(request):
 
 def project_issues_modal(request, pk):
     project = get_object_or_404(Project, pk=pk)
-    issues = project.issues.all()
+    issues = project.issues.select_related('stage').all()
     return render(request, 'portfolio/_issues_modal.html', {'project': project, 'issues': issues})
 
 
@@ -176,7 +181,7 @@ def project_detail(request, pk):
 
 
 def project_gantt(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks', 'stages', 'issues'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'stages', 'issues'), pk=pk)
     stage_filter = request.GET.get('stage', '')
     gantt_data = _gantt_data_for_project(project, stage_filter)
     ctx = _project_ctx(project, 'gantt', {
@@ -187,11 +192,11 @@ def project_gantt(request, pk):
 
 
 def project_list(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'stages'), pk=pk)
     stage_filter = request.GET.get('stage', '')
-    tasks = project.tasks.all()
-    if stage_filter:
-        tasks = tasks.filter(stage=stage_filter)
+    tasks = project.tasks.select_related('stage').all()
+    if stage_filter and stage_filter.isdigit():
+        tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
     for section, group in groupby(tasks, key=lambda t: t.section):
         sections.append({'section': section, 'tasks': list(group)})
@@ -203,11 +208,11 @@ def project_list(request, pk):
 
 
 def project_milestones(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'stages'), pk=pk)
     stage_filter = request.GET.get('stage', '')
-    tasks = project.tasks.all()
-    if stage_filter:
-        tasks = tasks.filter(stage=stage_filter)
+    tasks = project.tasks.select_related('stage').all()
+    if stage_filter and stage_filter.isdigit():
+        tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
     for section, group in groupby(tasks, key=lambda t: t.section):
         task_list = list(group)
@@ -243,19 +248,19 @@ def project_team(request, pk):
 
 
 def project_stages(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('stages__gate_items', 'tasks', 'issues', 'nre_items'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('stages__gate_items', 'tasks__stage', 'issues__stage', 'nre_items__stage'), pk=pk)
     stages = list(project.stages.all())
     for s in stages:
         s.gate = s.gate_readiness
-        s.tasks_done = project.tasks.filter(stage=s.stage_id, status='done').count()
-        s.tasks_total = project.tasks.filter(stage=s.stage_id).count()
+        s.tasks_done = s.tasks.filter(status='done').count()
+        s.tasks_total = s.tasks.count()
     ctx = _project_ctx(project, 'stages', {'stages': stages})
     return _htmx_tab(request, 'project/detail.html', 'project/_stages.html', ctx)
 
 
 def project_nre(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('nre_items', 'tasks'), pk=pk)
-    items = project.nre_items.all()
+    project = get_object_or_404(Project.objects.prefetch_related('nre_items__stage', 'tasks', 'stages'), pk=pk)
+    items = project.nre_items.select_related('stage').all()
     categories = []
     for cat, group in groupby(items, key=lambda n: n.category):
         cat_items = list(group)
@@ -276,9 +281,9 @@ def project_nre(request, pk):
 
 
 def project_issues(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('issues__linked_tasks'), pk=pk)
-    open_issues = project.issues.exclude(status='resolved')
-    resolved_issues = project.issues.filter(status='resolved')
+    project = get_object_or_404(Project.objects.prefetch_related('issues__linked_tasks', 'issues__stage', 'stages'), pk=pk)
+    open_issues = project.issues.select_related('stage').exclude(status='resolved')
+    resolved_issues = project.issues.select_related('stage').filter(status='resolved')
     ctx = _project_ctx(project, 'issues', {
         'open_issues': open_issues,
         'resolved_issues': resolved_issues,
@@ -293,7 +298,25 @@ def project_create(request):
         form = ProjectForm(request.POST)
         if form.is_valid():
             project = form.save()
-            project.create_default_stages()
+            # Parse dynamic stages from POST
+            stages_json = request.POST.get('stages_json', '')
+            if stages_json:
+                try:
+                    stages_list = json.loads(stages_json)
+                    for i, s in enumerate(stages_list):
+                        if s.get('name', '').strip():
+                            BuildStage.objects.create(
+                                project=project,
+                                name=s['name'].strip(),
+                                full_name=s.get('full_name', '').strip(),
+                                color=s.get('color', '#3b82f6'),
+                                sort_order=i + 1,
+                            )
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            # If no stages were added, create defaults
+            if not project.stages.exists():
+                project.create_default_stages()
             if request.htmx:
                 return HttpResponse(headers={'HX-Redirect': f'/project/{project.pk}/gantt/'})
             return redirect('project-gantt', pk=project.pk)
@@ -307,7 +330,7 @@ def project_create(request):
 def task_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
-        form = TaskForm(request.POST)
+        form = TaskForm(request.POST, project=project)
         if form.is_valid():
             task = form.save(commit=False)
             task.project = project
@@ -316,7 +339,7 @@ def task_create(request, pk):
                 return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
             return redirect('project-gantt', pk=pk)
     else:
-        form = TaskForm(initial={'start': date.today(), 'end': date.today() + timedelta(days=7)})
+        form = TaskForm(project=project, initial={'start': date.today(), 'end': date.today() + timedelta(days=7)})
     return render(request, 'forms/_task_form.html', {'form': form, 'project': project})
 
 
@@ -324,14 +347,14 @@ def task_edit(request, pk, tid):
     project = get_object_or_404(Project, pk=pk)
     task = get_object_or_404(Task, pk=tid, project=project)
     if request.method == 'POST':
-        form = TaskForm(request.POST, instance=task)
+        form = TaskForm(request.POST, instance=task, project=project)
         if form.is_valid():
             form.save()
             if request.htmx:
                 return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
             return redirect('project-gantt', pk=pk)
     else:
-        form = TaskForm(instance=task)
+        form = TaskForm(instance=task, project=project)
     return render(request, 'forms/_task_form.html', {'form': form, 'project': project, 'task': task})
 
 
@@ -472,11 +495,32 @@ def nre_delete(request, pk, nid):
     return redirect('project-nre', pk=pk)
 
 
-# ── Build Stage ──────────────────────────────────────────────────────────
+# ── Build Stage CRUD ────────────────────────────────────────────────────
 
-def stage_edit(request, pk, stage_id):
+def stage_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
-    stage = get_object_or_404(BuildStage, project=project, stage_id=stage_id)
+    if request.method == 'POST':
+        form = BuildStageForm(request.POST)
+        if form.is_valid():
+            stage = form.save(commit=False)
+            stage.project = project
+            stage.sort_order = project.stages.count() + 1
+            stage.save()
+            if request.htmx:
+                return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/stages/'})
+            return redirect('project-stages', pk=pk)
+    else:
+        form = BuildStageForm()
+    return render(request, 'forms/_stage_form.html', {
+        'form': form,
+        'project': project,
+        'is_new': True,
+    })
+
+
+def stage_edit(request, pk, sid):
+    project = get_object_or_404(Project, pk=pk)
+    stage = get_object_or_404(BuildStage, pk=sid, project=project)
     gate_form = GateChecklistItemForm()
     if request.method == 'POST':
         if 'add_gate_item' in request.POST:
@@ -512,9 +556,18 @@ def stage_edit(request, pk, stage_id):
     })
 
 
-def gate_toggle(request, pk, stage_id, gid):
+def stage_delete(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
-    stage = get_object_or_404(BuildStage, project=project, stage_id=stage_id)
+    stage = get_object_or_404(BuildStage, pk=sid, project=project)
+    stage.delete()
+    if request.htmx:
+        return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/stages/'})
+    return redirect('project-stages', pk=pk)
+
+
+def gate_toggle(request, pk, sid, gid):
+    project = get_object_or_404(Project, pk=pk)
+    stage = get_object_or_404(BuildStage, pk=sid, project=project)
     item = get_object_or_404(GateChecklistItem, pk=gid, stage=stage)
     item.checked = not item.checked
     item.save()
