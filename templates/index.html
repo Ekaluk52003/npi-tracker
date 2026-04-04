@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - NPI Tracker{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto p-8 bg-red-500 rounded-2xl shadow-2xl">
+    <h1 class="text-4xl font-bold text-indigo-600 mb-4">Welcome to NPI Tracker</h1>
+    <p class="text-gray-500 leading-relaxed mb-8">This is a Django project with Vite + Tailwind CSS v4 integration for hot module reloading.</p>
+    <div id="counter-app"></div>
+    <div x-data="{ open: false }">
+    <button @click="open = !open" class="bg-indigo-600 text-white px-4 py-2 rounded">Toggle</button>
+    <p x-show="open">Hello from Alpine.js!</p>
+</div>
+</div>
+{% endblock %}

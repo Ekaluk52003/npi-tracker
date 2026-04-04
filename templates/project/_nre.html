@@ -1,0 +1,75 @@
+<!-- Summary stats -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4">
+        <div class="text-xs text-[var(--text-muted)] mb-1">Total Estimated NRE</div>
+        <div class="text-xl font-bold text-blue-400">{{ currency_symbol }}{{ nre_total|floatformat:0 }}</div>
+    </div>
+    <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4">
+        <div class="text-xs text-[var(--text-muted)] mb-1">Covered by PO</div>
+        <div class="text-xl font-bold text-emerald-400">{{ currency_symbol }}{{ nre_covered|floatformat:0 }}</div>
+    </div>
+    <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4">
+        <div class="text-xs text-[var(--text-muted)] mb-1">Missing PO</div>
+        <div class="text-xl font-bold text-red-400">{{ nre_no_po }} item{{ nre_no_po|pluralize }}</div>
+    </div>
+    <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4">
+        <div class="text-xs text-[var(--text-muted)] mb-1">Paid</div>
+        <div class="text-xl font-bold text-purple-400">{{ currency_symbol }}{{ nre_paid|floatformat:0 }}</div>
+    </div>
+</div>
+
+<!-- NRE Table -->
+<div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-[var(--border)] text-[var(--text-muted)] text-xs uppercase tracking-wider">
+                <th class="px-3 py-2.5 text-left font-medium w-8">#</th>
+                <th class="px-3 py-2.5 text-left font-medium">Description</th>
+                <th class="px-3 py-2.5 text-left font-medium">Supplier</th>
+                <th class="px-3 py-2.5 text-center font-medium">Qty</th>
+                <th class="px-3 py-2.5 text-right font-medium">Cost</th>
+                <th class="px-3 py-2.5 text-center font-medium">PO Status</th>
+                <th class="px-3 py-2.5 text-left font-medium">PO #</th>
+                <th class="px-3 py-2.5 text-left font-medium">Needed By</th>
+                <th class="px-3 py-2.5 text-center font-medium">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cat in categories %}
+            <tr class="bg-[var(--surface2)]">
+                <td colspan="9" class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{{ cat.category }} ({{ cat.count }})</td>
+            </tr>
+            {% for nre in cat.items %}
+            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition">
+                <td class="px-3 py-2 text-[var(--text-muted)]">{{ nre.pk }}</td>
+                <td class="px-3 py-2">
+                    <span class="font-medium">{{ nre.desc }}</span>
+                    {% if nre.stage %}<span class="ml-1 stage-pill-sm">{{ nre.get_stage_display }}</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)]">{{ nre.supplier }}</td>
+                <td class="px-3 py-2 text-center">{{ nre.qty }}</td>
+                <td class="px-3 py-2 text-right font-medium">{{ nre.currency_symbol }}{{ nre.total_cost|floatformat:0 }}</td>
+                <td class="px-3 py-2 text-center"><span class="po-badge po-{{ nre.po_status }}">{{ nre.po_status_label }}</span></td>
+                <td class="px-3 py-2 text-[var(--text-muted)]">{{ nre.po_number|default:"—" }}</td>
+                <td class="px-3 py-2">
+                    {% if nre.due %}
+                    <span class="{% if nre.is_overdue %}text-red-400 font-medium{% else %}text-[var(--text-muted)]{% endif %}">
+                        {{ nre.due|date:"M d" }}{% if nre.is_overdue %} &#9888;{% endif %}
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-center">
+                    <button hx-get="{% url 'nre-edit' project.pk nre.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                            class="text-xs text-[var(--accent)] hover:underline mr-1">Edit</button>
+                    <button hx-post="{% url 'nre-delete' project.pk nre.pk %}" hx-confirm="Delete this NRE item?"
+                            hx-target="#content" hx-swap="innerHTML"
+                            class="text-xs text-red-400 hover:underline">Del</button>
+                </td>
+            </tr>
+            {% endfor %}
+            {% empty %}
+            <tr><td colspan="9" class="px-4 py-8 text-center text-[var(--text-muted)]">No NRE items yet. Click "+ Add NRE Item" to create one.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

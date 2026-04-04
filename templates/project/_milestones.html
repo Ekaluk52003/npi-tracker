@@ -1,0 +1,31 @@
+{% include "components/stage_filter.html" %}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    {% for sec in sections %}
+    <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="font-semibold text-sm">{{ sec.section }}</h3>
+            <span class="status-badge {% if sec.pct == 100 %}status-done{% elif sec.pct > 0 %}status-inprogress{% else %}status-open{% endif %}">
+                {% if sec.pct == 100 %}Complete{% elif sec.pct > 0 %}Active{% else %}Planning{% endif %}
+            </span>
+        </div>
+        {% if sec.start and sec.end %}
+        <div class="text-[11px] text-[var(--text-muted)] mb-2">{{ sec.start|date:"M d" }} &rarr; {{ sec.end|date:"M d, Y" }}</div>
+        {% endif %}
+        <div class="text-xs text-[var(--text-muted)] mb-1.5">{{ sec.done }}/{{ sec.total }} tasks done</div>
+        <div class="w-full h-1.5 bg-[var(--surface2)] rounded-full mb-3">
+            <div class="h-full rounded-full transition-all {% if sec.pct == 100 %}bg-emerald-500{% elif sec.pct > 0 %}bg-[var(--accent)]{% else %}bg-[var(--surface2)]{% endif %}"
+                 style="width:{{ sec.pct }}%"></div>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+            {% for task in sec.tasks %}
+            <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-[var(--surface2)]">
+                <span class="status-dot status-dot-{{ task.status }}"></span>
+                {{ task.name|truncatewords:4 }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full py-8 text-center text-[var(--text-muted)]">No tasks yet.</div>
+    {% endfor %}
+</div>

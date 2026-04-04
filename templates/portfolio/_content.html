@@ -1,0 +1,111 @@
+<!-- Portfolio Build Plan Gantt -->
+<section class="mb-6">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Build Plan Timeline</h2>
+    <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">
+        {{ portfolio_gantt_data|json_script:"portfolio-gantt-data" }}
+        <div id="portfolio-gantt-container" class="min-h-[120px]"></div>
+    </div>
+</section>
+
+<!-- All Projects Table -->
+<section>
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">All Projects</h2>
+    <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-[var(--border)] text-[var(--text-muted)] text-xs uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left font-medium">Project</th>
+                    <th class="px-3 py-3 text-left font-medium">Status</th>
+                    <th class="px-3 py-3 text-left font-medium">Current Stage</th>
+                    <th class="px-3 py-3 text-center font-medium">Build Qty</th>
+                    <th class="px-3 py-3 text-right font-medium">Annual Revenue</th>
+                    <th class="px-3 py-3 text-right font-medium">Volume</th>
+                    <th class="px-3 py-3 text-left font-medium">Start</th>
+                    <th class="px-3 py-3 text-left font-medium">Duration</th>
+                    <th class="px-3 py-3 text-center font-medium">Issues</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in project_rows %}
+                <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition">
+                    <!-- Project -->
+                    <td class="px-4 py-3">
+                        <a href="{% url 'project-detail' row.project.pk %}" class="flex items-center gap-2.5 group">
+                            <span class="w-3 h-3 rounded-full shrink-0" style="background:{{ row.project.color }}"></span>
+                            <div>
+                                <div class="font-medium text-[var(--text)] group-hover:text-[var(--accent)]">{{ row.project.name }}</div>
+                                <div class="text-[11px] text-[var(--text-muted)]">PGM: {{ row.project.pgm }} &middot; {{ row.project.customer }}</div>
+                            </div>
+                        </a>
+                    </td>
+                    <!-- Status -->
+                    <td class="px-3 py-3">
+                        <span class="status-badge status-{{ row.status }}">{{ row.status_label }}</span>
+                    </td>
+                    <!-- Current Stage -->
+                    <td class="px-3 py-3">
+                        {% if row.current_stage %}
+                        <span class="stage-pill stage-{{ row.current_stage.status }}">{{ row.current_stage.name }}</span>
+                        {% if row.current_stage.planned_date %}
+                        <div class="text-[10px] text-[var(--text-muted)] mt-0.5">{{ row.current_stage.planned_date|date:"M d" }}</div>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-[var(--text-muted)]">—</span>
+                        {% endif %}
+                    </td>
+                    <!-- Build Qty -->
+                    <td class="px-3 py-3 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            {% for s in row.stages %}
+                            <span class="text-[10px] px-1.5 py-0.5 rounded {% if row.current_stage and s.stage_id == row.current_stage.stage_id %}bg-[var(--accent)]/20 text-[var(--accent)] font-semibold{% else %}bg-[var(--surface2)] text-[var(--text-muted)]{% endif %}">
+                                {{ s.build_qty|default:"—" }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <!-- Revenue -->
+                    <td class="px-3 py-3 text-right">
+                        <div class="font-medium">{{ row.revenue_fmt }}</div>
+                        {% if row.project.annual_revenue %}
+                        <div class="text-[10px] text-[var(--text-muted)]">{{ row.project.currency }} / yr</div>
+                        {% endif %}
+                    </td>
+                    <!-- Volume -->
+                    <td class="px-3 py-3 text-right">
+                        <div class="font-medium">{{ row.volume_fmt }}</div>
+                        {% if row.project.annual_volume %}
+                        <div class="text-[10px] text-[var(--text-muted)]">units / yr</div>
+                        {% endif %}
+                    </td>
+                    <!-- Start -->
+                    <td class="px-3 py-3 text-[var(--text-muted)]">{{ row.project.start_date|date:"M d, Y" }}</td>
+                    <!-- Duration -->
+                    <td class="px-3 py-3">
+                        <div class="font-medium">{{ row.project.duration_label }}</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">{{ row.project.start_date|date:"M Y" }} &rarr; {{ row.project.end_date|date:"M Y" }}</div>
+                    </td>
+                    <!-- Issues -->
+                    <td class="px-3 py-3 text-center">
+                        {% if row.open_issues %}
+                        <button hx-get="{% url 'project-issues-modal' row.project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                                class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium {% if row.has_critical %}bg-red-500/20 text-red-400{% else %}bg-amber-500/20 text-amber-400{% endif %} hover:opacity-80">
+                            {{ row.open_issues }} issue{{ row.open_issues|pluralize }}
+                        </button>
+                        {% else %}
+                        <span class="text-xs text-emerald-400">&#10003; Clear</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-[var(--text-muted)]">
+                        <p class="text-lg mb-2">No projects yet</p>
+                        <button hx-get="{% url 'project-create' %}" hx-target="#modal-container" hx-swap="innerHTML"
+                                class="action-btn">+ Create Your First Project</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>

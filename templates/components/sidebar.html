@@ -1,0 +1,46 @@
+{% load django_vite %}
+<!-- Mobile overlay -->
+<div x-show="sidebarOpen" @click="sidebarOpen = false"
+     class="fixed inset-0 bg-black/50 z-40 lg:hidden" x-cloak></div>
+
+<!-- Sidebar -->
+<aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+       class="fixed top-0 left-0 z-50 w-[220px] h-screen bg-[var(--surface)] border-r border-[var(--border)] flex flex-col transition-transform lg:translate-x-0">
+
+    <!-- Logo -->
+    <div class="px-4 py-4 border-b border-[var(--border)]">
+        <a href="{% url 'portfolio' %}" class="text-lg font-bold text-[var(--accent)]">NPI Tracker</a>
+    </div>
+
+    <!-- All Projects link -->
+    <a href="{% url 'portfolio' %}"
+       class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-[var(--surface2)] {% if not project %}bg-[var(--surface2)] text-[var(--accent)]{% else %}text-[var(--text-muted)]{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+        All Projects
+    </a>
+
+    <!-- Project list -->
+    <div class="flex-1 overflow-y-auto py-2">
+        <div class="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Projects</div>
+        {% for p in all_projects %}
+        <a href="{% url 'project-detail' p.pk %}"
+           class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-[var(--surface2)] group {% if project.pk == p.pk %}bg-[var(--surface2)] text-[var(--text)]{% else %}text-[var(--text-muted)]{% endif %}"
+           @click="sidebarOpen = false">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ p.color }}"></span>
+            <span class="truncate flex-1">{{ p.name }}</span>
+            {% if p.open_issue_count %}
+            <span class="text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5 font-medium">{{ p.open_issue_count }}</span>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- New Project button -->
+    <div class="p-3 border-t border-[var(--border)]">
+        <button hx-get="{% url 'project-create' %}" hx-target="#modal-container" hx-swap="innerHTML"
+                class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            New Project
+        </button>
+    </div>
+</aside>

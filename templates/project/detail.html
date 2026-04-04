@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}{{ project.name }} - NPI Tracker{% endblock %}
+{% block content %}
+{% if active_tab == 'gantt' %}{% include "project/_gantt.html" %}
+{% elif active_tab == 'list' %}{% include "project/_list.html" %}
+{% elif active_tab == 'milestones' %}{% include "project/_milestones.html" %}
+{% elif active_tab == 'team' %}{% include "project/_team.html" %}
+{% elif active_tab == 'stages' %}{% include "project/_stages.html" %}
+{% elif active_tab == 'nre' %}{% include "project/_nre.html" %}
+{% elif active_tab == 'issues' %}{% include "project/_issues.html" %}
+{% endif %}
+{% endblock %}

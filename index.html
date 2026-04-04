@@ -1,0 +1,2024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NPI Tracker — Project Portfolio</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --accent: #4f7ef8;
+    --accent2: #7c5cfc;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #7c8db5;
+    --heading: #fff;
+    --radius: 10px;
+    --font: 'Inter', system-ui, sans-serif;
+  }
+  [data-theme="light"] {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --surface2: #f0f2f5;
+    --border: #d8dce6;
+    --accent: #4f7ef8;
+    --accent2: #7c5cfc;
+    --green: #16a34a;
+    --yellow: #d97706;
+    --red: #dc2626;
+    --text: #1e293b;
+    --muted: #64748b;
+    --heading: #0f172a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; font-size: 13px; }
+
+  /* ── Sidebar ── */
+  #sidebar { width: 220px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar-logo { padding: 18px 16px 14px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo h1 { font-size: 15px; font-weight: 700; color: var(--heading); }
+  .sidebar-logo span { color: var(--accent); }
+  .sidebar-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 14px 16px 6px; }
+  .sidebar-projects { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+  .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 8px 16px; cursor: pointer; transition: background 0.15s; color: var(--muted); font-size: 13px; }
+  .sidebar-item:hover { background: var(--surface2); color: var(--text); }
+  .sidebar-item.active { background: rgba(79,126,248,0.12); color: var(--accent); border-right: 2px solid var(--accent); }
+  .sidebar-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .sidebar-item .pgm-label { font-size: 10px; color: var(--muted); margin-left: auto; }
+  .sidebar-bottom { padding: 12px 16px; border-top: 1px solid var(--border); }
+  .btn-new-project { width: 100%; padding: 8px; background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: opacity 0.15s; }
+  .btn-new-project:hover { opacity: 0.85; }
+
+  /* ── Main ── */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Top bar ── */
+  #topbar { height: 52px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 8px; background: var(--surface); flex-shrink: 0; }
+  .tab-btn { padding: 5px 13px; border-radius: 6px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
+  .tab-btn:hover { background: var(--surface2); color: var(--text); }
+  .tab-btn.active { background: var(--surface2); color: var(--text); border-color: var(--border); }
+  .topbar-title { font-size: 15px; font-weight: 700; color: var(--heading); white-space: nowrap; }
+  .topbar-spacer { flex: 1; }
+  .btn-action { padding: 6px 13px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
+  .btn-action:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-action.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-action.primary:hover { opacity: 0.85; }
+  .btn-action.danger { background: rgba(239,68,68,0.12); border-color: #ef4444; color: #f87171; }
+
+  /* ── Content ── */
+  #content { flex: 1; overflow: auto; padding: 24px; }
+
+  /* ── Status badges ── */
+  .status-badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .status-badge.open { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .status-badge.inprogress { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .status-badge.done { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .status-badge.blocked { background: rgba(239,68,68,0.15); color: #f87171; }
+  .status-badge.resolved { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .status-badge.investigating { background: rgba(168,85,247,0.15); color: #c084fc; }
+
+  /* ── Severity badges ── */
+  .sev-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; }
+  .sev-badge.critical { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+  .sev-badge.high { background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+  .sev-badge.medium { background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+  .sev-badge.low { background: rgba(100,116,139,0.2); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
+
+  /* ── Portfolio ── */
+  .progress-bar { height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 3px; }
+  .npi-table { width: 100%; border-collapse: collapse; margin-bottom: 32px; }
+  .npi-table th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); border-bottom: 2px solid var(--border); white-space: nowrap; background: var(--surface); }
+  .npi-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .npi-table tbody tr:hover td { background: var(--surface2); }
+  .npi-table .proj-name { font-weight: 700; font-size: 13px; color: var(--heading); cursor: pointer; }
+  .npi-table .proj-name:hover { color: var(--accent); text-decoration: underline; }
+  .npi-table .proj-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .stage-pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+  .stage-pill.completed { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+  .stage-pill.in-progress { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+  .stage-pill.planned { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+  .stage-pill.on-hold { background: rgba(148,163,184,0.12); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+  .qty-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--surface2); color: var(--muted); border: 1px solid var(--border); margin-right: 4px; }
+  .qty-badge.active { background: rgba(79,126,248,0.12); color: var(--accent); border-color: rgba(79,126,248,0.3); }
+  .btn-issues { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; color: var(--muted); transition: all 0.15s; }
+  .btn-issues:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-issues.has-open { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.4); color: #f87171; }
+  .btn-issues.has-critical { background: rgba(239,68,68,0.18); border-color: #ef4444; color: #f87171; font-weight: 700; }
+
+  /* ── Stats ── */
+  .stats-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; flex: 1; min-width: 100px; }
+  .stat-val { font-size: 24px; font-weight: 800; color: var(--heading); }
+  .stat-val.blue { color: #60a5fa; }
+  .stat-val.yellow { color: #fbbf24; }
+  .stat-val.green { color: #4ade80; }
+  .stat-val.red { color: #f87171; }
+  .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-header h2 { font-size: 18px; font-weight: 800; color: var(--heading); }
+
+  /* ── Gantt ── */
+  .gantt-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .gantt-container { display: flex; height: calc(100vh - 180px); }
+  .gantt-left { width: 530px; min-width: 530px; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  .gantt-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .gantt-header-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
+  .gh-cell { padding: 8px 10px; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; border-right: 1px solid var(--border); white-space: nowrap; }
+  .gh-item { width: 36px; min-width: 36px; text-align: center; }
+  .gh-task { flex: 1; }
+  .gh-who { width: 80px; }
+  .gh-dur { width: 46px; text-align: center; }
+  .gh-status { width: 90px; }
+  .gh-issues { width: 40px; text-align: center; }
+  .timeline-header { display: flex; flex-shrink: 0; }
+  .wk-header-cell { min-width: 80px; width: 80px; padding: 4px 2px; border-right: 1px solid var(--border); font-size: 9px; font-weight: 700; color: var(--muted); text-align: center; flex-shrink: 0; }
+  .wk-header-cell.current { color: var(--accent); background: rgba(79,126,248,0.06); }
+  .wk-date { font-size: 8px; color: var(--muted); opacity: 0.7; display: block; font-weight: 400; }
+  .gantt-body { display: flex; flex: 1; overflow: hidden; }
+  .gantt-tasks { width: 530px; min-width: 530px; overflow-y: auto; border-right: 1px solid var(--border); }
+  .gantt-timeline-body { flex: 1; overflow: auto; }
+  .task-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); min-height: 36px; }
+  .task-row:hover { background: rgba(79,126,248,0.04); }
+  .task-row.section-row { background: var(--surface2); }
+  .tc-cell { padding: 6px 10px; border-right: 1px solid var(--border); display: flex; align-items: center; font-size: 12px; }
+  .tc-item { width: 36px; min-width: 36px; text-align: center; color: var(--muted); font-size: 11px; }
+  .tc-task { flex: 1; }
+  .tc-remark { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .tc-who { width: 80px; }
+  .who-pill { font-size: 10px; padding: 2px 6px; background: rgba(79,126,248,0.12); color: var(--accent); border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px; display: block; }
+  .tc-dur { width: 46px; text-align: center; color: var(--muted); font-size: 11px; }
+  .tc-status { width: 90px; }
+  .tc-issues { width: 40px; text-align: center; }
+  .issue-chip { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; font-size: 9px; font-weight: 700; cursor: pointer; }
+  .issue-chip.has-open { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
+  .issue-chip.has-only-resolved { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+  .status-dot { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+  .status-dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .status-open .status-dot::before { background: #60a5fa; }
+  .status-inprogress .status-dot::before { background: #fbbf24; }
+  .status-done .status-dot::before { background: #4ade80; }
+  .status-blocked .status-dot::before { background: #f87171; }
+  .timeline-row { display: flex; min-height: 36px; border-bottom: 1px solid var(--border); position: relative; align-items: center; }
+  .timeline-row.section-row { background: var(--surface2); }
+  .wk-cell { min-width: 80px; width: 80px; height: 36px; border-right: 1px solid var(--border); flex-shrink: 0; }
+  .wk-cell.current-wk { background: rgba(79,126,248,0.05); }
+  .gantt-bar { position: absolute; height: 16px; top: 50%; transform: translateY(-50%); border-radius: 4px; display: flex; align-items: center; padding: 0 6px; font-size: 9px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; z-index: 2; cursor: pointer; transition: opacity 0.15s; }
+  .gantt-bar:hover { opacity: 0.82; }
+  .gantt-bar.open { background: linear-gradient(90deg,#3b82f6,#60a5fa); }
+  .gantt-bar.inprogress { background: linear-gradient(90deg,#d97706,#f59e0b); }
+  .gantt-bar.done { background: linear-gradient(90deg,#16a34a,#22c55e); }
+  .gantt-bar.blocked { background: linear-gradient(90deg,#dc2626,#ef4444); }
+  .gantt-bar .issue-flag { position: absolute; top: -5px; right: -3px; width: 10px; height: 10px; background: #ef4444; border-radius: 50%; border: 1px solid var(--bg); }
+  .today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); opacity: 0.5; z-index: 10; pointer-events: none; }
+
+  /* ── Team view ── */
+  .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .member-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .member-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .member-name { font-size: 14px; font-weight: 700; color: var(--heading); }
+  .member-role { font-size: 11px; color: var(--muted); }
+  .member-tasks { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .member-tasks strong { color: var(--text); }
+
+  /* ── Issues view ── */
+  .issue-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .issue-card.critical { border-left: 3px solid #ef4444; }
+  .issue-card.high { border-left: 3px solid #f59e0b; }
+  .issue-card.medium { border-left: 3px solid #3b82f6; }
+  .issue-card.low { border-left: 3px solid #475569; }
+  .issue-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .issue-title { font-size: 14px; font-weight: 600; color: var(--heading); }
+  .issue-desc { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+  .issue-meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .issue-linked-tasks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .linked-task-tag { font-size: 10px; padding: 2px 8px; background: rgba(79,126,248,0.12); color: var(--accent); border-radius: 4px; border: 1px solid rgba(79,126,248,0.2); cursor: pointer; }
+  .linked-task-tag:hover { background: rgba(79,126,248,0.2); }
+  .impact-tag { font-size: 10px; padding: 2px 8px; background: rgba(239,68,68,0.1); color: #f87171; border-radius: 4px; border: 1px solid rgba(239,68,68,0.2); }
+
+  /* ── Build Stages ── */
+  .stage-pipeline { display: flex; gap: 0; align-items: stretch; margin: 16px 0; position: relative; }
+  .stage-pipeline::before { content: ''; position: absolute; top: 50%; left: 40px; right: 40px; height: 2px; background: var(--border); z-index: 0; }
+  .stage-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; position: relative; z-index: 1; transition: border-color 0.15s; }
+  .stage-card:hover { border-color: var(--accent); }
+  .stage-card.completed { border-color: var(--green); }
+  .stage-card.in-progress { border-color: var(--yellow); }
+  .stage-card.on-hold { border-color: var(--red); }
+  .stage-arrow { display: flex; align-items: center; justify-content: center; width: 32px; flex-shrink: 0; color: var(--muted); font-size: 18px; z-index: 1; }
+  .stage-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .stage-name { font-size: 18px; font-weight: 800; color: var(--heading); }
+  .stage-fullname { font-size: 11px; color: var(--muted); }
+  .stage-status-badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stage-status-badge.planned { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .stage-status-badge.ready { background: rgba(168,85,247,0.15); color: #c084fc; }
+  .stage-status-badge.in-progress { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .stage-status-badge.completed { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .stage-status-badge.on-hold { background: rgba(239,68,68,0.15); color: #f87171; }
+  .stage-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin: 10px 0; font-size: 11px; color: var(--muted); }
+  .stage-meta strong { color: var(--text); }
+  .gate-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .gate-title { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+  .gate-item { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-bottom: 4px; cursor: pointer; user-select: none; }
+  .gate-check { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
+  .gate-check.checked { background: var(--green); border-color: var(--green); color: #fff; }
+  .gate-bar { height: 4px; background: var(--surface2); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .gate-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .post-build { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .post-build-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .post-build-stat { text-align: center; }
+  .post-build-stat .val { font-size: 18px; font-weight: 800; }
+  .post-build-stat .lbl { font-size: 10px; color: var(--muted); }
+  .approval-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+  .approval-badge.approved { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .approval-badge.conditional { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .approval-badge.rejected { background: rgba(239,68,68,0.15); color: #f87171; }
+  .approval-badge.pending { background: rgba(100,116,139,0.15); color: #94a3b8; }
+
+  /* ── Stage Badges & Filter ── */
+  .stage-tag { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; vertical-align: middle; margin-left: 4px; }
+  .stage-tag.etb { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .stage-tag.ps { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .stage-tag.fas { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .stage-filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .stage-filter-bar label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stage-filter-bar select { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 12px; outline: none; cursor: pointer; }
+  .stage-filter-bar select:focus { border-color: var(--accent); }
+
+  /* ── NRE ── */
+  .po-badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+  .po-badge.no-po { background: rgba(239,68,68,0.15); color: #f87171; }
+  .po-badge.po-requested { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .po-badge.po-received { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .po-badge.invoiced { background: rgba(168,85,247,0.15); color: #c084fc; }
+  .po-badge.paid { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .nre-table { width: 100%; border-collapse: collapse; }
+  .nre-table th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .nre-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .nre-table tr:hover { background: rgba(79,126,248,0.04); }
+  .nre-category-row td { background: var(--surface2); padding: 8px 16px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+  .nre-cost { font-family: 'Inter', monospace; font-weight: 600; color: var(--text); }
+
+  /* ── Modals ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 540px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 16px; font-weight: 700; margin-bottom: 18px; color: var(--heading); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1/-1; }
+  .form-group label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input, .form-group select, .form-group textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; outline: none; font-family: inherit; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .checkbox-pill { display: flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 20px; cursor: pointer; font-size: 11px; color: var(--muted); transition: all 0.15s; user-select: none; }
+  .checkbox-pill:hover { border-color: var(--accent); color: var(--text); }
+  .checkbox-pill.selected { background: rgba(79,126,248,0.15); border-color: var(--accent); color: var(--accent); }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .hidden { display: none !important; }
+
+  /* ── Theme toggle ── */
+  .theme-toggle { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); transition: all 0.2s; flex-shrink: 0; }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .theme-toggle svg { width: 18px; height: 18px; }
+
+  /* ── Hamburger ── */
+  .hamburger { display: none; background: none; border: none; color: var(--text); cursor: pointer; padding: 6px; flex-shrink: 0; }
+  .hamburger svg { width: 22px; height: 22px; }
+  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 49; }
+
+  /* ── Responsive ── */
+  @media (max-width: 1024px) {
+    #sidebar { position: fixed; left: -260px; top: 0; bottom: 0; width: 250px; min-width: 250px; z-index: 50; transition: left 0.25s ease; }
+    #sidebar.open { left: 0; }
+    .sidebar-overlay.open { display: block; }
+    .hamburger { display: flex; }
+    .gantt-left, .gantt-tasks { width: 340px; min-width: 340px; }
+    .tc-who, .gh-who { width: 60px; }
+    .tc-dur, .gh-dur { width: 40px; }
+    .tc-status, .gh-status { width: 75px; }
+    #content { padding: 16px; }
+    .stage-pipeline { flex-direction: column; }
+    .stage-pipeline::before { display: none; }
+    .stage-arrow { transform: rotate(90deg); width: auto; height: 24px; }
+  }
+  @media (max-width: 768px) {
+    #topbar { height: auto; min-height: 48px; flex-wrap: wrap; padding: 8px 12px; gap: 6px; }
+    #view-tabs { flex-wrap: wrap; gap: 4px !important; }
+    .tab-btn { padding: 4px 9px; font-size: 11px; }
+    .topbar-title { font-size: 13px; }
+    .btn-action { padding: 5px 10px; font-size: 11px; }
+    #content { padding: 12px; }
+    .gantt-container { height: calc(100vh - 240px); }
+    .gantt-left, .gantt-tasks { width: 260px; min-width: 260px; }
+    .tc-who, .gh-who { display: none; }
+    .tc-dur, .gh-dur { display: none; }
+    .portfolio-grid { grid-template-columns: 1fr; }
+    .stats-row { flex-direction: column; }
+    .stat-card { min-width: unset; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-group.full { grid-column: 1; }
+    .modal { width: 95vw; padding: 16px; }
+    .section-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .team-grid { grid-template-columns: 1fr 1fr; }
+    .stage-filter-bar { flex-wrap: wrap; }
+    .post-build-grid { grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+  }
+  @media (max-width: 480px) {
+    .gantt-left, .gantt-tasks { width: 200px; min-width: 200px; }
+    .tc-issues, .gh-issues { display: none; }
+    .team-grid { grid-template-columns: 1fr; }
+    .card-meta { flex-direction: column; gap: 6px; }
+    .issue-meta { flex-direction: column; gap: 6px; }
+    .nre-table td, .nre-table th { padding: 6px 8px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo"><h1><span>NPI</span> Tracker</h1></div>
+  <div class="sidebar-section-label">Portfolio</div>
+  <div class="sidebar-item active" onclick="showPortfolio()" id="nav-portfolio">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    All Projects
+  </div>
+  <div class="sidebar-section-label">Projects</div>
+  <div class="sidebar-projects" id="sidebar-projects"></div>
+  <div class="sidebar-bottom">
+    <button class="btn-new-project" onclick="openNewProjectModal()">+ New Project</button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <span class="topbar-title" id="topbar-title">Portfolio Overview</span>
+    <div id="view-tabs" style="display:none;gap:4px;display:none">
+      <button class="tab-btn active" onclick="switchView('gantt',this)">Gantt</button>
+      <button class="tab-btn" onclick="switchView('list',this)">Task List</button>
+      <button class="tab-btn" onclick="switchView('milestones',this)">Milestones</button>
+      <button class="tab-btn" onclick="switchView('team',this)">
+        <svg style="vertical-align:-2px;margin-right:3px" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Team
+      </button>
+      <button class="tab-btn" onclick="switchView('stages',this)" id="stages-tab-btn">
+        <svg style="vertical-align:-2px;margin-right:3px" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Build Stages
+      </button>
+      <button class="tab-btn" onclick="switchView('nre',this)" id="nre-tab-btn">
+        <svg style="vertical-align:-2px;margin-right:3px" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>NRE Costs <span id="nre-count-badge"></span>
+      </button>
+      <button class="tab-btn" onclick="switchView('issues',this)" id="issues-tab-btn">
+        <svg style="vertical-align:-2px;margin-right:3px" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Issues <span id="issues-count-badge"></span>
+      </button>
+    </div>
+    <div class="topbar-spacer"></div>
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+      <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button class="btn-action hidden" id="btn-add-member" onclick="openMemberModal()">+ Add Member</button>
+    <button class="btn-action hidden" id="btn-add-issue" onclick="openIssueModal()">+ Add Issue</button>
+    <button class="btn-action hidden" id="btn-add-nre" onclick="openNREModal()">+ Add NRE Item</button>
+    <button class="btn-action primary hidden" id="btn-add-task" onclick="openTaskModal()">+ Add Task</button>
+  </div>
+  <div id="content"></div>
+</div>
+
+<!-- TASK MODAL -->
+<div class="modal-overlay hidden" id="task-modal">
+  <div class="modal">
+    <h2 id="modal-task-title">Add Task</h2>
+    <div class="form-grid">
+      <div class="form-group full"><label>Task Name</label><input type="text" id="f-name" placeholder="e.g. PCB Production"></div>
+      <div class="form-group full"><label>Section / Category</label><input type="text" id="f-section" placeholder="e.g. Pre-requisite Activity - Main PCBA"></div>
+      <div class="form-group full"><label>Remark / Notes</label><textarea id="f-remark" placeholder="Supplier info, dependencies, notes…"></textarea></div>
+      <div class="form-group"><label>Assigned To</label><input type="text" id="f-who" placeholder="e.g. Axis, SVI"></div>
+      <div class="form-group"><label>Duration (days)</label><input type="number" id="f-days" min="1"></div>
+      <div class="form-group"><label>Start Date</label><input type="date" id="f-start"></div>
+      <div class="form-group"><label>End Date</label><input type="date" id="f-end"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="f-status">
+          <option value="open">Open</option>
+          <option value="inprogress">In Progress</option>
+          <option value="done">Done</option>
+          <option value="blocked">Blocked</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Build Stage</label>
+        <select id="f-stage">
+          <option value="">— None —</option>
+          <option value="etb">ETB — External Test Build</option>
+          <option value="ps">PS — Pre-Series Build</option>
+          <option value="fas">FAS — First Article Sample</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action" onclick="closeTaskModal()">Cancel</button>
+      <button class="btn-action primary" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- MEMBER MODAL -->
+<div class="modal-overlay hidden" id="member-modal">
+  <div class="modal">
+    <h2 id="modal-member-title">Add Team Member</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>Name</label><input type="text" id="m-name" placeholder="Full name"></div>
+      <div class="form-group"><label>Role</label><input type="text" id="m-role" placeholder="e.g. PGM, PCB Engineer"></div>
+      <div class="form-group"><label>Company / Site</label><input type="text" id="m-company" placeholder="e.g. SVI Thailand, Axis"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="m-email" placeholder="name@company.com"></div>
+      <div class="form-group full"><label>Phone / Line ID</label><input type="text" id="m-phone" placeholder="+66…"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action" onclick="closeMemberModal()">Cancel</button>
+      <button class="btn-action primary" onclick="saveMember()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ISSUE MODAL -->
+<div class="modal-overlay hidden" id="issue-modal">
+  <div class="modal">
+    <h2 id="modal-issue-title">Add Issue</h2>
+    <div class="form-grid">
+      <div class="form-group full"><label>Issue Title</label><input type="text" id="i-title" placeholder="Short description of the issue"></div>
+      <div class="form-group full"><label>Description</label><textarea id="i-desc" placeholder="What happened? What is the impact?"></textarea></div>
+      <div class="form-group"><label>Severity</label>
+        <select id="i-severity">
+          <option value="critical">Critical — blocks build/delivery</option>
+          <option value="high">High — major delay risk</option>
+          <option value="medium">Medium — manageable impact</option>
+          <option value="low">Low — minor / cosmetic</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Status</label>
+        <select id="i-status">
+          <option value="open">Open</option>
+          <option value="investigating">Investigating</option>
+          <option value="resolved">Resolved</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Owner</label><input type="text" id="i-owner" placeholder="Who is responsible?"></div>
+      <div class="form-group"><label>Due Date</label><input type="date" id="i-due"></div>
+      <div class="form-group"><label>Build Stage</label>
+        <select id="i-stage">
+          <option value="">— None —</option>
+          <option value="etb">ETB</option>
+          <option value="ps">PS</option>
+          <option value="fas">FAS</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Impact Description</label><input type="text" id="i-impact" placeholder="e.g. ETB build delayed by 2 weeks"></div>
+      <div class="form-group full">
+        <label>Linked Tasks (select affected tasks)</label>
+        <div class="checkbox-group" id="i-task-pills"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action" onclick="closeIssueModal()">Cancel</button>
+      <button class="btn-action primary" onclick="saveIssue()">Save Issue</button>
+    </div>
+  </div>
+</div>
+
+<!-- STAGE MODAL -->
+<div class="modal-overlay hidden" id="stage-modal">
+  <div class="modal">
+    <h2 id="modal-stage-title">Edit Build Stage</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>Stage</label><input type="text" id="stg-name" readonly></div>
+      <div class="form-group"><label>Status</label>
+        <select id="stg-status">
+          <option value="planned">Planned</option>
+          <option value="ready">Ready</option>
+          <option value="in-progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="on-hold">On Hold</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Planned Date</label><input type="date" id="stg-planned"></div>
+      <div class="form-group"><label>Actual Date</label><input type="date" id="stg-actual"></div>
+      <div class="form-group"><label>Build Qty (target)</label><input type="number" id="stg-qty" min="0"></div>
+      <div class="form-group"><label>Build Location</label><input type="text" id="stg-location" placeholder="e.g. SVI Thailand"></div>
+      <div class="form-group"><label>BOM Revision</label><input type="text" id="stg-bom" placeholder="e.g. R2.3"></div>
+      <div class="form-group"><label>Customer Approval</label>
+        <select id="stg-approval">
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="conditional">Conditional</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <div class="form-group full" id="stg-postbuild-section">
+        <label>Post-Build Results</label>
+        <div class="form-grid" style="margin-top:4px">
+          <div class="form-group"><label>Qty Produced</label><input type="number" id="stg-produced" min="0"></div>
+          <div class="form-group"><label>Qty Passed</label><input type="number" id="stg-passed" min="0"></div>
+        </div>
+      </div>
+      <div class="form-group full"><label>Approval Notes</label><input type="text" id="stg-approval-notes" placeholder="e.g. Minor rework on 2 units"></div>
+      <div class="form-group full"><label>Notes</label><textarea id="stg-notes" placeholder="Additional notes…"></textarea></div>
+      <div class="form-group full">
+        <label>Manual Gate Checklist</label>
+        <div id="stg-gate-list" style="margin-top:4px"></div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input type="text" id="stg-new-gate" placeholder="Add checklist item…" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px;outline:none">
+          <button class="btn-action" onclick="addGateItem()" style="padding:6px 12px;font-size:11px">+ Add</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action" onclick="closeStageModal()">Cancel</button>
+      <button class="btn-action primary" onclick="saveStage()">Save Stage</button>
+    </div>
+  </div>
+</div>
+
+<!-- NRE MODAL -->
+<div class="modal-overlay hidden" id="nre-modal">
+  <div class="modal">
+    <h2 id="modal-nre-title">Add NRE Item</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>Category</label>
+        <select id="nre-category">
+          <option value="Stencil">Stencil</option>
+          <option value="Jig Fixture">Jig Fixture</option>
+          <option value="Test Fixture">Test Fixture</option>
+          <option value="Pallet">Pallet</option>
+          <option value="Programming Fixture">Programming Fixture</option>
+          <option value="Tooling">Tooling</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Supplier</label><input type="text" id="nre-supplier" placeholder="e.g. SVI, Local vendor"></div>
+      <div class="form-group full"><label>Description</label><input type="text" id="nre-desc" placeholder="e.g. Bottom-side stencil for Main PCBA"></div>
+      <div class="form-group"><label>Estimated Cost</label><input type="number" id="nre-cost" min="0" step="0.01" placeholder="e.g. 25000"></div>
+      <div class="form-group"><label>Currency</label>
+        <select id="nre-currency">
+          <option value="THB">THB (฿)</option>
+          <option value="USD">USD ($)</option>
+          <option value="EUR">EUR (€)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>PO Status</label>
+        <select id="nre-po-status">
+          <option value="no-po">No PO</option>
+          <option value="po-requested">PO Requested</option>
+          <option value="po-received">PO Received</option>
+          <option value="invoiced">Invoiced</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+      <div class="form-group"><label>PO Number</label><input type="text" id="nre-po-number" placeholder="Customer PO #"></div>
+      <div class="form-group"><label>Needed By Date</label><input type="date" id="nre-due"></div>
+      <div class="form-group"><label>Quantity</label><input type="number" id="nre-qty" min="1" value="1"></div>
+      <div class="form-group"><label>Build Stage</label>
+        <select id="nre-stage">
+          <option value="">— None —</option>
+          <option value="etb">ETB</option>
+          <option value="ps">PS</option>
+          <option value="fas">FAS</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Notes</label><textarea id="nre-notes" placeholder="Additional details…"></textarea></div>
+      <div class="form-group full">
+        <label>Linked Tasks (optional)</label>
+        <div class="checkbox-group" id="nre-task-pills"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action" onclick="closeNREModal()">Cancel</button>
+      <button class="btn-action primary" onclick="saveNREItem()">Save NRE Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW PROJECT MODAL -->
+<div class="modal-overlay hidden" id="project-modal">
+  <div class="modal">
+    <h2>New Project</h2>
+    <div class="form-grid">
+      <div class="form-group full"><label>Project Name</label><input type="text" id="p-name" placeholder="e.g. Greenland"></div>
+      <div class="form-group"><label>PGM / PM</label><input type="text" id="p-pgm" placeholder="Project Manager"></div>
+      <div class="form-group"><label>Customer</label><input type="text" id="p-customer" placeholder="e.g. Axis"></div>
+      <div class="form-group"><label>Start Date</label><input type="date" id="p-start"></div>
+      <div class="form-group"><label>Target End Date</label><input type="date" id="p-end"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-action" onclick="closeProjectModal()">Cancel</button>
+      <button class="btn-action primary" onclick="saveProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════════
+let projects = [
+  {
+    id: 'greenland',
+    name: 'Greenland',
+    pgm: 'Ekaluk',
+    customer: 'Axis',
+    startDate: '2025-10-06',
+    endDate: '2026-06-30',
+    color: '#4f7ef8',
+    annualVolume: 50000,
+    annualRevenue: 25000000,
+    currency: 'THB',
+    team: [
+      { id: 1, name: 'Ekaluk S.', role: 'PGM', company: 'SVI Thailand', email: 'ekaluk@svi.com', phone: '+66 81 234 5678' },
+      { id: 2, name: 'Natthida P.', role: 'PCB Engineer', company: 'SVI Thailand', email: 'natthida@svi.com', phone: '+66 89 876 5432' },
+      { id: 3, name: 'James K.', role: 'NPI Lead', company: 'Axis', email: 'james@axis.com', phone: '' },
+      { id: 4, name: 'Somchai W.', role: 'Purchasing', company: 'SVI Thailand', email: 'somchai@svi.com', phone: '+66 62 345 6789' },
+    ],
+    stages: [
+      { id: 'etb', name: 'ETB', fullName: 'External Test Build', plannedDate: '2026-01-19', actualDate: '2026-01-19', buildQty: 10, buildLocation: 'SVI Thailand', bomRevision: 'R2.3', status: 'completed', qtyProduced: 10, qtyPassed: 9, yieldPct: 90, customerApproval: 'approved', approvalNotes: 'Minor cosmetic rework on 1 unit', gateChecklist: [{id:1,label:'Customer BOM sign-off',checked:true},{id:2,label:'Test program ready',checked:true},{id:3,label:'Stencils & fixtures on-site',checked:true}], notes: 'Build completed on schedule' },
+      { id: 'ps', name: 'PS', fullName: 'Pre-Series Build', plannedDate: '2026-03-30', actualDate: '', buildQty: 50, buildLocation: 'SVI Thailand', bomRevision: 'R2.4', status: 'in-progress', qtyProduced: 0, qtyPassed: 0, yieldPct: 0, customerApproval: 'pending', approvalNotes: '', gateChecklist: [{id:1,label:'ECO released & BOM updated',checked:false},{id:2,label:'Long-lead components arrived',checked:false},{id:3,label:'PS tooling qualified',checked:false},{id:4,label:'Test program validated on ETB units',checked:true}], notes: 'Blocked by long-lead IC shortage' },
+      { id: 'fas', name: 'FAS', fullName: 'First Article Sample', plannedDate: '2026-05-25', actualDate: '', buildQty: 200, buildLocation: 'SVI Thailand', bomRevision: '', status: 'planned', qtyProduced: 0, qtyPassed: 0, yieldPct: 0, customerApproval: 'pending', approvalNotes: '', gateChecklist: [{id:1,label:'PS build approved by customer',checked:false},{id:2,label:'Production line qualified',checked:false},{id:3,label:'All fixtures production-ready',checked:false}], notes: '' },
+    ],
+    issues: [
+      { id: 1, title: 'PCB Gerber revision mismatch', desc: 'Supplier received old Gerber file. DFM needs to restart.', severity: 'high', status: 'resolved', owner: 'Natthida P.', due: '2025-11-20', impact: 'PCB tooling delayed ~1 week', linkedTasks: [8, 9], stage: 'etb' },
+      { id: 2, title: 'Long-lead component shortage', desc: 'IC U12 (STM32) lead time extended to 20 weeks. Risk to PS Build.', severity: 'critical', status: 'investigating', owner: 'Somchai W.', due: '2026-02-28', impact: 'PS Build may slip 3 weeks', linkedTasks: [21, 22], stage: 'ps' },
+      { id: 3, title: 'Fixture drawing not released', desc: 'Boxbuild assembly fixture drawing still pending Axis approval.', severity: 'medium', status: 'open', owner: 'James K.', due: '2026-02-15', impact: 'FAS build fixture readiness at risk', linkedTasks: [19], stage: 'fas' },
+    ],
+    nreItems: [
+      { id: 1, category: 'Stencil', desc: 'Top-side stencil for Main PCBA (Cambodia)', supplier: 'SVI Cambodia', cost: 18000, currency: 'THB', poStatus: 'po-received', poNumber: 'AX-PO-2025-0412', due: '2025-12-08', qty: 1, notes: 'Laser-cut framed stencil', linkedTasks: [8], stage: 'etb' },
+      { id: 2, category: 'Stencil', desc: 'Bottom-side stencil for Main PCBA (Cambodia)', supplier: 'SVI Cambodia', cost: 18000, currency: 'THB', poStatus: 'po-received', poNumber: 'AX-PO-2025-0412', due: '2025-12-08', qty: 1, notes: '', linkedTasks: [8], stage: 'etb' },
+      { id: 3, category: 'Stencil', desc: 'Top stencil for Front & Mic PCBA (Thailand)', supplier: 'SVI Thailand', cost: 15000, currency: 'THB', poStatus: 'po-received', poNumber: 'AX-PO-2025-0489', due: '2025-12-22', qty: 1, notes: '', linkedTasks: [14], stage: 'etb' },
+      { id: 4, category: 'Jig Fixture', desc: 'SMT carrier jig — Main PCBA', supplier: 'SVI Cambodia', cost: 45000, currency: 'THB', poStatus: 'paid', poNumber: 'AX-PO-2025-0413', due: '2025-12-08', qty: 2, notes: 'Wave-solder pallet included', linkedTasks: [8], stage: 'etb' },
+      { id: 5, category: 'Jig Fixture', desc: 'SMT carrier jig — Front & IR PCBA', supplier: 'SVI Thailand', cost: 38000, currency: 'THB', poStatus: 'po-received', poNumber: 'AX-PO-2025-0490', due: '2025-12-22', qty: 2, notes: '', linkedTasks: [14], stage: 'etb' },
+      { id: 6, category: 'Test Fixture', desc: 'ICT fixture — Main PCBA', supplier: 'Local vendor TH', cost: 85000, currency: 'THB', poStatus: 'po-requested', poNumber: '', due: '2026-01-05', qty: 1, notes: 'Awaiting Axis sign-off on test points', linkedTasks: [10], stage: 'etb' },
+      { id: 7, category: 'Jig Fixture', desc: 'Boxbuild assembly fixture', supplier: 'SVI Thailand', cost: 62000, currency: 'THB', poStatus: 'no-po', poNumber: '', due: '2026-01-09', qty: 1, notes: 'Drawing pending Axis approval — linked to Issue #3', linkedTasks: [19], stage: 'fas' },
+      { id: 8, category: 'Pallet', desc: 'Reflow pallet — Front PCBA', supplier: 'SVI Thailand', cost: 22000, currency: 'THB', poStatus: 'no-po', poNumber: '', due: '2026-02-20', qty: 2, notes: 'Needed for PS build stencil changeover', linkedTasks: [22], stage: 'ps' },
+    ],
+    tasks: [
+      { id: 1, section: 'Build Schedule', name: 'ITB Build', remark: '', who: 'Axis', days: 5, start: '2025-11-03', end: '2025-11-07', status: 'done', stage: '' },
+      { id: 2, section: 'Build Schedule', name: 'ETB Build', remark: '', who: 'Axis / SVI', days: 5, start: '2026-01-19', end: '2026-01-23', status: 'done', stage: 'etb' },
+      { id: 3, section: 'Build Schedule', name: 'PS Build', remark: '', who: 'Axis / SVI', days: 5, start: '2026-03-30', end: '2026-04-03', status: 'inprogress', stage: 'ps' },
+      { id: 4, section: 'Build Schedule', name: 'FAS Build', remark: '', who: 'Axis / SVI', days: 5, start: '2026-05-25', end: '2026-05-29', status: 'open', stage: 'fas' },
+      { id: 5, section: 'Pre-req: Main PCBA (Cambodia)', name: 'Axis prepare panel design', remark: 'PCB Main 3113019, R2.3 Prototype', who: 'Axis', days: 15, start: '2025-10-20', end: '2025-11-07', status: 'done', stage: 'etb' },
+      { id: 6, section: 'Pre-req: Main PCBA (Cambodia)', name: 'Finalize EQ, WG, Quotation', remark: 'Supplier: Multek?', who: 'Axis / Supplier', days: 5, start: '2025-11-10', end: '2025-11-14', status: 'done', stage: 'etb' },
+      { id: 7, section: 'Pre-req: Main PCBA (Cambodia)', name: 'Share working Gerber to SVI', remark: '', who: 'SVI / Supplier', days: 5, start: '2025-11-17', end: '2025-11-21', status: 'done', stage: 'etb' },
+      { id: 8, section: 'Pre-req: Main PCBA (Cambodia)', name: 'PCBA Tooling (stencil & fixture)', remark: '', who: 'SVI / Axis / Supplier', days: 15, start: '2025-12-08', end: '2025-12-26', status: 'done', stage: 'etb' },
+      { id: 9, section: 'Pre-req: Main PCBA (Cambodia)', name: 'PCB Production', remark: '', who: 'SVI', days: 25, start: '2025-11-24', end: '2025-12-26', status: 'done', stage: 'etb' },
+      { id: 10, section: 'Pre-req: Main PCBA (Cambodia)', name: 'SMT PCBA', remark: '', who: 'SVI', days: 5, start: '2026-01-05', end: '2026-01-09', status: 'done', stage: 'etb' },
+      { id: 11, section: 'Pre-req: Front & Mic PCBA (Thailand)', name: 'Axis panel design & revision', remark: 'PCB Front 2978044 R3.2, PCB Mic 3185495 R2.3', who: 'Axis', days: 15, start: '2025-11-03', end: '2025-11-21', status: 'done', stage: 'etb' },
+      { id: 12, section: 'Pre-req: Front & Mic PCBA (Thailand)', name: 'Finalize EQ, WG, Quotation', remark: 'Supplier: Multek, Suntak?', who: 'Axis / Supplier', days: 5, start: '2025-11-24', end: '2025-11-28', status: 'done', stage: 'etb' },
+      { id: 13, section: 'Pre-req: Front & Mic PCBA (Thailand)', name: 'Share working Gerber to SVI', remark: '', who: 'SVI / Supplier', days: 5, start: '2025-12-01', end: '2025-12-05', status: 'done', stage: 'etb' },
+      { id: 14, section: 'Pre-req: Front & Mic PCBA (Thailand)', name: 'PCBA Tooling (stencil & fixture)', remark: '', who: 'SVI / Axis / Supplier', days: 15, start: '2025-12-22', end: '2026-01-09', status: 'done', stage: 'etb' },
+      { id: 15, section: 'Pre-req: Front & Mic PCBA (Thailand)', name: 'PCB Production Front & IR', remark: '', who: 'SVI', days: 25, start: '2025-12-08', end: '2026-01-09', status: 'done', stage: 'etb' },
+      { id: 16, section: 'Pre-req: Front & Mic PCBA (Thailand)', name: 'SMT Front/IR PCBA', remark: '', who: 'SVI', days: 5, start: '2026-01-12', end: '2026-01-16', status: 'done', stage: 'etb' },
+      { id: 17, section: 'Pre-req: Boxbuild ETB (Thailand)', name: 'Axis approve Mech Part purchase', remark: '', who: 'Axis', days: 15, start: '2025-11-10', end: '2025-11-28', status: 'done', stage: 'etb' },
+      { id: 18, section: 'Pre-req: Boxbuild ETB (Thailand)', name: 'Mech Supplier production', remark: '', who: 'SVI', days: 30, start: '2025-12-01', end: '2026-01-09', status: 'done', stage: 'etb' },
+      { id: 19, section: 'Pre-req: Boxbuild ETB (Thailand)', name: 'Boxbuild Assembly Fixture Fab.', remark: '', who: 'SVI', days: 20, start: '2025-12-15', end: '2026-01-09', status: 'done', stage: 'etb' },
+      { id: 20, section: 'Pre-req: PS Build (Thailand)', name: 'ECO Release & BOM Update', remark: '', who: 'Axis / SVI', days: 10, start: '2026-01-26', end: '2026-02-06', status: 'inprogress', stage: 'ps' },
+      { id: 21, section: 'Pre-req: PS Build (Thailand)', name: 'Order Long-lead Components', remark: '', who: 'SVI', days: 5, start: '2026-02-09', end: '2026-02-13', status: 'inprogress', stage: 'ps' },
+      { id: 22, section: 'Pre-req: PS Build (Thailand)', name: 'PCBA Production PS', remark: '', who: 'SVI', days: 15, start: '2026-02-23', end: '2026-03-13', status: 'open', stage: 'ps' },
+      { id: 23, section: 'Pre-req: PS Build (Thailand)', name: 'Boxbuild PS Assembly', remark: '', who: 'SVI', days: 10, start: '2026-03-16', end: '2026-03-27', status: 'open', stage: 'ps' },
+    ]
+  },
+  {
+    id: 'voltaren',
+    name: 'Voltaren',
+    pgm: 'Natthida',
+    customer: 'Hanwha',
+    startDate: '2026-01-05',
+    endDate: '2026-09-30',
+    color: '#7c5cfc',
+    annualVolume: 20000,
+    annualRevenue: 12000000,
+    currency: 'THB',
+    team: [
+      { id: 1, name: 'Natthida P.', role: 'PGM', company: 'SVI Thailand', email: 'natthida@svi.com', phone: '+66 89 876 5432' },
+      { id: 2, name: 'Park J.', role: 'Customer PM', company: 'Hanwha', email: 'park.j@hanwha.com', phone: '' },
+    ],
+    stages: [
+      { id: 'etb', name: 'ETB', fullName: 'External Test Build', plannedDate: '2026-04-20', actualDate: '', buildQty: 5, buildLocation: 'SVI Thailand', bomRevision: 'v2.1', status: 'planned', qtyProduced: 0, qtyPassed: 0, yieldPct: 0, customerApproval: 'pending', approvalNotes: '', gateChecklist: [{id:1,label:'BOM approved by Hanwha',checked:false},{id:2,label:'PCB DFM sign-off',checked:false},{id:3,label:'Fixtures ready',checked:false}], notes: 'Blocked by BOM approval' },
+      { id: 'ps', name: 'PS', fullName: 'Pre-Series Build', plannedDate: '2026-06-15', actualDate: '', buildQty: 30, buildLocation: 'SVI Thailand', bomRevision: '', status: 'planned', qtyProduced: 0, qtyPassed: 0, yieldPct: 0, customerApproval: 'pending', approvalNotes: '', gateChecklist: [{id:1,label:'ETB approved by customer',checked:false},{id:2,label:'All tooling qualified',checked:false}], notes: '' },
+      { id: 'fas', name: 'FAS', fullName: 'First Article Sample', plannedDate: '2026-08-10', actualDate: '', buildQty: 100, buildLocation: 'SVI Thailand', bomRevision: '', status: 'planned', qtyProduced: 0, qtyPassed: 0, yieldPct: 0, customerApproval: 'pending', approvalNotes: '', gateChecklist: [{id:1,label:'PS build approved',checked:false},{id:2,label:'Line qualification complete',checked:false}], notes: '' },
+    ],
+    issues: [
+      { id: 1, title: 'BOM revision not approved by customer', desc: 'Hanwha has not confirmed BOM v2.1. Blocking DFM kick-off.', severity: 'high', status: 'open', owner: 'Park J.', due: '2026-02-10', impact: 'PCB DFM sign-off delayed', linkedTasks: [3], stage: 'etb' },
+    ],
+    nreItems: [
+      { id: 1, category: 'Stencil', desc: 'Top stencil for main PCBA', supplier: 'SVI Thailand', cost: 15000, currency: 'THB', poStatus: 'no-po', poNumber: '', due: '2026-02-16', qty: 1, notes: 'Waiting for BOM sign-off before ordering', linkedTasks: [5], stage: 'etb' },
+      { id: 2, category: 'Jig Fixture', desc: 'SMT carrier fixture', supplier: 'SVI Thailand', cost: 42000, currency: 'THB', poStatus: 'no-po', poNumber: '', due: '2026-02-16', qty: 2, notes: '', linkedTasks: [5], stage: 'etb' },
+      { id: 3, category: 'Test Fixture', desc: 'FCT test fixture', supplier: 'SVI Thailand', cost: 95000, currency: 'THB', poStatus: 'po-requested', poNumber: '', due: '2026-03-09', qty: 1, notes: 'Quotation sent to Hanwha', linkedTasks: [5], stage: 'etb' },
+    ],
+    tasks: [
+      { id: 1, section: 'Kickoff', name: 'Team Setup & Kickoff', remark: '', who: 'All', days: 3, start: '2026-01-05', end: '2026-01-07', status: 'done', stage: '' },
+      { id: 2, section: 'Kickoff', name: 'BOM Creation & Demand Review', remark: '', who: 'SVI / Hanwha', days: 10, start: '2026-01-08', end: '2026-01-19', status: 'done', stage: '' },
+      { id: 3, section: 'PCB & PCBA', name: 'PCB DFM & EQ Sign-off', remark: '', who: 'Supplier', days: 15, start: '2026-01-20', end: '2026-02-06', status: 'inprogress', stage: 'etb' },
+      { id: 4, section: 'PCB & PCBA', name: 'Order PCBs', remark: '', who: 'SVI', days: 5, start: '2026-02-09', end: '2026-02-13', status: 'open', stage: 'etb' },
+      { id: 5, section: 'PCB & PCBA', name: 'PCBA Fixtures & Line Setup', remark: '', who: 'SVI', days: 20, start: '2026-02-16', end: '2026-03-09', status: 'open', stage: 'etb' },
+      { id: 6, section: 'Build', name: 'ETB Build', remark: '', who: 'SVI / Hanwha', days: 5, start: '2026-04-20', end: '2026-04-24', status: 'open', stage: 'etb' },
+      { id: 7, section: 'Build', name: 'PS Build', remark: '', who: 'SVI / Hanwha', days: 5, start: '2026-06-15', end: '2026-06-19', status: 'open', stage: 'ps' },
+      { id: 8, section: 'Build', name: 'FAS Build', remark: '', who: 'SVI / Hanwha', days: 5, start: '2026-08-10', end: '2026-08-14', status: 'open', stage: 'fas' },
+    ]
+  },
+  {
+    id: 'singoalla',
+    name: 'Singoalla',
+    pgm: 'Somchai',
+    customer: 'Bosch',
+    startDate: '2026-03-01',
+    endDate: '2026-12-31',
+    color: '#22c55e',
+    team: [
+      { id: 1, name: 'Somchai W.', role: 'PGM', company: 'SVI Thailand', email: 'somchai@svi.com', phone: '+66 62 345 6789' },
+      { id: 2, name: 'Mueller A.', role: 'Customer PM', company: 'Bosch', email: 'mueller@bosch.com', phone: '' },
+    ],
+    stages: [
+      { id: 'etb', name: 'ETB', fullName: 'External Test Build', plannedDate: '2026-07-06', actualDate: '', buildQty: 5, buildLocation: 'SVI Thailand', bomRevision: '', status: 'planned', qtyProduced: 0, qtyPassed: 0, yieldPct: 0, customerApproval: 'pending', approvalNotes: '', gateChecklist: [{id:1,label:'PCB design frozen',checked:false},{id:2,label:'Stencils ordered',checked:false}], notes: '' },
+      { id: 'ps', name: 'PS', fullName: 'Pre-Series Build', plannedDate: '2026-09-15', actualDate: '', buildQty: 25, buildLocation: 'SVI Thailand', bomRevision: '', status: 'planned', qtyProduced: 0, qtyPassed: 0, yieldPct: 0, customerApproval: 'pending', approvalNotes: '', gateChecklist: [{id:1,label:'ETB approved',checked:false}], notes: '' },
+      { id: 'fas', name: 'FAS', fullName: 'First Article Sample', plannedDate: '2026-11-10', actualDate: '', buildQty: 100, buildLocation: 'SVI Thailand', bomRevision: '', status: 'planned', qtyProduced: 0, qtyPassed: 0, yieldPct: 0, customerApproval: 'pending', approvalNotes: '', gateChecklist: [{id:1,label:'PS build approved',checked:false}], notes: '' },
+    ],
+    issues: [],
+    nreItems: [
+      { id: 1, category: 'Stencil', desc: 'Top stencil — main board', supplier: 'TBD', cost: 16000, currency: 'THB', poStatus: 'no-po', poNumber: '', due: '2026-04-20', qty: 1, notes: 'Pending PCB design freeze', linkedTasks: [4], stage: 'etb' },
+    ],
+    tasks: [
+      { id: 1, section: 'Kickoff', name: 'NPI Kickoff', remark: '', who: 'All', days: 2, start: '2026-03-02', end: '2026-03-03', status: 'done', stage: '' },
+      { id: 2, section: 'Kickoff', name: 'BOM Review', remark: '', who: 'SVI / Bosch', days: 5, start: '2026-03-04', end: '2026-03-10', status: 'inprogress', stage: '' },
+      { id: 3, section: 'PCB', name: 'PCB Design Freeze', remark: '', who: 'Bosch', days: 30, start: '2026-03-11', end: '2026-04-17', status: 'open', stage: 'etb' },
+      { id: 4, section: 'PCB', name: 'PCB Order & Production', remark: '', who: 'SVI', days: 25, start: '2026-04-20', end: '2026-05-22', status: 'open', stage: 'etb' },
+      { id: 5, section: 'Build', name: 'ETB Build', remark: '', who: 'SVI', days: 5, start: '2026-07-06', end: '2026-07-10', status: 'open', stage: 'etb' },
+    ]
+  }
+];
+
+let currentProject = null;
+let currentView = 'gantt';
+let editingTaskId = null;
+let editingMemberId = null;
+let editingIssueId = null;
+let editingNreId = null;
+let editingStageId = null;
+let stageFilter = '';
+
+// ══════════════════════════════════════════════════
+//  THEME & SIDEBAR TOGGLE
+// ══════════════════════════════════════════════════
+function toggleTheme() {
+  const html = document.documentElement;
+  const isLight = html.getAttribute('data-theme') === 'light';
+  html.setAttribute('data-theme', isLight ? 'dark' : 'light');
+  localStorage.setItem('npi-theme', isLight ? 'dark' : 'light');
+  updateThemeIcon();
+}
+function updateThemeIcon() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  document.getElementById('icon-sun').style.display = isLight ? 'block' : 'none';
+  document.getElementById('icon-moon').style.display = isLight ? 'none' : 'block';
+}
+function applyStoredTheme() {
+  const stored = localStorage.getItem('npi-theme');
+  if (stored) document.documentElement.setAttribute('data-theme', stored);
+  updateThemeIcon();
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebarIfMobile() {
+  if (window.innerWidth <= 1024) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════
+function init() { applyStoredTheme(); renderSidebar(); showPortfolio(); }
+
+function renderSidebar() {
+  document.getElementById('sidebar-projects').innerHTML = projects.map(p => {
+    const openIssues = (p.issues || []).filter(i => i.status !== 'resolved').length;
+    return `<div class="sidebar-item ${currentProject && currentProject.id === p.id ? 'active' : ''}" onclick="openProject('${p.id}')">
+      <span class="dot" style="background:${p.color}"></span>
+      <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</span>
+      ${openIssues ? `<span style="font-size:9px;background:rgba(239,68,68,0.2);color:#f87171;border-radius:10px;padding:1px 5px;font-weight:700">${openIssues}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+//  PORTFOLIO
+// ══════════════════════════════════════════════════
+function showPortfolio() {
+  currentProject = null;
+  closeSidebarIfMobile();
+  document.getElementById('topbar-title').textContent = 'Portfolio Overview';
+  document.getElementById('view-tabs').style.display = 'none';
+  ['btn-add-task','btn-add-member','btn-add-issue','btn-add-nre'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.getElementById('nav-portfolio').classList.add('active');
+  renderSidebar();
+
+  document.getElementById('content').innerHTML = `
+    ${renderPortfolioGantt()}
+    <div class="section-header"><h2>All Projects</h2></div>
+    <div style="overflow-x:auto">
+      <table class="npi-table">
+        <thead><tr>
+          <th>Project</th>
+          <th>Status</th>
+          <th>Current Stage</th>
+          <th>Build Qty (ETB / PS / FAS)</th>
+          <th>Annual Revenue</th>
+          <th>Annual Volume</th>
+          <th>Start Date</th>
+          <th>Duration</th>
+          <th>Issues</th>
+        </tr></thead>
+        <tbody>${projects.map(renderProjectCard).join('')}</tbody>
+      </table>
+    </div>
+  `;
+  // Scroll portfolio gantt to near today
+  const pgb = document.getElementById('pgb-outer');
+  if (pgb) setTimeout(() => {
+    const allD = [];
+    projects.forEach(p => (p.stages||[]).forEach(stg => { if (stg.plannedDate) allD.push(new Date(stg.plannedDate)); }));
+    if (!allD.length) return;
+    const startM = getMonday(new Date(Math.min(...allD)));
+    startM.setDate(startM.getDate() - 7);
+    const todayWk = Math.floor((new Date() - startM) / (7 * 86400000));
+    if (todayWk > 3) pgb.scrollLeft = Math.max(0, (todayWk - 3) * 64);
+  }, 50);
+}
+
+function renderPortfolioGantt() {
+  const CELL_W = 64;
+  const allDates = [];
+  projects.forEach(p => {
+    (p.stages||[]).forEach(stg => {
+      if (stg.plannedDate) allDates.push(new Date(stg.plannedDate));
+      if (stg.actualDate) allDates.push(new Date(stg.actualDate));
+    });
+  });
+  if (!allDates.length) return '<div style="color:var(--muted);padding:20px">No build stage data available.</div>';
+
+  const minDate = new Date(Math.min(...allDates));
+  const maxDate = new Date(Math.max(...allDates));
+  const startM = getMonday(minDate);
+  const endM = getMonday(maxDate);
+  startM.setDate(startM.getDate() - 7);
+  endM.setDate(endM.getDate() + 14);
+
+  const weeks = [];
+  let cur = new Date(startM);
+  while (cur <= endM) { weeks.push(new Date(cur)); cur.setDate(cur.getDate() + 7); }
+
+  const today = new Date();
+  const todayWkIdx = weeks.findIndex(w => { const n = new Date(w); n.setDate(n.getDate()+7); return today >= w && today < n; });
+  const todayOffInWk = todayWkIdx >= 0 ? (today - weeks[todayWkIdx]) / (7*86400000) : -1;
+  const todayPx = todayWkIdx >= 0 ? todayWkIdx*CELL_W + todayOffInWk*CELL_W : -999;
+
+  const stageColor = { completed:'#22c55e', 'in-progress':'#f59e0b', planned:'#3b82f6', ready:'#a78bfa', 'on-hold':'#94a3b8' };
+  const stageBg    = { completed:'rgba(34,197,94,0.18)', 'in-progress':'rgba(245,158,11,0.18)', planned:'rgba(59,130,246,0.15)', ready:'rgba(167,139,250,0.18)', 'on-hold':'rgba(148,163,184,0.12)' };
+
+  const wkHeader = weeks.map((w, i) => {
+    const isCur = i === todayWkIdx;
+    return `<div style="min-width:${CELL_W}px;width:${CELL_W}px;text-align:center;font-size:10px;color:${isCur?'var(--accent)':'var(--muted)'};padding:5px 0;border-right:1px solid var(--border);font-weight:${isCur?700:400}">Wk${getISOWeek(w)}<br><span style="font-size:9px">${fmtDateShort(w)}</span></div>`;
+  }).join('');
+
+  const rows = projects.map(p => {
+    const currentStage = (p.stages||[]).find(s => s.status==='in-progress')
+      || (p.stages||[]).find(s => s.status==='ready')
+      || (p.stages||[]).find(s => s.status==='planned');
+    const stLabel = { 'in-progress':'Active', ready:'Ready', planned:'Planned', completed:'Complete', 'on-hold':'On Hold' };
+    const currentStageName = currentStage ? `${currentStage.name} · ${stLabel[currentStage.status]||currentStage.status}` : 'All complete';
+
+    const bgCells = weeks.map((w, i) =>
+      `<div style="position:absolute;left:${i*CELL_W}px;top:0;width:${CELL_W}px;height:100%;border-right:1px solid var(--border);${i===todayWkIdx?'background:rgba(79,126,248,0.06)':''}"></div>`
+    ).join('');
+
+    const bars = (p.stages||[]).map(stg => {
+      const dateStr = stg.actualDate || stg.plannedDate;
+      if (!dateStr) return '';
+      const stDate = new Date(dateStr);
+      const endDate = new Date(stDate);
+      endDate.setDate(endDate.getDate() + 5);
+      const barLeft = (stDate - weeks[0]) / (7*86400000) * CELL_W;
+      const barWidth = Math.max(CELL_W * 0.7, (endDate - stDate) / (7*86400000) * CELL_W);
+      const col = stageColor[stg.status] || '#3b82f6';
+      const bg  = stageBg[stg.status]   || 'rgba(59,130,246,0.15)';
+      const isCurrent = currentStage && stg.id === currentStage.id;
+      return `<div style="position:absolute;left:${barLeft}px;top:7px;height:22px;width:${barWidth}px;background:${bg};border:${isCurrent?2:1}px solid ${col};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${col};overflow:hidden;white-space:nowrap;${isCurrent?'box-shadow:0 0 0 3px '+col+'33':''}" title="${stg.fullName} · ${stg.plannedDate||''}">${stg.name}${isCurrent?' ●':''}</div>`;
+    }).join('');
+
+    return `<div style="display:flex;border-bottom:1px solid var(--border);height:40px">
+      <div style="position:sticky;left:0;width:180px;min-width:180px;background:var(--surface);z-index:2;border-right:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:8px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></span>
+        <div style="overflow:hidden;min-width:0">
+          <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;color:var(--text)" onclick="openProject('${p.id}')">${p.name}</div>
+          <div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${currentStageName}</div>
+        </div>
+      </div>
+      <div style="position:relative;min-width:${weeks.length*CELL_W}px;height:40px;flex:1">
+        ${bgCells}${bars}
+      </div>
+    </div>`;
+  }).join('');
+
+  const todayLine = todayWkIdx >= 0
+    ? `<div style="position:absolute;left:${180+todayPx}px;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.8;pointer-events:none;z-index:1"></div>`
+    : '';
+
+  return `
+    <div class="section-header"><h2>Build Plan Overview</h2></div>
+    <div id="pgb-outer" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:auto;position:relative;margin-bottom:16px">
+      <div style="display:flex;position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
+        <div style="position:sticky;left:0;width:180px;min-width:180px;z-index:4;background:var(--surface);border-right:1px solid var(--border);padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted)">Project / Stage</div>
+        <div style="display:flex;min-width:${weeks.length*CELL_W}px">${wkHeader}</div>
+      </div>
+      <div style="position:relative">${rows}${todayLine}</div>
+    </div>
+    <div style="display:flex;gap:16px;margin-bottom:20px;font-size:11px;flex-wrap:wrap;color:var(--muted)">
+      <span><span style="color:#22c55e;font-weight:700">■</span> Completed</span>
+      <span><span style="color:#f59e0b;font-weight:700">■</span> In Progress (●=current)</span>
+      <span><span style="color:#3b82f6;font-weight:700">■</span> Planned</span>
+      <span><span style="color:#a78bfa;font-weight:700">■</span> Ready</span>
+      <span><span style="color:var(--accent)">│</span> Today &nbsp;· Click project name to open</span>
+    </div>`;
+}
+
+function renderProjectCard(p) {
+  const total = p.tasks.length;
+  const done = p.tasks.filter(t => t.status==='done').length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  const inp = p.tasks.filter(t => t.status==='inprogress').length;
+  const openIssues = (p.issues||[]).filter(i => i.status!=='resolved');
+  const critIssue = openIssues.find(i => i.severity==='critical');
+  const overallSt = critIssue ? 'blocked' : inp > 0 ? 'inprogress' : pct===100 ? 'done' : 'open';
+  const stLabel = {open:'Planning', inprogress:'Active', done:'Complete', blocked:'Blocked'};
+
+  // Current stage
+  const currentStage = (p.stages||[]).find(s => s.status==='in-progress')
+    || (p.stages||[]).find(s => s.status==='ready')
+    || (p.stages||[]).find(s => s.status==='planned');
+  const stagePillClass = currentStage ? currentStage.status : 'planned';
+  const stageStatusLabel = {completed:'Complete','in-progress':'Active',planned:'Planned',ready:'Ready','on-hold':'On Hold'};
+  const stageCell = currentStage
+    ? `<span class="stage-pill ${stagePillClass}">${currentStage.name}</span>
+       <div style="font-size:10px;color:var(--muted);margin-top:3px">${stageStatusLabel[currentStage.status]||''} · ${currentStage.plannedDate ? fmtDate(currentStage.plannedDate) : '—'}</div>`
+    : '<span style="color:var(--muted);font-size:11px">—</span>';
+
+  // Build qty per stage
+  const stageIds = ['etb','ps','fas'];
+  const qtyBadges = stageIds.map(sid => {
+    const stg = (p.stages||[]).find(s => s.id===sid);
+    if (!stg) return '';
+    const isActive = currentStage && currentStage.id === sid;
+    return `<span class="qty-badge ${isActive?'active':''}" title="${stg.fullName}">${stg.name}: ${stg.buildQty||'—'}</span>`;
+  }).join('');
+
+  // Annual revenue / volume
+  const fmtMoney = (v, cur) => {
+    const sym = cur==='USD' ? '$' : cur==='EUR' ? '€' : '฿';
+    return v >= 1000000 ? `${sym}${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${sym}${(v/1000).toFixed(0)}K` : `${sym}${v}`;
+  };
+  const fmtVol = v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`;
+
+  // Duration
+  const dStart = new Date(p.startDate), dEnd = new Date(p.endDate);
+  const totalDays = Math.round((dEnd - dStart) / 86400000);
+  const durMonths = Math.round(totalDays / 30.4);
+  const durLabel = durMonths >= 12 ? `${(durMonths/12).toFixed(1)} yr` : `${durMonths} mo`;
+
+  // Issues button
+  const issBtn = critIssue ? 'has-critical' : openIssues.length ? 'has-open' : '';
+  const issBtnLabel = openIssues.length
+    ? `${critIssue ? '🔴 ' : ''}${openIssues.length} open`
+    : '<span style="color:#4ade80">✓ Clear</span>';
+
+  return `<tr>
+    <td>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${p.color};flex-shrink:0"></span>
+        <div>
+          <div class="proj-name" onclick="openProject('${p.id}')">${p.name}</div>
+          <div class="proj-sub">PGM: ${p.pgm} · ${p.customer}</div>
+        </div>
+      </div>
+    </td>
+    <td><span class="status-badge ${overallSt}">${stLabel[overallSt]}</span></td>
+    <td>${stageCell}</td>
+    <td style="white-space:nowrap">${qtyBadges || '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+    <td style="font-size:13px;font-weight:700;color:var(--text)">${p.annualRevenue ? fmtMoney(p.annualRevenue, p.currency||'THB') : '<span style="color:var(--muted)">—</span>'}<div style="font-size:10px;color:var(--muted);font-weight:400">${p.currency||'THB'} / yr</div></td>
+    <td style="font-size:13px;font-weight:700;color:var(--text)">${p.annualVolume ? fmtVol(p.annualVolume) : '<span style="color:var(--muted)">—</span>'}<div style="font-size:10px;color:var(--muted);font-weight:400">units / yr</div></td>
+    <td style="font-size:12px;white-space:nowrap">${fmtDate(p.startDate)}</td>
+    <td style="font-size:12px;white-space:nowrap;color:var(--text)">${durLabel}<div style="font-size:10px;color:var(--muted)">${fmtDate(p.startDate).split(' ')[1]+' '+fmtDate(p.startDate).split(' ')[2]} → ${fmtDate(p.endDate).split(' ')[1]+' '+fmtDate(p.endDate).split(' ')[2]}</div></td>
+    <td><button class="btn-issues ${issBtn}" onclick="event.stopPropagation();showProjectIssuesModal('${p.id}')">${issBtnLabel}</button></td>
+  </tr>`;
+}
+
+function showProjectIssuesModal(pid) {
+  const p = projects.find(x => x.id===pid);
+  if (!p) return;
+  const issues = p.issues || [];
+  const sevOrder = {critical:0,high:1,medium:2,low:3};
+  const sorted = [...issues].sort((a,b) => (sevOrder[a.severity]||9)-(sevOrder[b.severity]||9));
+  const stBg    = {open:'rgba(239,68,68,0.1)',investigating:'rgba(168,85,247,0.1)',resolved:'rgba(34,197,94,0.1)'};
+  const stColor = {open:'#f87171',investigating:'#c084fc',resolved:'#4ade80'};
+  const rows = sorted.length ? sorted.map(iss => `
+    <div style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span class="sev-badge ${iss.severity}">${iss.severity}</span>
+        <span style="flex:1;font-weight:600;font-size:13px;color:var(--heading)">${iss.title}</span>
+        <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:${stBg[iss.status]||''};color:${stColor[iss.status]||'var(--muted)'};white-space:nowrap">${iss.status}</span>
+      </div>
+      ${iss.desc ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">${iss.desc}</div>` : ''}
+      <div style="display:flex;gap:16px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+        <span>Owner: <strong style="color:var(--text)">${iss.owner||'—'}</strong></span>
+        <span>Due: <strong style="color:var(--text)">${iss.due||'—'}</strong></span>
+        ${iss.stage ? `<span>Stage: <strong style="color:var(--text)">${iss.stage.toUpperCase()}</strong></span>` : ''}
+        ${iss.impact ? `<span style="color:#fbbf24">Impact: ${iss.impact}</span>` : ''}
+      </div>
+    </div>`).join('')
+    : '<div style="color:var(--muted);text-align:center;padding:32px">No issues recorded.</div>';
+  const openCount = issues.filter(i => i.status!=='resolved').length;
+  const existing = document.getElementById('pf-issues-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'pf-issues-overlay';
+  overlay.innerHTML = `<div class="modal" style="width:640px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h2 style="margin-bottom:2px">${p.name} — Issues</h2>
+        <div style="font-size:12px;color:var(--muted)">${openCount} open · ${issues.length} total</div>
+      </div>
+      <button class="btn-action" onclick="document.getElementById('pf-issues-overlay').remove()">✕</button>
+    </div>
+    <div style="max-height:60vh;overflow-y:auto">${rows}</div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn-action" onclick="document.getElementById('pf-issues-overlay').remove()">Close</button>
+      <button class="btn-action primary" onclick="document.getElementById('pf-issues-overlay').remove();openProject('${pid}')">Open Project →</button>
+    </div>
+  </div>`;
+  overlay.addEventListener('click', e => { if (e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+// ══════════════════════════════════════════════════
+//  PROJECT DETAIL
+// ══════════════════════════════════════════════════
+function openProject(id) {
+  currentProject = projects.find(p => p.id===id);
+  stageFilter = '';
+  closeSidebarIfMobile();
+  document.getElementById('topbar-title').textContent = currentProject.name;
+  document.getElementById('view-tabs').style.display = 'flex';
+  ['btn-add-task','btn-add-member','btn-add-issue','btn-add-nre'].forEach(i => document.getElementById(i).classList.add('hidden'));
+  document.getElementById('nav-portfolio').classList.remove('active');
+  renderSidebar();
+  currentView = 'gantt';
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  updateTopbarButtons();
+  updateIssuesBadge();
+  updateNREBadge();
+  renderProjectDetail();
+}
+
+function switchView(view, btn) {
+  currentView = view;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateTopbarButtons();
+  renderProjectDetail();
+}
+
+function updateTopbarButtons() {
+  document.getElementById('btn-add-task').classList.toggle('hidden', currentView !== 'gantt' && currentView !== 'list' && currentView !== 'milestones');
+  document.getElementById('btn-add-member').classList.toggle('hidden', currentView !== 'team');
+  document.getElementById('btn-add-issue').classList.toggle('hidden', currentView !== 'issues');
+  document.getElementById('btn-add-nre').classList.toggle('hidden', currentView !== 'nre');
+}
+
+function updateIssuesBadge() {
+  const p = currentProject;
+  if (!p) return;
+  const open = (p.issues||[]).filter(i => i.status!=='resolved').length;
+  document.getElementById('issues-count-badge').textContent = open ? `(${open})` : '';
+  document.getElementById('issues-count-badge').style.color = open ? '#f87171' : '';
+}
+
+function stageTag(stage) { if (!stage) return ''; const labels={etb:'ETB',ps:'PS',fas:'FAS'}; return `<span class="stage-tag ${stage}">${labels[stage]||stage}</span>`; }
+function stageFilterHTML() {
+  return `<div class="stage-filter-bar">
+    <label>Stage:</label>
+    <select onchange="setStageFilter(this.value)">
+      <option value="" ${stageFilter===''?'selected':''}>All Stages</option>
+      <option value="etb" ${stageFilter==='etb'?'selected':''}>ETB — External Test Build</option>
+      <option value="ps" ${stageFilter==='ps'?'selected':''}>PS — Pre-Series Build</option>
+      <option value="fas" ${stageFilter==='fas'?'selected':''}>FAS — First Article Sample</option>
+    </select>
+  </div>`;
+}
+function setStageFilter(val) { stageFilter = val; renderProjectDetail(); }
+
+function renderProjectDetail() {
+  if (currentView==='gantt') renderGantt();
+  else if (currentView==='list') renderList();
+  else if (currentView==='milestones') renderMilestones();
+  else if (currentView==='team') renderTeam();
+  else if (currentView==='stages') renderBuildStages();
+  else if (currentView==='nre') renderNRE();
+  else if (currentView==='issues') renderIssues();
+}
+
+// ── Gantt ──
+function renderGantt() {
+  const p = currentProject;
+  const filteredTasks = stageFilter ? p.tasks.filter(t => (t.stage||'')===stageFilter) : p.tasks;
+  const allDates = filteredTasks.flatMap(t => [new Date(t.start), new Date(t.end)]);
+  if (!allDates.length) { document.getElementById('content').innerHTML = stageFilterHTML() + '<div style="text-align:center;padding:60px;color:var(--muted)">No tasks for this stage filter.</div>'; return; }
+  const minDate = new Date(Math.min(...allDates));
+  const maxDate = new Date(Math.max(...allDates));
+  const startMonday = getMonday(minDate);
+  const endMonday = getMonday(maxDate);
+  startMonday.setDate(startMonday.getDate() - 7);
+  endMonday.setDate(endMonday.getDate() + 14);
+
+  const weeks = [];
+  let cur = new Date(startMonday);
+  while (cur <= endMonday) { weeks.push(new Date(cur)); cur.setDate(cur.getDate()+7); }
+
+  const today = new Date();
+  const todayWkIdx = weeks.findIndex(w => { const n=new Date(w); n.setDate(n.getDate()+7); return today>=w && today<n; });
+  const todayOffInWk = todayWkIdx>=0 ? (today-weeks[todayWkIdx])/(7*86400000) : -1;
+
+  // Build issue lookup: taskId -> [issues]
+  const taskIssueMap = {};
+  (p.issues||[]).forEach(iss => {
+    (iss.linkedTasks||[]).forEach(tid => {
+      if (!taskIssueMap[tid]) taskIssueMap[tid] = [];
+      taskIssueMap[tid].push(iss);
+    });
+  });
+
+  const sections = [...new Set(filteredTasks.map(t => t.section))];
+  const rows = [];
+  sections.forEach(sec => {
+    rows.push({isSection:true, label:sec});
+    filteredTasks.filter(t => t.section===sec).forEach(t => rows.push({isSection:false, task:t}));
+  });
+
+  const wkHeader = weeks.map((w,i) => {
+    const isCur = i===todayWkIdx;
+    return `<div class="wk-header-cell ${isCur?'current':''}">Wk${getISOWeek(w)}<span class="wk-date">${fmtDateShort(w)}</span></div>`;
+  }).join('');
+
+  const leftRows = rows.map(row => {
+    if (row.isSection) return `<div class="task-row section-row">
+      <div class="tc-cell tc-item"></div>
+      <div class="tc-cell tc-task" style="flex:1;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding-left:14px">${row.label}</div>
+    </div>`;
+    const t = row.task;
+    const taskIssues = taskIssueMap[t.id] || [];
+    const openIss = taskIssues.filter(i => i.status!=='resolved');
+    const stLabel = {open:'Open',inprogress:'In Progress',done:'Done',blocked:'Blocked'};
+    const issChip = taskIssues.length ? `<span class="issue-chip ${openIss.length?'has-open':'has-only-resolved'}" onclick="event.stopPropagation();switchViewTo('issues')" title="${openIss.length} open issue(s) linked">${openIss.length||'✓'}</span>` : '';
+    return `<div class="task-row status-${t.status}" ondblclick="editTask(${t.id})">
+      <div class="tc-cell tc-item">${t.id}</div>
+      <div class="tc-cell tc-task">
+        <div>${t.name}${stageTag(t.stage)}</div>
+        ${t.remark ? `<div class="tc-remark">${t.remark.split('\n')[0].substring(0,50)}</div>` : ''}
+      </div>
+      <div class="tc-cell tc-who"><span class="who-pill" title="${t.who}">${t.who}</span></div>
+      <div class="tc-cell tc-dur">${t.days}d</div>
+      <div class="tc-cell tc-status"><span class="status-dot">${stLabel[t.status]}</span></div>
+      <div class="tc-cell tc-issues">${issChip}</div>
+    </div>`;
+  }).join('');
+
+  const timelineRows = rows.map(row => {
+    if (row.isSection) return `<div class="timeline-row section-row" style="min-width:${weeks.length*80}px">${weeks.map(()=>'<div class="wk-cell"></div>').join('')}</div>`;
+    const t = row.task;
+    const taskIssues = taskIssueMap[t.id] || [];
+    const openIss = taskIssues.filter(i => i.status!=='resolved');
+    const barLeft = (new Date(t.start)-weeks[0])/(7*86400000)*80;
+    const barWidth = Math.max(16,(new Date(t.end)-new Date(t.start))/(7*86400000)*80);
+    const cells = weeks.map((w,i) => `<div class="wk-cell ${i===todayWkIdx?'current-wk':''}"></div>`).join('');
+    return `<div class="timeline-row" style="min-width:${weeks.length*80}px;position:relative">
+      ${cells}
+      <div class="gantt-bar ${t.status}" style="left:${barLeft}px;width:${barWidth}px" title="${t.name}: ${t.start} → ${t.end}">
+        ${barWidth>40 ? t.name.substring(0,Math.floor(barWidth/7)) : ''}
+        ${openIss.length ? '<span class="issue-flag" title="Has open issues"></span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  const todayPx = todayWkIdx>=0 ? todayWkIdx*80 + todayOffInWk*80 : -999;
+
+  document.getElementById('content').innerHTML = stageFilterHTML() + `
+    <div class="gantt-wrap">
+      <div class="gantt-container">
+        <div class="gantt-left">
+          <div class="gantt-header-row">
+            <div class="gh-cell gh-item">#</div>
+            <div class="gh-cell gh-task">Task</div>
+            <div class="gh-cell gh-who">Assigned</div>
+            <div class="gh-cell gh-dur">Days</div>
+            <div class="gh-cell gh-status">Status</div>
+            <div class="gh-cell gh-issues">⚠</div>
+          </div>
+          <div class="gantt-tasks" id="gl-scroll">${leftRows}</div>
+        </div>
+        <div class="gantt-right">
+          <div id="gh-header-scroll" style="overflow-x:hidden;flex-shrink:0;">
+            <div class="timeline-header" style="min-width:${weeks.length*80}px">${wkHeader}</div>
+          </div>
+          <div id="gr-scroll" style="overflow:auto;flex:1;position:relative">
+            <div style="position:relative;min-width:${weeks.length*80}px">
+              ${timelineRows}
+              ${todayWkIdx>=0 ? `<div class="today-line" style="left:${todayPx}px;height:100%;position:absolute;top:0"></div>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+      Double-click a row to edit &nbsp;·&nbsp; <span style="color:var(--accent)">Blue line</span> = today &nbsp;·&nbsp;
+      <span style="color:#f87171">Red dot</span> on bar = open issue linked
+    </div>`;
+
+  const gl = document.getElementById('gl-scroll');
+  const gr = document.getElementById('gr-scroll');
+  const ghh = document.getElementById('gh-header-scroll');
+  gl.addEventListener('scroll', () => gr.scrollTop = gl.scrollTop);
+  gr.addEventListener('scroll', () => { gl.scrollTop = gr.scrollTop; ghh.scrollLeft = gr.scrollLeft; });
+  if (todayWkIdx>0) setTimeout(() => gr.scrollLeft = Math.max(0,(todayWkIdx-3)*80), 50);
+}
+
+// ── List ──
+function renderList() {
+  const p = currentProject;
+  const filteredTasks = stageFilter ? p.tasks.filter(t => (t.stage||'')===stageFilter) : p.tasks;
+  if (!filteredTasks.length) { document.getElementById('content').innerHTML = stageFilterHTML() + '<div style="text-align:center;padding:60px;color:var(--muted)">No tasks for this stage filter.</div>'; return; }
+  const sections = [...new Set(filteredTasks.map(t => t.section))];
+  const taskIssueMap = {};
+  (p.issues||[]).forEach(iss => (iss.linkedTasks||[]).forEach(tid => { if(!taskIssueMap[tid]) taskIssueMap[tid]=[]; taskIssueMap[tid].push(iss); }));
+
+  const rows = sections.map(sec => {
+    const tasks = filteredTasks.filter(t => t.section===sec);
+    return `<tr><td colspan="8" style="background:var(--surface2);padding:8px 16px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px">${sec}</td></tr>
+    ${tasks.map(t => {
+      const tIss = (taskIssueMap[t.id]||[]);
+      const openIss = tIss.filter(i=>i.status!=='resolved');
+      const issCell = tIss.length ? `<span class="issue-chip ${openIss.length?'has-open':'has-only-resolved'}" title="${openIss.length} open issues">${openIss.length||'✓'}</span>` : '';
+      return `<tr style="border-bottom:1px solid var(--border)" ondblclick="editTask(${t.id})" onmouseenter="this.style.background='rgba(79,126,248,0.04)'" onmouseleave="this.style.background=''">
+        <td style="padding:8px 14px;color:var(--muted);font-size:11px">${t.id}</td>
+        <td style="padding:8px 12px;font-weight:500">${t.name}${stageTag(t.stage)}</td>
+        <td style="padding:8px 12px;color:var(--muted);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.remark||'—'}</td>
+        <td style="padding:8px 12px"><span class="who-pill">${t.who}</span></td>
+        <td style="padding:8px 12px;color:var(--muted);font-size:11px">${fmtDate(t.start)}</td>
+        <td style="padding:8px 12px;color:var(--muted);font-size:11px">${fmtDate(t.end)}</td>
+        <td style="padding:8px 12px"><span class="status-badge ${t.status}">${{open:'Open',inprogress:'In Progress',done:'Done',blocked:'Blocked'}[t.status]}</span></td>
+        <td style="padding:8px 12px;text-align:center">${issCell}</td>
+      </tr>`;
+    }).join('')}`;
+  }).join('');
+
+  document.getElementById('content').innerHTML = stageFilterHTML() + `
+    <div class="gantt-wrap" style="overflow:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--surface2);border-bottom:1px solid var(--border)">
+          <th class="gh-cell" style="width:36px;text-align:left">#</th>
+          <th class="gh-cell" style="text-align:left">Task</th>
+          <th class="gh-cell" style="text-align:left">Remark</th>
+          <th class="gh-cell" style="text-align:left">Assigned</th>
+          <th class="gh-cell" style="text-align:left">Start</th>
+          <th class="gh-cell" style="text-align:left">End</th>
+          <th class="gh-cell" style="text-align:left">Status</th>
+          <th class="gh-cell" style="text-align:center;width:40px">⚠</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">Double-click a row to edit</div>`;
+}
+
+// ── Milestones ──
+function renderMilestones() {
+  const p = currentProject;
+  const filteredTasks = stageFilter ? p.tasks.filter(t => (t.stage||'')===stageFilter) : p.tasks;
+  if (!filteredTasks.length) { document.getElementById('content').innerHTML = stageFilterHTML() + '<div style="text-align:center;padding:60px;color:var(--muted)">No tasks for this stage filter.</div>'; return; }
+  const sections = [...new Set(filteredTasks.map(t => t.section))];
+  document.getElementById('content').innerHTML = stageFilterHTML() + sections.map(sec => {
+    const tasks = filteredTasks.filter(t => t.section===sec);
+    const done = tasks.filter(t => t.status==='done').length;
+    const pct = Math.round(done/tasks.length*100);
+    const first = tasks.map(t=>t.start).sort()[0];
+    const last = tasks.map(t=>t.end).sort().reverse()[0];
+    const hasBlocked = tasks.some(t=>t.status==='blocked');
+    const hasInp = tasks.some(t=>t.status==='inprogress');
+    const st = hasBlocked?'blocked':pct===100?'done':hasInp?'inprogress':'open';
+    const stL = {open:'Open',inprogress:'Active',done:'Complete',blocked:'Blocked'};
+    const colors = {open:'#60a5fa',inprogress:'#fbbf24',done:'#4ade80',blocked:'#f87171'};
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:700;color:var(--heading)">${sec}</div>
+        <span class="status-badge ${st}">${stL[st]}</span>
+      </div>
+      <div style="display:flex;gap:20px;margin-bottom:8px;font-size:12px;color:var(--muted)">
+        <span>Start: <strong style="color:var(--text)">${fmtDate(first)}</strong></span>
+        <span>End: <strong style="color:var(--text)">${fmtDate(last)}</strong></span>
+        <span>Tasks: <strong style="color:var(--text)">${done}/${tasks.length}</strong></span>
+      </div>
+      <div class="progress-bar" style="margin-bottom:12px"><div class="progress-bar-fill" style="width:${pct}%;background:${p.color}"></div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${tasks.map(t => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;display:flex;gap:6px;align-items:center">
+          <span style="width:6px;height:6px;border-radius:50%;background:${colors[t.status]};display:inline-block;flex-shrink:0"></span>
+          ${t.name}${stageTag(t.stage)} <span style="color:var(--muted)">${t.who}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── TEAM ──
+function renderTeam() {
+  const p = currentProject;
+  const team = p.team || [];
+  const avatarColors = ['#4f7ef8','#7c5cfc','#22c55e','#f59e0b','#ef4444','#06b6d4','#a855f7'];
+
+  // Count tasks per member
+  const memberTaskCount = {};
+  p.tasks.forEach(t => {
+    const who = t.who.toLowerCase();
+    team.forEach(m => {
+      if (who.includes(m.name.split(' ')[0].toLowerCase()) || who.includes(m.company.toLowerCase())) {
+        memberTaskCount[m.id] = (memberTaskCount[m.id] || 0) + 1;
+      }
+    });
+  });
+
+  if (!team.length) {
+    document.getElementById('content').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:var(--muted)">
+        <div style="font-size:36px;margin-bottom:12px">👥</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">No team members yet</div>
+        <div style="font-size:13px;margin-bottom:20px">Add team members to track who is responsible for this project.</div>
+        <button class="btn-action primary" onclick="openMemberModal()">+ Add First Member</button>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-header" style="margin-bottom:16px">
+      <h2>Team — ${p.name}</h2>
+      <span style="color:var(--muted);font-size:13px">${team.length} member${team.length!==1?'s':''}</span>
+    </div>
+    <div class="team-grid">
+      ${team.map((m,idx) => {
+        const initials = m.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+        const bg = avatarColors[idx % avatarColors.length];
+        const taskCt = memberTaskCount[m.id] || 0;
+        return `<div class="member-card">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="member-avatar" style="background:${bg}">${initials}</div>
+            <div>
+              <div class="member-name">${m.name}</div>
+              <div class="member-role">${m.role}</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px;margin-top:4px">
+            <div>🏢 ${m.company}</div>
+            ${m.email ? `<div>✉ <a href="mailto:${m.email}" style="color:var(--accent);text-decoration:none">${m.email}</a></div>` : ''}
+            ${m.phone ? `<div>📞 ${m.phone}</div>` : ''}
+          </div>
+          <div class="member-tasks">Tasks assigned: <strong>${taskCt}</strong></div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="btn-action" style="flex:1;padding:5px 8px;font-size:11px" onclick="openMemberModal(${m.id})">Edit</button>
+            <button class="btn-action danger" style="padding:5px 8px;font-size:11px" onclick="deleteMember(${m.id})">Remove</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ── ISSUES ──
+function renderIssues() {
+  const p = currentProject;
+  const issues = p.issues || [];
+  const sevOrder = {critical:0,high:1,medium:2,low:3};
+  const sorted = [...issues].sort((a,b) => {
+    if (a.status!=='resolved' && b.status==='resolved') return -1;
+    if (a.status==='resolved' && b.status!=='resolved') return 1;
+    return sevOrder[a.severity] - sevOrder[b.severity];
+  });
+
+  if (!sorted.length) {
+    document.getElementById('content').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:var(--muted)">
+        <div style="font-size:36px;margin-bottom:12px">✅</div>
+        <div style="font-size:16px;font-weight:700;color:#4ade80;margin-bottom:6px">No issues logged</div>
+        <div style="font-size:13px;margin-bottom:20px">This project has a clean issue log. Log an issue if something comes up.</div>
+        <button class="btn-action primary" onclick="openIssueModal()">+ Log First Issue</button>
+      </div>`;
+    return;
+  }
+
+  const open = sorted.filter(i=>i.status!=='resolved');
+  const resolved = sorted.filter(i=>i.status==='resolved');
+
+  const renderIssue = (iss) => {
+    const stLabel = {open:'Open',investigating:'Investigating',resolved:'Resolved'};
+    const taskNames = (iss.linkedTasks||[]).map(tid => {
+      const t = p.tasks.find(t=>t.id===tid);
+      return t ? `<span class="linked-task-tag" title="Go to task" onclick="switchViewTo('gantt')">#${t.id} ${t.name}</span>` : '';
+    }).join('');
+    return `<div class="issue-card ${iss.severity}" style="${iss.status==='resolved'?'opacity:0.55':''}">
+      <div class="issue-header">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span class="sev-badge ${iss.severity}">${iss.severity}</span>
+            <span class="status-badge ${iss.status==='resolved'?'done':iss.status==='investigating'?'inprogress':'open'}">${stLabel[iss.status]}</span>
+          </div>
+          <div class="issue-title">${iss.title}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn-action" style="padding:4px 10px;font-size:11px" onclick="openIssueModal(${iss.id})">Edit</button>
+          <button class="btn-action danger" style="padding:4px 10px;font-size:11px" onclick="deleteIssue(${iss.id})">Delete</button>
+        </div>
+      </div>
+      <div class="issue-desc">${iss.desc}</div>
+      <div class="issue-meta">
+        ${iss.impact ? `<span class="impact-tag">Impact: ${iss.impact}</span>` : ''}
+        <span style="font-size:11px;color:var(--muted)">Owner: <strong style="color:var(--text)">${iss.owner||'—'}</strong></span>
+        ${iss.due ? `<span style="font-size:11px;color:var(--muted)">Due: <strong style="color:var(--text)">${fmtDate(iss.due)}</strong></span>` : ''}
+      </div>
+      ${taskNames ? `<div class="issue-linked-tasks"><span style="font-size:10px;color:var(--muted);margin-right:4px">Linked tasks:</span>${taskNames}</div>` : ''}
+    </div>`;
+  };
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-header" style="margin-bottom:4px">
+      <h2>Issues — ${p.name}</h2>
+      <span style="color:var(--muted);font-size:13px">${open.length} open · ${resolved.length} resolved</span>
+    </div>
+    ${open.length ? `<div style="margin-bottom:20px">${open.map(renderIssue).join('')}</div>` : ''}
+    ${resolved.length ? `
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Resolved</div>
+      ${resolved.map(renderIssue).join('')}` : ''}`;
+}
+
+// ══════════════════════════════════════════════════
+//  BUILD STAGES VIEW
+// ══════════════════════════════════════════════════
+function renderBuildStages() {
+  const p = currentProject;
+  const stages = p.stages || [];
+  if (!stages.length) { document.getElementById('content').innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">No stages configured.</div>'; return; }
+
+  const stLabels = {planned:'Planned',ready:'Ready','in-progress':'In Progress',completed:'Completed','on-hold':'On Hold'};
+  const apLabels = {pending:'Pending',approved:'Approved',conditional:'Conditional',rejected:'Rejected'};
+
+  const cards = stages.map((stg, idx) => {
+    const tasks = p.tasks.filter(t => t.stage === stg.id);
+    const tasksDone = tasks.filter(t => t.status==='done').length;
+    const taskPct = tasks.length ? Math.round(tasksDone/tasks.length*100) : 0;
+    const nreItems = (p.nreItems||[]).filter(n => n.stage === stg.id);
+    const nreWithPO = nreItems.filter(n => n.poStatus!=='no-po').length;
+    const nrePct = nreItems.length ? Math.round(nreWithPO/nreItems.length*100) : 100;
+    const issues = (p.issues||[]).filter(i => i.stage === stg.id && i.status!=='resolved');
+    const manualChecked = stg.gateChecklist.filter(g => g.checked).length;
+    const manualTotal = stg.gateChecklist.length;
+    const manualPct = manualTotal ? Math.round(manualChecked/manualTotal*100) : 100;
+
+    const autoGates = [
+      { label: `Tasks done: ${tasksDone}/${tasks.length}`, pct: taskPct, ok: taskPct===100 },
+      { label: `NRE with PO: ${nreWithPO}/${nreItems.length}`, pct: nrePct, ok: nrePct===100 },
+      { label: `Open issues: ${issues.length}`, pct: issues.length?0:100, ok: issues.length===0 },
+    ];
+    const overallGatePct = manualTotal > 0
+      ? Math.round((autoGates.reduce((s,g)=>s+g.pct,0)/autoGates.length + manualPct) / 2)
+      : Math.round(autoGates.reduce((s,g)=>s+g.pct,0)/autoGates.length);
+
+    const gateColor = overallGatePct===100 ? '#4ade80' : overallGatePct>=50 ? '#fbbf24' : '#f87171';
+
+    const postBuildHtml = (stg.status==='completed' || stg.qtyProduced > 0) ? `
+      <div class="post-build">
+        <div class="gate-title">Post-Build Results</div>
+        <div class="post-build-grid">
+          <div class="post-build-stat"><div class="val" style="color:var(--text)">${stg.qtyProduced}</div><div class="lbl">Produced</div></div>
+          <div class="post-build-stat"><div class="val" style="color:#4ade80">${stg.qtyPassed}</div><div class="lbl">Passed</div></div>
+          <div class="post-build-stat"><div class="val" style="color:${stg.yieldPct>=90?'#4ade80':stg.yieldPct>=70?'#fbbf24':'#f87171'}">${stg.yieldPct}%</div><div class="lbl">Yield</div></div>
+        </div>
+        <div style="margin-top:8px;text-align:center">
+          <span class="approval-badge ${stg.customerApproval}">${apLabels[stg.customerApproval]}</span>
+          ${stg.approvalNotes ? `<div style="font-size:10px;color:var(--muted);margin-top:4px">${stg.approvalNotes}</div>` : ''}
+        </div>
+      </div>` : '';
+
+    const arrow = idx < stages.length - 1 ? '<div class="stage-arrow">→</div>' : '';
+
+    return `<div class="stage-card ${stg.status}">
+      <div class="stage-header">
+        <div>
+          <div class="stage-name">${stg.name}</div>
+          <div class="stage-fullname">${stg.fullName}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span class="stage-status-badge ${stg.status}">${stLabels[stg.status]}</span>
+          <button class="btn-action" style="padding:3px 8px;font-size:10px" onclick="openStageModal('${stg.id}')">Edit</button>
+        </div>
+      </div>
+      <div class="stage-meta">
+        <div>Planned: <strong>${stg.plannedDate ? fmtDate(stg.plannedDate) : '—'}</strong></div>
+        <div>Actual: <strong>${stg.actualDate ? fmtDate(stg.actualDate) : '—'}</strong></div>
+        <div>Build Qty: <strong>${stg.buildQty || '—'}</strong></div>
+        <div>Location: <strong>${stg.buildLocation || '—'}</strong></div>
+        <div>BOM Rev: <strong>${stg.bomRevision || '—'}</strong></div>
+        <div>Tasks: <strong>${tasksDone}/${tasks.length}</strong></div>
+      </div>
+      <div class="gate-section">
+        <div class="gate-title">Gate Readiness — ${overallGatePct}%</div>
+        <div class="gate-bar"><div class="gate-bar-fill" style="width:${overallGatePct}%;background:${gateColor}"></div></div>
+        <div style="margin-top:8px">
+          ${autoGates.map(g => `<div style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:3px">
+            <span style="width:14px;height:14px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;${g.ok?'background:var(--green);color:#fff':'background:var(--surface2);color:var(--muted);border:1px solid var(--border)'}">${g.ok?'✓':''}</span>
+            <span style="color:${g.ok?'var(--text)':'var(--muted)'}">${g.label}</span>
+          </div>`).join('')}
+          ${stg.gateChecklist.length ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)"></div>' : ''}
+          ${stg.gateChecklist.map(g => `<div class="gate-item" onclick="toggleGateItem('${stg.id}',${g.id})">
+            <span class="gate-check ${g.checked?'checked':''}">${g.checked?'✓':''}</span>
+            <span style="color:${g.checked?'var(--text)':'var(--muted)'}">${g.label}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+      ${stg.notes ? `<div style="margin-top:10px;font-size:11px;color:var(--muted);padding:8px;background:var(--surface2);border-radius:6px">${stg.notes}</div>` : ''}
+      ${postBuildHtml}
+    </div>${arrow}`;
+  }).join('');
+
+  const currentStage = stages.find(s => s.status==='in-progress') || stages.find(s => s.status==='ready') || stages.find(s => s.status==='planned');
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-header" style="margin-bottom:4px">
+      <h2>Build Stages — ${p.name}</h2>
+      <span style="color:var(--muted);font-size:13px">Current: <strong style="color:var(--text)">${currentStage ? currentStage.name+' ('+stLabels[currentStage.status]+')' : 'All completed'}</strong></span>
+    </div>
+    <div class="stage-pipeline">${cards}</div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">Click Edit to modify stage details · Click checklist items to toggle</div>`;
+}
+
+function toggleGateItem(stageId, gateId) {
+  const stg = currentProject.stages.find(s => s.id===stageId);
+  if (!stg) return;
+  const item = stg.gateChecklist.find(g => g.id===gateId);
+  if (item) { item.checked = !item.checked; renderBuildStages(); }
+}
+
+// ══════════════════════════════════════════════════
+//  STAGE MODAL
+// ══════════════════════════════════════════════════
+let tempGateChecklist = [];
+
+function openStageModal(stageId) {
+  editingStageId = stageId;
+  const stg = currentProject.stages.find(s => s.id===stageId);
+  if (!stg) return;
+  document.getElementById('modal-stage-title').textContent = `Edit ${stg.name} — ${stg.fullName}`;
+  document.getElementById('stg-name').value = `${stg.name} — ${stg.fullName}`;
+  document.getElementById('stg-status').value = stg.status;
+  document.getElementById('stg-planned').value = stg.plannedDate||'';
+  document.getElementById('stg-actual').value = stg.actualDate||'';
+  document.getElementById('stg-qty').value = stg.buildQty||'';
+  document.getElementById('stg-location').value = stg.buildLocation||'';
+  document.getElementById('stg-bom').value = stg.bomRevision||'';
+  document.getElementById('stg-approval').value = stg.customerApproval||'pending';
+  document.getElementById('stg-produced').value = stg.qtyProduced||0;
+  document.getElementById('stg-passed').value = stg.qtyPassed||0;
+  document.getElementById('stg-approval-notes').value = stg.approvalNotes||'';
+  document.getElementById('stg-notes').value = stg.notes||'';
+  tempGateChecklist = JSON.parse(JSON.stringify(stg.gateChecklist||[]));
+  renderGateChecklistEditor();
+  document.getElementById('stage-modal').classList.remove('hidden');
+}
+
+function renderGateChecklistEditor() {
+  document.getElementById('stg-gate-list').innerHTML = tempGateChecklist.map((g,i) =>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      <input type="checkbox" ${g.checked?'checked':''} onchange="tempGateChecklist[${i}].checked=this.checked" style="accent-color:var(--green)">
+      <span style="flex:1;font-size:12px;color:var(--text)">${g.label}</span>
+      <button class="btn-action danger" style="padding:2px 6px;font-size:9px" onclick="tempGateChecklist.splice(${i},1);renderGateChecklistEditor()">✕</button>
+    </div>`
+  ).join('') || '<div style="font-size:11px;color:var(--muted)">No checklist items yet</div>';
+}
+
+function addGateItem() {
+  const input = document.getElementById('stg-new-gate');
+  const label = input.value.trim();
+  if (!label) return;
+  const maxId = tempGateChecklist.length ? Math.max(...tempGateChecklist.map(g=>g.id)) : 0;
+  tempGateChecklist.push({id: maxId+1, label, checked: false});
+  input.value = '';
+  renderGateChecklistEditor();
+}
+
+function closeStageModal() { document.getElementById('stage-modal').classList.add('hidden'); editingStageId=null; }
+
+function saveStage() {
+  const stg = currentProject.stages.find(s => s.id===editingStageId);
+  if (!stg) return;
+  stg.status = document.getElementById('stg-status').value;
+  stg.plannedDate = document.getElementById('stg-planned').value;
+  stg.actualDate = document.getElementById('stg-actual').value;
+  stg.buildQty = parseInt(document.getElementById('stg-qty').value)||0;
+  stg.buildLocation = document.getElementById('stg-location').value.trim();
+  stg.bomRevision = document.getElementById('stg-bom').value.trim();
+  stg.customerApproval = document.getElementById('stg-approval').value;
+  stg.qtyProduced = parseInt(document.getElementById('stg-produced').value)||0;
+  stg.qtyPassed = parseInt(document.getElementById('stg-passed').value)||0;
+  stg.yieldPct = stg.qtyProduced > 0 ? Math.round(stg.qtyPassed/stg.qtyProduced*100) : 0;
+  stg.approvalNotes = document.getElementById('stg-approval-notes').value.trim();
+  stg.notes = document.getElementById('stg-notes').value.trim();
+  stg.gateChecklist = tempGateChecklist;
+  closeStageModal();
+  renderProjectDetail();
+}
+
+// ══════════════════════════════════════════════════
+//  NRE COSTS VIEW
+// ══════════════════════════════════════════════════
+function fmtCurrency(amount, currency) {
+  const sym = {THB:'฿', USD:'$', EUR:'€'}[currency] || currency;
+  return sym + amount.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2});
+}
+
+function updateNREBadge() {
+  const p = currentProject;
+  if (!p) return;
+  const noPO = (p.nreItems||[]).filter(n => n.poStatus==='no-po').length;
+  const badge = document.getElementById('nre-count-badge');
+  badge.textContent = noPO ? `(${noPO})` : '';
+  badge.style.color = noPO ? '#f87171' : '';
+}
+
+function renderNRE() {
+  const p = currentProject;
+  const items = p.nreItems || [];
+  updateNREBadge();
+
+  if (!items.length) {
+    document.getElementById('content').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:var(--muted)">
+        <div style="font-size:36px;margin-bottom:12px">💳</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">No NRE items tracked yet</div>
+        <div style="font-size:13px;margin-bottom:20px">Track non-recurring engineering costs like stencils, jig fixtures, test fixtures, and tooling.</div>
+        <button class="btn-action primary" onclick="openNREModal()">+ Add First NRE Item</button>
+      </div>`;
+    return;
+  }
+
+  const totalCost = items.reduce((s,n) => s + (n.cost * n.qty), 0);
+  const noPO = items.filter(n => n.poStatus==='no-po');
+  const withPO = items.filter(n => n.poStatus!=='no-po');
+  const paidItems = items.filter(n => n.poStatus==='paid');
+  const poCost = withPO.reduce((s,n) => s + (n.cost * n.qty), 0);
+  const paidCost = paidItems.reduce((s,n) => s + (n.cost * n.qty), 0);
+
+  const poLabels = {'no-po':'No PO','po-requested':'PO Requested','po-received':'PO Received','invoiced':'Invoiced','paid':'Paid'};
+
+  const categories = [...new Set(items.map(n => n.category))];
+  const tableRows = categories.map(cat => {
+    const catItems = items.filter(n => n.category===cat);
+    return `<tr class="nre-category-row"><td colspan="9">${cat} (${catItems.length})</td></tr>
+    ${catItems.map(n => {
+      const taskNames = (n.linkedTasks||[]).map(tid => {
+        const t = p.tasks.find(t=>t.id===tid);
+        return t ? `<span class="linked-task-tag" onclick="switchViewTo('gantt')">#${t.id} ${t.name}</span>` : '';
+      }).join('');
+      const overdue = n.poStatus==='no-po' && n.due && new Date(n.due) < new Date();
+      return `<tr ondblclick="openNREModal(${n.id})">
+        <td style="color:var(--muted);font-size:11px">${n.id}</td>
+        <td><div style="font-weight:500">${n.desc}</div>${taskNames ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">${taskNames}</div>` : ''}</td>
+        <td><span class="who-pill">${n.supplier}</span></td>
+        <td style="text-align:center">${n.qty}</td>
+        <td class="nre-cost" style="text-align:right">${fmtCurrency(n.cost * n.qty, n.currency)}</td>
+        <td><span class="po-badge ${n.poStatus}">${poLabels[n.poStatus]}</span></td>
+        <td style="font-size:11px;color:var(--muted)">${n.poNumber || '—'}</td>
+        <td style="font-size:11px;color:${overdue?'#f87171':'var(--muted)'}">${n.due ? fmtDate(n.due) : '—'}${overdue?' ⚠':''}</td>
+        <td style="text-align:center">
+          <button class="btn-action" style="padding:3px 8px;font-size:10px" onclick="openNREModal(${n.id})">Edit</button>
+          <button class="btn-action danger" style="padding:3px 8px;font-size:10px;margin-left:4px" onclick="deleteNREItem(${n.id})">Del</button>
+        </td>
+      </tr>`;
+    }).join('')}`;
+  }).join('');
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-header" style="margin-bottom:4px">
+      <h2>NRE Costs — ${p.name}</h2>
+      <span style="color:var(--muted);font-size:13px">${items.length} item${items.length!==1?'s':''} · Customer: <strong style="color:var(--text)">${p.customer}</strong></span>
+    </div>
+    <div class="stats-row" style="margin-top:12px">
+      <div class="stat-card"><div class="stat-val blue">${fmtCurrency(totalCost,'THB')}</div><div class="stat-label">Total Estimated NRE</div></div>
+      <div class="stat-card"><div class="stat-val green">${fmtCurrency(poCost,'THB')}</div><div class="stat-label">Covered by PO</div></div>
+      <div class="stat-card"><div class="stat-val red">${noPO.length}</div><div class="stat-label">Missing PO</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:#c084fc">${fmtCurrency(paidCost,'THB')}</div><div class="stat-label">Paid</div></div>
+    </div>
+    <div class="gantt-wrap" style="overflow:auto;margin-top:16px">
+      <table class="nre-table">
+        <thead><tr>
+          <th style="width:36px">#</th>
+          <th>Description / Linked Tasks</th>
+          <th>Supplier</th>
+          <th style="text-align:center">Qty</th>
+          <th style="text-align:right">Cost</th>
+          <th>PO Status</th>
+          <th>PO Number</th>
+          <th>Needed By</th>
+          <th style="text-align:center;width:100px">Actions</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">Double-click a row to edit · <span style="color:#f87171">⚠</span> = overdue & no PO</div>`;
+}
+
+// ══════════════════════════════════════════════════
+//  NRE MODAL
+// ══════════════════════════════════════════════════
+function openNREModal(nreId=null) {
+  editingNreId = nreId;
+  document.getElementById('modal-nre-title').textContent = nreId ? 'Edit NRE Item' : 'Add NRE Item';
+
+  const existing = nreId ? (currentProject.nreItems.find(n=>n.id==nreId)||{}).linkedTasks||[] : [];
+  document.getElementById('nre-task-pills').innerHTML = currentProject.tasks.map(t =>
+    `<div class="checkbox-pill ${existing.includes(t.id)?'selected':''}" data-tid="${t.id}" onclick="this.classList.toggle('selected')">
+      #${t.id} ${t.name.substring(0,28)}
+    </div>`
+  ).join('');
+
+  if (nreId) {
+    const n = currentProject.nreItems.find(x=>x.id==nreId);
+    document.getElementById('nre-category').value = n.category;
+    document.getElementById('nre-desc').value = n.desc;
+    document.getElementById('nre-supplier').value = n.supplier;
+    document.getElementById('nre-cost').value = n.cost;
+    document.getElementById('nre-currency').value = n.currency;
+    document.getElementById('nre-po-status').value = n.poStatus;
+    document.getElementById('nre-po-number').value = n.poNumber||'';
+    document.getElementById('nre-due').value = n.due||'';
+    document.getElementById('nre-qty').value = n.qty||1;
+    document.getElementById('nre-notes').value = n.notes||'';
+    document.getElementById('nre-stage').value = n.stage||'';
+  } else {
+    ['nre-desc','nre-supplier','nre-cost','nre-po-number','nre-due','nre-notes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('nre-category').value='Stencil';
+    document.getElementById('nre-currency').value='THB';
+    document.getElementById('nre-po-status').value='no-po';
+    document.getElementById('nre-qty').value=1;
+    document.getElementById('nre-stage').value='';
+  }
+  document.getElementById('nre-modal').classList.remove('hidden');
+}
+function closeNREModal() { document.getElementById('nre-modal').classList.add('hidden'); editingNreId=null; }
+function saveNREItem() {
+  const desc = document.getElementById('nre-desc').value.trim();
+  if (!desc) { alert('Description required'); return; }
+  if (!currentProject.nreItems) currentProject.nreItems = [];
+  const linkedTasks = [...document.querySelectorAll('#nre-task-pills .selected')].map(el=>parseInt(el.dataset.tid));
+  const data = {
+    category: document.getElementById('nre-category').value,
+    desc,
+    supplier: document.getElementById('nre-supplier').value.trim()||'TBD',
+    cost: parseFloat(document.getElementById('nre-cost').value)||0,
+    currency: document.getElementById('nre-currency').value,
+    poStatus: document.getElementById('nre-po-status').value,
+    poNumber: document.getElementById('nre-po-number').value.trim(),
+    due: document.getElementById('nre-due').value,
+    qty: parseInt(document.getElementById('nre-qty').value)||1,
+    notes: document.getElementById('nre-notes').value.trim(),
+    linkedTasks,
+    stage: document.getElementById('nre-stage').value,
+  };
+  if (editingNreId) Object.assign(currentProject.nreItems.find(n=>n.id==editingNreId), data);
+  else { const maxId=Math.max(0,...currentProject.nreItems.map(n=>n.id)); currentProject.nreItems.push({id:maxId+1,...data}); }
+  closeNREModal(); updateNREBadge(); renderProjectDetail();
+}
+function deleteNREItem(id) {
+  if (!confirm('Delete this NRE item?')) return;
+  currentProject.nreItems = currentProject.nreItems.filter(n=>n.id!==id);
+  updateNREBadge(); renderProjectDetail();
+}
+
+// ══════════════════════════════════════════════════
+//  TASK MODAL
+// ══════════════════════════════════════════════════
+function openTaskModal(taskId=null) {
+  editingTaskId = taskId;
+  document.getElementById('modal-task-title').textContent = taskId ? 'Edit Task' : 'Add Task';
+  if (taskId) {
+    const t = currentProject.tasks.find(x=>x.id==taskId);
+    document.getElementById('f-name').value = t.name;
+    document.getElementById('f-section').value = t.section;
+    document.getElementById('f-remark').value = t.remark;
+    document.getElementById('f-who').value = t.who;
+    document.getElementById('f-days').value = t.days;
+    document.getElementById('f-start').value = t.start;
+    document.getElementById('f-end').value = t.end;
+    document.getElementById('f-status').value = t.status;
+    document.getElementById('f-stage').value = t.stage||'';
+  } else {
+    ['f-name','f-section','f-remark','f-who','f-days','f-start','f-end'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-status').value='open';
+    document.getElementById('f-stage').value='';
+  }
+  document.getElementById('task-modal').classList.remove('hidden');
+}
+function editTask(id) { openTaskModal(id); }
+function closeTaskModal() { document.getElementById('task-modal').classList.add('hidden'); editingTaskId=null; }
+function saveTask() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { alert('Task name required'); return; }
+  const data = {
+    name, section: document.getElementById('f-section').value.trim()||'General',
+    remark: document.getElementById('f-remark').value.trim(),
+    who: document.getElementById('f-who').value.trim()||'TBD',
+    days: parseInt(document.getElementById('f-days').value)||1,
+    start: document.getElementById('f-start').value,
+    end: document.getElementById('f-end').value,
+    status: document.getElementById('f-status').value,
+    stage: document.getElementById('f-stage').value,
+  };
+  if (editingTaskId) Object.assign(currentProject.tasks.find(t=>t.id==editingTaskId), data);
+  else { const maxId=Math.max(0,...currentProject.tasks.map(t=>t.id)); currentProject.tasks.push({id:maxId+1,...data}); }
+  closeTaskModal(); updateIssuesBadge(); renderProjectDetail();
+}
+
+// ══════════════════════════════════════════════════
+//  MEMBER MODAL
+// ══════════════════════════════════════════════════
+function openMemberModal(memberId=null) {
+  editingMemberId = memberId;
+  document.getElementById('modal-member-title').textContent = memberId ? 'Edit Member' : 'Add Team Member';
+  if (memberId) {
+    const m = currentProject.team.find(x=>x.id==memberId);
+    document.getElementById('m-name').value = m.name;
+    document.getElementById('m-role').value = m.role;
+    document.getElementById('m-company').value = m.company;
+    document.getElementById('m-email').value = m.email;
+    document.getElementById('m-phone').value = m.phone;
+  } else {
+    ['m-name','m-role','m-company','m-email','m-phone'].forEach(id=>document.getElementById(id).value='');
+  }
+  document.getElementById('member-modal').classList.remove('hidden');
+}
+function closeMemberModal() { document.getElementById('member-modal').classList.add('hidden'); editingMemberId=null; }
+function saveMember() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { alert('Name required'); return; }
+  if (!currentProject.team) currentProject.team = [];
+  const data = {
+    name, role: document.getElementById('m-role').value.trim(),
+    company: document.getElementById('m-company').value.trim(),
+    email: document.getElementById('m-email').value.trim(),
+    phone: document.getElementById('m-phone').value.trim(),
+  };
+  if (editingMemberId) Object.assign(currentProject.team.find(m=>m.id==editingMemberId), data);
+  else { const maxId=Math.max(0,...currentProject.team.map(m=>m.id)); currentProject.team.push({id:maxId+1,...data}); }
+  closeMemberModal(); renderProjectDetail();
+}
+function deleteMember(id) {
+  if (!confirm('Remove this team member?')) return;
+  currentProject.team = currentProject.team.filter(m=>m.id!==id);
+  renderProjectDetail();
+}
+
+// ══════════════════════════════════════════════════
+//  ISSUE MODAL
+// ══════════════════════════════════════════════════
+function openIssueModal(issueId=null) {
+  editingIssueId = issueId;
+  document.getElementById('modal-issue-title').textContent = issueId ? 'Edit Issue' : 'Add Issue';
+
+  // Populate task pills
+  const existing = issueId ? (currentProject.issues.find(i=>i.id==issueId)||{}).linkedTasks||[] : [];
+  document.getElementById('i-task-pills').innerHTML = currentProject.tasks.map(t =>
+    `<div class="checkbox-pill ${existing.includes(t.id)?'selected':''}" data-tid="${t.id}" onclick="this.classList.toggle('selected')">
+      #${t.id} ${t.name.substring(0,28)}
+    </div>`
+  ).join('');
+
+  if (issueId) {
+    const iss = currentProject.issues.find(i=>i.id==issueId);
+    document.getElementById('i-title').value = iss.title;
+    document.getElementById('i-desc').value = iss.desc;
+    document.getElementById('i-severity').value = iss.severity;
+    document.getElementById('i-status').value = iss.status;
+    document.getElementById('i-owner').value = iss.owner||'';
+    document.getElementById('i-due').value = iss.due||'';
+    document.getElementById('i-impact').value = iss.impact||'';
+    document.getElementById('i-stage').value = iss.stage||'';
+  } else {
+    ['i-title','i-desc','i-owner','i-due','i-impact'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('i-severity').value='medium';
+    document.getElementById('i-status').value='open';
+    document.getElementById('i-stage').value='';
+  }
+  document.getElementById('issue-modal').classList.remove('hidden');
+}
+function closeIssueModal() { document.getElementById('issue-modal').classList.add('hidden'); editingIssueId=null; }
+function saveIssue() {
+  const title = document.getElementById('i-title').value.trim();
+  if (!title) { alert('Issue title required'); return; }
+  const linkedTasks = [...document.querySelectorAll('#i-task-pills .selected')].map(el=>parseInt(el.dataset.tid));
+  if (!currentProject.issues) currentProject.issues = [];
+  const data = {
+    title, desc: document.getElementById('i-desc').value.trim(),
+    severity: document.getElementById('i-severity').value,
+    status: document.getElementById('i-status').value,
+    owner: document.getElementById('i-owner').value.trim(),
+    due: document.getElementById('i-due').value,
+    impact: document.getElementById('i-impact').value.trim(),
+    linkedTasks,
+    stage: document.getElementById('i-stage').value,
+  };
+  if (editingIssueId) Object.assign(currentProject.issues.find(i=>i.id==editingIssueId), data);
+  else { const maxId=Math.max(0,...currentProject.issues.map(i=>i.id)); currentProject.issues.push({id:maxId+1,...data}); }
+  closeIssueModal(); updateIssuesBadge(); renderSidebar(); renderProjectDetail();
+}
+function deleteIssue(id) {
+  if (!confirm('Delete this issue?')) return;
+  currentProject.issues = currentProject.issues.filter(i=>i.id!==id);
+  updateIssuesBadge(); renderSidebar(); renderProjectDetail();
+}
+
+// ══════════════════════════════════════════════════
+//  PROJECT MODAL
+// ══════════════════════════════════════════════════
+function openNewProjectModal() {
+  ['p-name','p-pgm','p-customer','p-start','p-end'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('project-modal').classList.remove('hidden');
+}
+function closeProjectModal() { document.getElementById('project-modal').classList.add('hidden'); }
+function saveProject() {
+  const name = document.getElementById('p-name').value.trim();
+  if (!name) { alert('Project name required'); return; }
+  const colors = ['#4f7ef8','#7c5cfc','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4'];
+  projects.push({
+    id: name.toLowerCase().replace(/\s+/g,'-')+'-'+Date.now(),
+    name, pgm: document.getElementById('p-pgm').value.trim()||'TBD',
+    customer: document.getElementById('p-customer').value.trim()||'',
+    startDate: document.getElementById('p-start').value||new Date().toISOString().split('T')[0],
+    endDate: document.getElementById('p-end').value||'',
+    color: colors[projects.length % colors.length],
+    team: [], stages: [
+      {id:'etb',name:'ETB',fullName:'External Test Build',plannedDate:'',actualDate:'',buildQty:0,buildLocation:'',bomRevision:'',status:'planned',qtyProduced:0,qtyPassed:0,yieldPct:0,customerApproval:'pending',approvalNotes:'',gateChecklist:[],notes:''},
+      {id:'ps',name:'PS',fullName:'Pre-Series Build',plannedDate:'',actualDate:'',buildQty:0,buildLocation:'',bomRevision:'',status:'planned',qtyProduced:0,qtyPassed:0,yieldPct:0,customerApproval:'pending',approvalNotes:'',gateChecklist:[],notes:''},
+      {id:'fas',name:'FAS',fullName:'First Article Sample',plannedDate:'',actualDate:'',buildQty:0,buildLocation:'',bomRevision:'',status:'planned',qtyProduced:0,qtyPassed:0,yieldPct:0,customerApproval:'pending',approvalNotes:'',gateChecklist:[],notes:''}
+    ], issues: [], nreItems: [], tasks: []
+  });
+  closeProjectModal(); renderSidebar(); openProject(projects[projects.length-1].id);
+}
+
+// ══════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════
+function switchViewTo(view) {
+  currentView = view;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const v = b.getAttribute('onclick')||'';
+    b.classList.toggle('active', v.includes(`'${view}'`));
+  });
+  updateTopbarButtons(); updateIssuesBadge(); updateNREBadge(); renderProjectDetail();
+}
+function getMonday(d) { const dt=new Date(d),day=dt.getDay(),diff=dt.getDate()-day+(day===0?-6:1); dt.setDate(diff); dt.setHours(0,0,0,0); return dt; }
+function getISOWeek(d) { const dt=new Date(d); dt.setHours(0,0,0,0); dt.setDate(dt.getDate()+3-(dt.getDay()+6)%7); const w1=new Date(dt.getFullYear(),0,4); return 1+Math.round(((dt-w1)/86400000-3+(w1.getDay()+6)%7)/7); }
+function fmtDate(d) { if(!d) return '—'; return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtDateShort(d) { return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}); }
+
+// Close modals on overlay click
+['task-modal','member-modal','issue-modal','stage-modal','nre-modal','project-modal'].forEach(id =>
+  document.getElementById(id).addEventListener('click', function(e){ if(e.target===this) this.classList.add('hidden'); })
+);
+
+init();
+</script>
+</body>
+</html>

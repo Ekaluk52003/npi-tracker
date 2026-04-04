@@ -1,0 +1,34 @@
+.claude
+
+# Python
+*.py[cod]
+__pycache__/
+*.so
+*.egg
+*.egg-info
+dist/
+build/
+venv/
+env/
+.env
+
+# Django
+db.sqlite3
+*.log
+staticfiles/
+media/
+
+# Vite
+node_modules/
+assets/
+.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,43 @@
+<div x-data="{ open: true }" x-show="open" x-cloak
+     class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="open = false; document.getElementById('modal-container').innerHTML=''"></div>
+    <div class="relative bg-[var(--surface)] rounded-xl border border-[var(--border)] w-full max-w-2xl max-h-[80vh] overflow-y-auto shadow-2xl" @click.stop>
+        <!-- Header -->
+        <div class="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] px-5 py-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold">
+                <span style="color:{{ project.color }}">{{ project.name }}</span> — Issues
+            </h2>
+            <button @click="open = false; document.getElementById('modal-container').innerHTML=''" class="text-[var(--text-muted)] hover:text-[var(--text)]">&times;</button>
+        </div>
+        <!-- Body -->
+        <div class="p-5 space-y-3">
+            {% for issue in issues %}
+            <div class="p-3 rounded-lg bg-[var(--surface2)] border-l-4
+                {% if issue.severity == 'critical' %}border-red-500{% elif issue.severity == 'high' %}border-amber-500{% elif issue.severity == 'medium' %}border-blue-500{% else %}border-gray-500{% endif %}">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="severity-badge severity-{{ issue.severity }}">{{ issue.severity_label }}</span>
+                    <span class="status-badge status-{{ issue.status }}">{{ issue.status_label }}</span>
+                    <span class="font-medium text-sm">{{ issue.title }}</span>
+                </div>
+                {% if issue.desc %}<p class="text-xs text-[var(--text-muted)] mb-1">{{ issue.desc|truncatewords:30 }}</p>{% endif %}
+                <div class="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
+                    {% if issue.owner %}<span>Owner: {{ issue.owner }}</span>{% endif %}
+                    {% if issue.due %}<span>Due: {{ issue.due|date:"M d" }}</span>{% endif %}
+                    {% if issue.stage %}<span class="stage-pill-sm">{{ issue.get_stage_display }}</span>{% endif %}
+                </div>
+                {% if issue.impact %}<div class="mt-1 text-xs px-2 py-1 bg-red-500/10 text-red-400 rounded">{{ issue.impact }}</div>{% endif %}
+            </div>
+            {% empty %}
+            <div class="text-center py-6 text-[var(--text-muted)]">
+                <span class="text-2xl">&#10003;</span>
+                <p class="mt-1">No issues for this project</p>
+            </div>
+            {% endfor %}
+        </div>
+        <!-- Footer -->
+        <div class="sticky bottom-0 bg-[var(--surface)] border-t border-[var(--border)] px-5 py-3 flex justify-end gap-2">
+            <button @click="open = false; document.getElementById('modal-container').innerHTML=''" class="btn-secondary">Close</button>
+            <a href="{% url 'project-issues' project.pk %}" class="action-btn">Open Project &rarr;</a>
+        </div>
+    </div>
+</div>

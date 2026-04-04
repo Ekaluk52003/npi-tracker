@@ -1,0 +1,80 @@
+<div class="flex flex-col lg:flex-row gap-4 items-start">
+    {% for stage in stages %}
+    {% if not forloop.first %}
+    <div class="hidden lg:flex items-center text-[var(--text-muted)] text-2xl px-1">&rarr;</div>
+    {% endif %}
+    <div class="flex-1 bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 w-full min-w-[280px]">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h3 class="text-lg font-bold">{{ stage.name }}</h3>
+                <div class="text-xs text-[var(--text-muted)]">{{ stage.full_name }}</div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="stage-pill stage-{{ stage.status }}">{{ stage.status_label }}</span>
+                <button hx-get="{% url 'stage-edit' project.pk stage.stage_id %}" hx-target="#modal-container" hx-swap="innerHTML"
+                        class="text-xs text-[var(--accent)] hover:underline">Edit</button>
+            </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs mb-4">
+            <div><span class="text-[var(--text-muted)]">Planned:</span> {{ stage.planned_date|date:"M d, Y"|default:"—" }}</div>
+            <div><span class="text-[var(--text-muted)]">Actual:</span> {{ stage.actual_date|date:"M d, Y"|default:"—" }}</div>
+            <div><span class="text-[var(--text-muted)]">Build Qty:</span> {{ stage.build_qty|default:"—" }}</div>
+            <div><span class="text-[var(--text-muted)]">Location:</span> {{ stage.build_location|default:"—" }}</div>
+            <div><span class="text-[var(--text-muted)]">BOM Rev:</span> {{ stage.bom_revision|default:"—" }}</div>
+            <div><span class="text-[var(--text-muted)]">Tasks:</span> {{ stage.tasks_done }}/{{ stage.tasks_total }}</div>
+        </div>
+
+        <!-- Gate Readiness -->
+        <div class="mb-4">
+            <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-semibold">Gate Readiness</span>
+                <span class="text-xs font-bold" style="color:{{ stage.gate.color }}">{{ stage.gate.overall_pct }}%</span>
+            </div>
+            <div class="w-full h-2 bg-[var(--surface2)] rounded-full mb-2">
+                <div class="h-full rounded-full transition-all" style="width:{{ stage.gate.overall_pct }}%;background:{{ stage.gate.color }}"></div>
+            </div>
+            <!-- Auto gates -->
+            {% for g in stage.gate.auto_gates %}
+            <div class="flex items-center gap-2 text-[11px] py-0.5">
+                <span class="{% if g.ok %}text-emerald-400{% else %}text-[var(--text-muted)]{% endif %}">{% if g.ok %}&#10003;{% else %}&#9675;{% endif %}</span>
+                <span>{{ g.label }}</span>
+            </div>
+            {% endfor %}
+            <!-- Manual checklist -->
+            {% for item in stage.gate.manual_items %}
+            <div class="flex items-center gap-2 text-[11px] py-0.5 cursor-pointer hover:bg-[var(--surface2)] rounded px-1 -mx-1"
+                 hx-post="{% url 'gate-toggle' project.pk stage.stage_id item.pk %}"
+                 hx-target="#content" hx-swap="innerHTML">
+                {% csrf_token %}
+                <span class="{% if item.checked %}text-emerald-400{% else %}text-[var(--text-muted)]{% endif %}">{% if item.checked %}&#10003;{% else %}&#9633;{% endif %}</span>
+                <span>{{ item.label }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Post-build results -->
+        {% if stage.status == 'completed' or stage.qty_produced > 0 %}
+        <div class="border-t border-[var(--border)] pt-3 mb-3">
+            <div class="text-xs font-semibold mb-1.5">Post-Build Results</div>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <div><span class="text-[var(--text-muted)]">Produced:</span> {{ stage.qty_produced }}</div>
+                <div><span class="text-[var(--text-muted)]">Passed:</span> {{ stage.qty_passed }}</div>
+                <div><span class="text-[var(--text-muted)]">Yield:</span> {{ stage.yield_pct }}%</div>
+                <div>
+                    <span class="text-[var(--text-muted)]">Approval:</span>
+                    <span class="approval-badge approval-{{ stage.customer_approval }}">{{ stage.approval_label }}</span>
+                </div>
+            </div>
+            {% if stage.approval_notes %}<div class="text-[11px] text-[var(--text-muted)] mt-1">{{ stage.approval_notes }}</div>{% endif %}
+        </div>
+        {% endif %}
+
+        {% if stage.notes %}
+        <div class="border-t border-[var(--border)] pt-2 text-xs text-[var(--text-muted)]">{{ stage.notes }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>

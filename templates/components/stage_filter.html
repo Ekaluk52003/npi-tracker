@@ -1,0 +1,11 @@
+<div class="flex items-center gap-2 mb-4">
+    <label class="text-xs text-[var(--text-muted)] font-medium">Stage:</label>
+    <select class="text-xs bg-[var(--surface2)] border border-[var(--border)] rounded-md px-2 py-1.5 text-[var(--text)]"
+            hx-get="{% if active_tab == 'gantt' %}{% url 'project-gantt' project.pk %}{% elif active_tab == 'list' %}{% url 'project-list' project.pk %}{% else %}{% url 'project-milestones' project.pk %}{% endif %}"
+            hx-target="#content" hx-swap="innerHTML" hx-push-url="true" name="stage">
+        <option value="" {% if not stage_filter %}selected{% endif %}>All Stages</option>
+        <option value="etb" {% if stage_filter == 'etb' %}selected{% endif %}>ETB</option>
+        <option value="ps" {% if stage_filter == 'ps' %}selected{% endif %}>PS</option>
+        <option value="fas" {% if stage_filter == 'fas' %}selected{% endif %}>FAS</option>
+    </select>
+</div>

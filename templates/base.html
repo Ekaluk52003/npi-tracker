@@ -1,0 +1,32 @@
+{% load django_vite %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NPI Tracker{% endblock %}</title>
+    <style>[x-cloak] { display: none !important; }</style>
+    <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('npi-theme') || 'dark')</script>
+    {% vite_hmr_client %}
+    {% vite_asset 'static/src/main.js' %}
+</head>
+<body class="bg-[var(--bg)] text-[var(--text)] min-h-screen" x-data="{ sidebarOpen: false }" x-cloak>
+
+<div class="flex min-h-screen">
+    {% include "components/sidebar.html" %}
+
+    <div class="flex-1 flex flex-col min-w-0 ml-0 lg:ml-[220px]">
+        {% include "components/topbar.html" %}
+
+        <main class="flex-1 p-4 lg:p-6 overflow-auto" id="main-content">
+            <div id="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+</div>
+
+<div id="modal-container"></div>
+
+</body>
+</html>

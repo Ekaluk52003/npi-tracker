@@ -1,0 +1,5 @@
+{% include "components/stage_filter.html" %}
+{{ gantt_data|json_script:"gantt-data" }}
+<div id="gantt-container" class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden min-h-[300px]">
+    <div class="p-8 text-center text-[var(--text-muted)]">Loading Gantt chart...</div>
+</div>

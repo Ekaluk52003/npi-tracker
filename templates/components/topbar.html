@@ -1,0 +1,84 @@
+<!-- Top Bar -->
+<header id="topbar" class="sticky top-0 z-30 bg-[var(--surface)] border-b border-[var(--border)] px-4 py-2.5 flex items-center gap-3 flex-wrap">
+    <!-- Hamburger (mobile) -->
+    <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden text-[var(--text-muted)] hover:text-[var(--text)]">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <!-- Page title -->
+    <h1 class="text-base font-semibold text-[var(--text)] truncate">
+        {% if project %}
+        <a href="{% url 'portfolio' %}" class="text-[var(--text-muted)] hover:text-[var(--text)]">Projects</a>
+        <span class="text-[var(--text-muted)] mx-1">/</span>
+        <span style="color:{{ project.color }}">{{ project.name }}</span>
+        {% else %}
+        {{ page_title|default:"Portfolio Overview" }}
+        {% endif %}
+    </h1>
+
+    {% if project %}
+    <!-- Tab buttons -->
+    <nav class="flex items-center gap-1 ml-2 overflow-x-auto">
+        <a href="{% url 'project-gantt' project.pk %}"
+           class="tab-btn {% if active_tab == 'gantt' %}active{% endif %}"
+           hx-get="{% url 'project-gantt' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            Gantt
+        </a>
+        <a href="{% url 'project-list' project.pk %}"
+           class="tab-btn {% if active_tab == 'list' %}active{% endif %}"
+           hx-get="{% url 'project-list' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            Task List
+        </a>
+        <a href="{% url 'project-milestones' project.pk %}"
+           class="tab-btn {% if active_tab == 'milestones' %}active{% endif %}"
+           hx-get="{% url 'project-milestones' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            Milestones
+        </a>
+        <a href="{% url 'project-team' project.pk %}"
+           class="tab-btn {% if active_tab == 'team' %}active{% endif %}"
+           hx-get="{% url 'project-team' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            Team
+        </a>
+        <a href="{% url 'project-stages' project.pk %}"
+           class="tab-btn {% if active_tab == 'stages' %}active{% endif %}"
+           hx-get="{% url 'project-stages' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            Build Stages
+        </a>
+        <a href="{% url 'project-nre' project.pk %}"
+           class="tab-btn {% if active_tab == 'nre' %}active{% endif %}"
+           hx-get="{% url 'project-nre' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            NRE{% if nre_no_po_count %}<span class="ml-1 text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5">{{ nre_no_po_count }}</span>{% endif %}
+        </a>
+        <a href="{% url 'project-issues' project.pk %}"
+           class="tab-btn {% if active_tab == 'issues' %}active{% endif %}"
+           hx-get="{% url 'project-issues' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            Issues{% if open_issue_count %}<span class="ml-1 text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5">{{ open_issue_count }}</span>{% endif %}
+        </a>
+    </nav>
+    {% endif %}
+
+    <div class="flex-1"></div>
+
+    <!-- Theme toggle -->
+    <button onclick="let t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);localStorage.setItem('npi-theme',t)"
+            class="p-2 rounded-lg hover:bg-[var(--surface2)] text-[var(--text-muted)]" title="Toggle theme">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+    </button>
+
+    <!-- Context action buttons -->
+    {% if project %}
+    {% if active_tab == 'gantt' or active_tab == 'list' or active_tab == 'milestones' %}
+    <button hx-get="{% url 'task-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+            class="action-btn">+ Add Task</button>
+    {% elif active_tab == 'team' %}
+    <button hx-get="{% url 'member-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+            class="action-btn">+ Add Member</button>
+    {% elif active_tab == 'issues' %}
+    <button hx-get="{% url 'issue-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+            class="action-btn">+ Add Issue</button>
+    {% elif active_tab == 'nre' %}
+    <button hx-get="{% url 'nre-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+            class="action-btn">+ Add NRE Item</button>
+    {% endif %}
+    {% endif %}
+</header>
