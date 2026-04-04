@@ -204,101 +204,72 @@ body {
 }
 
 /* ── Gantt Chart ─────────────────────────────────────────────────── */
-.gantt-wrapper {
-  display: flex;
-  overflow: hidden;
-  font-size: 0.75rem;
+.gantt-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 0.625rem; overflow: hidden; }
+.gantt-container { display: flex; height: calc(100vh - 200px); }
+.gantt-left { width: 530px; min-width: 530px; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.gantt-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.gantt-header-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
+.gh-cell { padding: 8px 10px; font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; border-right: 1px solid var(--border); white-space: nowrap; }
+.gh-item { width: 36px; min-width: 36px; text-align: center; }
+.gh-task { flex: 1; }
+.gh-who { width: 80px; }
+.gh-dur { width: 46px; text-align: center; }
+.gh-status { width: 90px; }
+.gh-issues { width: 40px; text-align: center; }
+.gantt-tasks { overflow-y: auto; flex: 1; }
+.task-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); min-height: 36px; }
+.task-row:hover { background: rgba(79,126,248,0.04); }
+.task-row.section-row { background: var(--surface2); }
+.tc-cell { padding: 6px 10px; border-right: 1px solid var(--border); display: flex; align-items: center; font-size: 12px; }
+.tc-item { width: 36px; min-width: 36px; text-align: center; color: var(--text-muted); font-size: 11px; justify-content: center; }
+.tc-task { flex: 1; flex-direction: column; align-items: flex-start; }
+.tc-remark { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+.tc-who { width: 80px; }
+.who-pill { font-size: 10px; padding: 2px 6px; background: rgba(79,126,248,0.12); color: var(--accent); border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px; display: block; }
+.tc-dur { width: 46px; text-align: center; color: var(--text-muted); font-size: 11px; justify-content: center; }
+.tc-status { width: 90px; }
+.tc-issues { width: 40px; text-align: center; justify-content: center; }
+.stage-tag { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; vertical-align: middle; margin-left: 4px; }
+.stage-tag.etb { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.stage-tag.ps { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.stage-tag.fas { background: rgba(34,197,94,0.15); color: #4ade80; }
+.status-dot { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+.status-dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.status-open .status-dot::before { background: #60a5fa; }
+.status-inprogress .status-dot::before { background: #fbbf24; }
+.status-done .status-dot::before { background: #4ade80; }
+.status-blocked .status-dot::before { background: #f87171; }
+.issue-chip { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; font-size: 9px; font-weight: 700; cursor: pointer; }
+.issue-chip.has-open { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
+.issue-chip.has-resolved { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.timeline-header { display: flex; flex-shrink: 0; }
+.wk-header-cell { min-width: 80px; width: 80px; padding: 4px 2px; border-right: 1px solid var(--border); font-size: 9px; font-weight: 700; color: var(--text-muted); text-align: center; flex-shrink: 0; }
+.wk-header-cell.current { color: var(--accent); background: rgba(79,126,248,0.06); }
+.wk-date { font-size: 8px; color: var(--text-muted); opacity: 0.7; display: block; font-weight: 400; }
+.timeline-row { display: flex; min-height: 36px; border-bottom: 1px solid var(--border); position: relative; align-items: center; }
+.timeline-row.section-row { background: var(--surface2); }
+.wk-cell { min-width: 80px; width: 80px; height: 36px; border-right: 1px solid var(--border); flex-shrink: 0; }
+.wk-cell.current-wk { background: rgba(79,126,248,0.05); }
+.gantt-bar { position: absolute; height: 16px; top: 50%; transform: translateY(-50%); border-radius: 4px; display: flex; align-items: center; padding: 0 6px; font-size: 9px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; z-index: 2; cursor: pointer; transition: opacity 0.15s; }
+.gantt-bar:hover { opacity: 0.82; }
+.gantt-bar.open { background: linear-gradient(90deg,#3b82f6,#60a5fa); }
+.gantt-bar.inprogress { background: linear-gradient(90deg,#d97706,#f59e0b); }
+.gantt-bar.done { background: linear-gradient(90deg,#16a34a,#22c55e); }
+.gantt-bar.blocked { background: linear-gradient(90deg,#dc2626,#ef4444); }
+.gantt-bar .issue-flag { position: absolute; top: -5px; right: -3px; width: 10px; height: 10px; background: #ef4444; border-radius: 50%; border: 1px solid var(--bg); }
+.today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); opacity: 0.5; z-index: 10; pointer-events: none; }
+.gantt-stage-marker { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 2px dashed; z-index: 4; pointer-events: none; opacity: 0.6; }
+@media (max-width: 1024px) {
+  .gantt-left { width: 340px; min-width: 340px; }
+  .tc-who, .gh-who { width: 60px; }
+  .tc-dur, .gh-dur { width: 40px; }
+  .tc-status, .gh-status { width: 75px; }
 }
-.gantt-left {
-  min-width: 280px;
-  max-width: 280px;
-  border-right: 1px solid var(--border);
-  overflow-y: auto;
-  flex-shrink: 0;
-}
-.gantt-right {
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: auto;
-  position: relative;
-}
-.gantt-row {
-  display: flex;
-  align-items: center;
-  height: 32px;
-  padding: 0 0.5rem;
-  border-bottom: 1px solid var(--border);
-}
-.gantt-row:hover { background: var(--surface2); }
-.gantt-section-row {
-  height: 28px;
-  display: flex;
-  align-items: center;
-  padding: 0 0.5rem;
-  background: var(--surface2);
-  font-weight: 600;
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
-}
-.gantt-bar {
-  position: absolute;
-  height: 18px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: #fff;
-  transition: opacity 0.15s;
-  cursor: pointer;
-  min-width: 4px;
-}
-.gantt-bar:hover { opacity: 0.85; }
-.gantt-bar-open { background: #8b8fa8; }
-.gantt-bar-inprogress { background: #4f7ef8; }
-.gantt-bar-done { background: #4ade80; }
-.gantt-bar-blocked { background: #ef4444; }
-.gantt-today-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--danger);
-  z-index: 5;
-  pointer-events: none;
-}
-.gantt-stage-marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  border-left: 2px dashed;
-  z-index: 4;
-  pointer-events: none;
-  opacity: 0.6;
-}
-.gantt-header {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  background: var(--surface);
-  z-index: 6;
-}
-.gantt-header-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  border-right: 1px solid var(--border);
-  padding: 0.375rem;
-  text-transform: uppercase;
+@media (max-width: 768px) {
+  .gantt-container { height: calc(100vh - 260px); }
+  .gantt-left { width: 260px; min-width: 260px; }
+  .tc-who, .gh-who { display: none; }
+  .tc-dur, .gh-dur { display: none; }
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────── */
