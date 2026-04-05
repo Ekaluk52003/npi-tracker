@@ -262,6 +262,8 @@ body {
 .issue-chip { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; font-size: 9px; font-weight: 700; cursor: pointer; }
 .issue-chip.has-open { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
 .issue-chip.has-resolved { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.issue-chip-add { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); border: 1px dashed var(--border); opacity: 0.5; transition: opacity 0.15s; }
+.issue-chip-add:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
 .timeline-header { display: flex; flex-shrink: 0; }
 .wk-header-cell { min-width: 80px; width: 80px; padding: 4px 2px; border-right: 1px solid var(--border); font-size: 9px; font-weight: 700; color: var(--text-muted); text-align: center; flex-shrink: 0; }
 .wk-header-cell.current { color: var(--accent); background: rgba(79,126,248,0.06); }

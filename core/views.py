@@ -420,6 +420,14 @@ def task_delete(request, pk, tid):
 
 def issue_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
+    task_id = request.GET.get('task_id')
+    initial = {}
+    if task_id:
+        try:
+            task = Task.objects.get(pk=task_id, project=project)
+            initial['linked_tasks'] = [task.pk]
+        except Task.DoesNotExist:
+            pass
     if request.method == 'POST':
         form = IssueForm(request.POST, project=project)
         if form.is_valid():
@@ -428,10 +436,10 @@ def issue_create(request, pk):
             issue.save()
             form.save_m2m()
             if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/issues/'})
+                return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/issues/')})
             return redirect('project-issues', pk=pk)
     else:
-        form = IssueForm(project=project)
+        form = IssueForm(project=project, initial=initial)
     return render(request, 'forms/_issue_form.html', {'form': form, 'project': project})
 
 

@@ -136,7 +136,7 @@ export function renderProjectGantt(containerId, dataId) {
     const t = row.task;
     const issChip = t.open_issues
       ? `<span class="issue-chip has-open" data-issue-url="/project/${project_id}/tasks/${t.id}/issues/">${t.open_issues}</span>`
-      : '';
+      : `<span class="issue-chip-add" data-issue-url="/project/${project_id}/tasks/${t.id}/issues/" title="No open issues — click to add">+</span>`;
     const editUrl = `/project/${project_id}/tasks/${t.id}/edit/`;
     return `<div class="task-row status-${t.status}" style="cursor:pointer" data-edit-url="${editUrl}">
       <div class="tc-cell tc-item">${row.num}</div>

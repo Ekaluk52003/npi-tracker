@@ -34,7 +34,7 @@
                 <td class="px-3 py-2 text-center"><span class="status-dot status-dot-{{ task.status }}">{{ task.status_label }}</span></td>
                 <td class="px-3 py-2 text-center">
                     {% with oi=task.open_issues.count %}
-                    {% if oi %}<span class="issue-chip has-open" hx-get="{% url 'task-issues-modal' project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML" hx-trigger="click consume" style="cursor:pointer">{{ oi }}</span>{% else %}<span class="text-emerald-400 text-xs">&#10003;</span>{% endif %}
+                    {% if oi %}<span class="issue-chip has-open" hx-get="{% url 'task-issues-modal' project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML" hx-trigger="click consume" style="cursor:pointer">{{ oi }}</span>{% else %}<span class="text-emerald-400 text-xs cursor-pointer hover:opacity-60 transition" hx-get="{% url 'task-issues-modal' project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML" hx-trigger="click consume" title="No open issues — click to add">&#10003;</span>{% endif %}
                     {% endwith %}
                 </td>
             </tr>

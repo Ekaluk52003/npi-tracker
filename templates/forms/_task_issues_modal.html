@@ -27,7 +27,10 @@
             <div class="text-center py-4 text-[var(--text-muted)]">No open issues</div>
             {% endfor %}
         </div>
-        <div class="sticky bottom-0 bg-[var(--surface)] border-t border-[var(--border)] px-5 py-3 flex justify-end">
+        <div class="sticky bottom-0 bg-[var(--surface)] border-t border-[var(--border)] px-5 py-3 flex items-center justify-between">
+            <button hx-get="{% url 'issue-create' project.pk %}?task_id={{ task.pk }}"
+                    hx-target="#modal-container" hx-swap="innerHTML"
+                    class="action-btn text-sm">+ Add Issue</button>
             <button @click="open = false; document.getElementById('modal-container').innerHTML=''" class="btn-secondary">Close</button>
         </div>
     </div>
