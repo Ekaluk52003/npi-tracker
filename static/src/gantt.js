@@ -26,7 +26,19 @@ function getISOWeek(d) {
 }
 
 function fmtDateShort(d) {
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  const dt = new Date(d);
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const yy = String(dt.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+
+function getDayNumbers(weekStart) {
+  const nums = [];
+  for (let i = 0; i < 7; i++) {
+    nums.push(i + 1); // 1=Mon, 2=Tue, ..., 7=Sun
+  }
+  return nums;
 }
 
 function getWeeks(minDate, maxDate) {
@@ -109,7 +121,8 @@ export function renderProjectGantt(containerId, dataId) {
   // Week header
   const wkHeader = weeks.map((w, i) => {
     const isCur = i === todayWkIdx;
-    return `<div class="wk-header-cell ${isCur ? 'current' : ''}">Wk${getISOWeek(w)}<span class="wk-date">${fmtDateShort(w)}</span></div>`;
+    const dayNums = getDayNumbers(w).map(n => `<span class="wk-day-num">${n}</span>`).join('');
+    return `<div class="wk-header-cell ${isCur ? 'current' : ''}">Wk${getISOWeek(w)}<span class="wk-date">${fmtDateShort(w)}</span><div class="wk-day-row">${dayNums}</div></div>`;
   }).join('');
 
   // Left panel: header row + task rows
@@ -298,7 +311,8 @@ export function renderPortfolioGantt(containerId, dataId) {
   // Week header
   const wkHeader = weeks.map((w, i) => {
     const isCur = i === todayWkIdx;
-    return `<div style="min-width:${PCELL_W}px;width:${PCELL_W}px;text-align:center;font-size:10px;color:${isCur ? 'var(--accent)' : 'var(--text-muted)'};padding:5px 0;border-right:1px solid var(--border);font-weight:${isCur ? 700 : 400}">Wk${getISOWeek(w)}<br><span style="font-size:9px;opacity:0.7;font-weight:400">${fmtDateShort(w)}</span></div>`;
+    const dayNums = getDayNumbers(w).map(n => `<span style="font-size:7px;font-weight:400;opacity:0.5;width:${Math.floor(PCELL_W / 7)}px;text-align:center">${n}</span>`).join('');
+    return `<div style="min-width:${PCELL_W}px;width:${PCELL_W}px;text-align:center;font-size:10px;color:${isCur ? 'var(--accent)' : 'var(--text-muted)'};padding:4px 0 2px;border-right:1px solid var(--border);font-weight:${isCur ? 700 : 400}">Wk${getISOWeek(w)}<br><span style="font-size:8px;opacity:0.7;font-weight:400">${fmtDateShort(w)}</span><div style="display:flex;justify-content:space-around;margin-top:1px">${dayNums}</div></div>`;
   }).join('');
 
   // Build rows

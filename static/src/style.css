@@ -246,6 +246,8 @@ body {
 .wk-header-cell { min-width: 80px; width: 80px; padding: 4px 2px; border-right: 1px solid var(--border); font-size: 9px; font-weight: 700; color: var(--text-muted); text-align: center; flex-shrink: 0; }
 .wk-header-cell.current { color: var(--accent); background: rgba(79,126,248,0.06); }
 .wk-date { font-size: 8px; color: var(--text-muted); opacity: 0.7; display: block; font-weight: 400; }
+.wk-day-row { display: flex; justify-content: space-around; margin-top: 1px; }
+.wk-day-num { font-size: 7px; font-weight: 400; opacity: 0.5; width: 11px; text-align: center; line-height: 1.2; }
 .timeline-row { display: flex; min-height: 36px; border-bottom: 1px solid var(--border); position: relative; align-items: center; }
 .timeline-row.section-row { background: var(--surface2); }
 .wk-cell { min-width: 80px; width: 80px; height: 36px; border-right: 1px solid var(--border); flex-shrink: 0; }
