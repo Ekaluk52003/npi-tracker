@@ -205,10 +205,14 @@ body {
 
 /* ── Gantt Chart ─────────────────────────────────────────────────── */
 .gantt-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 0.625rem; overflow: hidden; }
-.gantt-container { display: flex; height: calc(100vh - 200px); }
+.gantt-container { display: flex; flex-direction: column; height: calc(100vh - 200px); }
+.gantt-shared-header { display: flex; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
+.gantt-header-left { width: 530px; min-width: 530px; display: flex; align-items: stretch; border-right: 1px solid var(--border); }
+.gantt-header-left .gh-cell { display: flex; align-items: center; }
+.gantt-header-right { flex: 1; overflow-x: hidden; min-width: 0; }
+.gantt-body { display: flex; flex: 1; overflow: hidden; }
 .gantt-left { width: 530px; min-width: 530px; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
 .gantt-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-.gantt-header-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
 .gh-cell { padding: 8px 10px; font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; border-right: 1px solid var(--border); white-space: nowrap; }
 .gh-item { width: 36px; min-width: 36px; text-align: center; }
 .gh-task { flex: 1; }
@@ -216,7 +220,7 @@ body {
 .gh-dur { width: 46px; text-align: center; }
 .gh-status { width: 90px; }
 .gh-issues { width: 40px; text-align: center; }
-.gantt-tasks { overflow-y: auto; flex: 1; }
+.gantt-tasks { overflow-y: auto; overflow-x: hidden; flex: 1; }
 .task-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); min-height: 36px; }
 .task-row:hover { background: rgba(79,126,248,0.04); }
 .task-row.section-row { background: var(--surface2); }
@@ -262,14 +266,14 @@ body {
 .today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); opacity: 0.5; z-index: 10; pointer-events: none; }
 .gantt-stage-marker { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 2px dashed; z-index: 4; pointer-events: none; opacity: 0.6; }
 @media (max-width: 1024px) {
-  .gantt-left { width: 340px; min-width: 340px; }
+  .gantt-header-left, .gantt-left { width: 340px; min-width: 340px; }
   .tc-who, .gh-who { width: 60px; }
   .tc-dur, .gh-dur { width: 40px; }
   .tc-status, .gh-status { width: 75px; }
 }
 @media (max-width: 768px) {
   .gantt-container { height: calc(100vh - 260px); }
-  .gantt-left { width: 260px; min-width: 260px; }
+  .gantt-header-left, .gantt-left { width: 260px; min-width: 260px; }
   .tc-who, .gh-who { display: none; }
   .tc-dur, .gh-dur { display: none; }
 }

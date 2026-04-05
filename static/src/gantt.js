@@ -173,8 +173,8 @@ export function renderProjectGantt(containerId, dataId) {
   el.innerHTML = `
     <div class="gantt-wrap">
       <div class="gantt-container">
-        <div class="gantt-left">
-          <div class="gantt-header-row">
+        <div class="gantt-shared-header">
+          <div class="gantt-header-left">
             <div class="gh-cell gh-item">#</div>
             <div class="gh-cell gh-task">Task</div>
             <div class="gh-cell gh-who">Assigned</div>
@@ -182,16 +182,20 @@ export function renderProjectGantt(containerId, dataId) {
             <div class="gh-cell gh-status">Status</div>
             <div class="gh-cell gh-issues">\u26A0</div>
           </div>
-          <div class="gantt-tasks" id="gl-scroll">${leftRows}</div>
-        </div>
-        <div class="gantt-right">
-          <div id="gh-header-scroll" style="overflow-x:hidden;flex-shrink:0">
+          <div class="gantt-header-right" id="gh-header-scroll">
             <div class="timeline-header" style="min-width:${weeks.length * WK_W}px">${wkHeader}</div>
           </div>
-          <div id="gr-scroll" style="overflow:auto;flex:1;position:relative">
-            <div style="position:relative;min-width:${weeks.length * WK_W}px">
-              ${timelineRows}
-              ${todayWkIdx >= 0 ? `<div class="today-line" style="left:${todayPx}px;height:100%;position:absolute;top:0"></div>` : ''}
+        </div>
+        <div class="gantt-body">
+          <div class="gantt-left">
+            <div class="gantt-tasks" id="gl-scroll">${leftRows}</div>
+          </div>
+          <div class="gantt-right">
+            <div id="gr-scroll" style="overflow:auto;flex:1;position:relative">
+              <div style="position:relative;min-width:${weeks.length * WK_W}px">
+                ${timelineRows}
+                ${todayWkIdx >= 0 ? `<div class="today-line" style="left:${todayPx}px;height:100%;position:absolute;top:0"></div>` : ''}
+              </div>
             </div>
           </div>
         </div>
@@ -327,7 +331,7 @@ export function renderPortfolioGantt(containerId, dataId) {
 
     // Background cells per week
     const bgCells = weeks.map((w, i) =>
-      `<div style="position:absolute;left:${i * PCELL_W}px;top:0;width:${PCELL_W}px;height:100%;border-right:1px solid var(--border);${i === todayWkIdx ? 'background:rgba(79,126,248,0.06)' : ''}"></div>`
+      `<div style="position:absolute;left:${i * PCELL_W}px;top:0;width:${PCELL_W}px;height:${rowH}px;border-right:1px solid var(--border);box-sizing:border-box;${i === todayWkIdx ? 'background:rgba(79,126,248,0.06)' : ''}"></div>`
     ).join('');
 
     // Stage bars — use stage color from data, fall back to status-based color
@@ -344,7 +348,7 @@ export function renderPortfolioGantt(containerId, dataId) {
       return `<div style="position:absolute;left:${barLeft}px;top:7px;height:22px;width:${barWidth}px;background:${bg};border:${isCurrent ? 2 : 1}px solid ${col};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${col};overflow:hidden;white-space:nowrap;z-index:2;${isCurrent ? 'box-shadow:0 0 0 3px ' + col + '33' : ''}" title="${esc(stg.name)}: ${stg.date}">${esc(stg.name)}${isCurrent ? ' \u25cf' : ''}</div>`;
     }).join('');
 
-    return `<div style="display:flex;border-bottom:1px solid var(--border);height:${rowH}px">
+    return `<div style="display:flex;border-bottom:1px solid var(--border);height:${rowH}px;min-width:${LEFT_W + weeks.length * PCELL_W}px">
       <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;background:var(--surface);z-index:2;border-right:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="window.location='/project/${p.id}/'">
         <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></span>
         <div style="overflow:hidden;min-width:0">
@@ -352,7 +356,7 @@ export function renderPortfolioGantt(containerId, dataId) {
           <div style="font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${csLabel}</div>
         </div>
       </div>
-      <div style="position:relative;min-width:${weeks.length * PCELL_W}px;height:${rowH}px;flex:1">
+      <div style="position:relative;width:${weeks.length * PCELL_W}px;min-width:${weeks.length * PCELL_W}px;height:${rowH}px">
         ${bgCells}${bars}
       </div>
     </div>`;
@@ -366,8 +370,8 @@ export function renderPortfolioGantt(containerId, dataId) {
   el.innerHTML = `
     <div style="overflow:auto;position:relative;border-radius:0.5rem">
       <div style="display:flex;position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
-        <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;z-index:4;background:var(--surface);border-right:1px solid var(--border);padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Project / Stage</div>
-        <div style="display:flex;min-width:${weeks.length * PCELL_W}px">${wkHeader}</div>
+        <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;z-index:4;background:var(--surface);border-right:1px solid var(--border);padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);display:flex;align-items:center">Project / Stage</div>
+        <div style="display:flex;width:${weeks.length * PCELL_W}px;min-width:${weeks.length * PCELL_W}px">${wkHeader}</div>
       </div>
       <div style="position:relative">${rowsHtml}${todayLine}</div>
     </div>`;
