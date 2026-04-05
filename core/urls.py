@@ -38,6 +38,13 @@ urlpatterns = [
     path('project/<int:pk>/nre/<int:nid>/edit/', views.nre_edit, name='nre-edit'),
     path('project/<int:pk>/nre/<int:nid>/delete/', views.nre_delete, name='nre-delete'),
 
+    # Task issues modal
+    path('project/<int:pk>/tasks/<int:tid>/issues/', views.task_issues_modal, name='task-issues-modal'),
+
+    # Apply task template
+    path('project/<int:pk>/apply-template/', views.template_apply, name='template-apply'),
+    path('project/<int:pk>/apply-template/<int:set_pk>/preview/', views.template_preview, name='template-preview'),
+
     # Build Stage CRUD + gate toggle
     path('project/<int:pk>/stages/create/', views.stage_create, name='stage-create'),
     path('project/<int:pk>/stages/<int:sid>/edit/', views.stage_edit, name='stage-edit'),

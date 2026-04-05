@@ -5,8 +5,10 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
-from .models import Project, BuildStage, GateChecklistItem, Task, Issue, TeamMember, NREItem
-from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm
+from django.db import transaction
+from .models import Project, BuildStage, GateChecklistItem, Task, Issue, TeamMember, NREItem, TaskTemplateSet
+from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ApplyTemplateForm
+from .scheduling import generate_tasks_from_template, SchedulingError
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
@@ -96,6 +98,7 @@ def _gantt_data_for_project(project, stage_filter=''):
             'actual_date': s.actual_date.isoformat() if s.actual_date else None,
         })
     return {
+        'project_id': project.pk,
         'sections': sections,
         'stages': stages_data,
         'min_date': min(starts).isoformat() if starts else date.today().isoformat(),
@@ -495,6 +498,19 @@ def nre_delete(request, pk, nid):
     return redirect('project-nre', pk=pk)
 
 
+# ── Task Issues Modal ───────────────────────────────────────────────────
+
+def task_issues_modal(request, pk, tid):
+    project = get_object_or_404(Project, pk=pk)
+    task = get_object_or_404(Task, pk=tid, project=project)
+    issues = task.linked_issues.exclude(status='resolved')
+    return render(request, 'forms/_task_issues_modal.html', {
+        'project': project,
+        'task': task,
+        'issues': issues,
+    })
+
+
 # ── Build Stage CRUD ────────────────────────────────────────────────────
 
 def stage_create(request, pk):
@@ -574,3 +590,128 @@ def gate_toggle(request, pk, sid, gid):
     if request.htmx:
         return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/stages/'})
     return redirect('project-stages', pk=pk)
+
+
+# ── Apply Task Template ────────────────────────────────────────────────
+
+def template_apply(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    has_existing_tasks = project.tasks.exists()
+    template_sets = TaskTemplateSet.objects.all()
+
+    if request.method == 'POST':
+        form = ApplyTemplateForm(request.POST)
+        if form.is_valid():
+            template_set = form.cleaned_data['template_set']
+            start_date = form.cleaned_data['start_date']
+            replace_existing = form.cleaned_data['replace_existing']
+
+            # Parse per-section date overrides from POST
+            section_overrides = {}
+            for key, val in request.POST.items():
+                if key.startswith('section_date_') and val:
+                    try:
+                        sec_pk = int(key.replace('section_date_', ''))
+                        section_overrides[sec_pk] = date.fromisoformat(val)
+                    except (ValueError, TypeError):
+                        pass
+
+            try:
+                task_dicts = generate_tasks_from_template(
+                    template_set, project, start_date, section_overrides
+                )
+
+                with transaction.atomic():
+                    if replace_existing:
+                        project.tasks.all().delete()
+                    base_sort = project.tasks.count()
+                    tasks_to_create = []
+                    for i, d in enumerate(task_dicts):
+                        d.pop('template_pk', None)
+                        d['sort_order'] = base_sort + i
+                        tasks_to_create.append(
+                            Task(project=project, **d)
+                        )
+                    Task.objects.bulk_create(tasks_to_create)
+            except SchedulingError as exc:
+                form.add_error(None, str(exc))
+                return render(request, 'forms/_apply_template_form.html', {
+                    'form': form, 'project': project,
+                    'has_existing_tasks': has_existing_tasks,
+                    'template_sets': template_sets,
+                })
+
+            if request.htmx:
+                return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/gantt/'})
+            return redirect('project-gantt', pk=pk)
+
+        return render(request, 'forms/_apply_template_form.html', {
+            'form': form, 'project': project,
+            'has_existing_tasks': has_existing_tasks,
+            'template_sets': template_sets,
+        })
+
+    form = ApplyTemplateForm(initial={'start_date': project.start_date})
+    return render(request, 'forms/_apply_template_form.html', {
+        'form': form, 'project': project,
+        'has_existing_tasks': has_existing_tasks,
+        'template_sets': template_sets,
+    })
+
+
+def template_preview(request, pk, set_pk):
+    project = get_object_or_404(Project, pk=pk)
+    template_set = get_object_or_404(TaskTemplateSet, pk=set_pk)
+    start_date_str = request.GET.get('start_date', '')
+    try:
+        preview_start = date.fromisoformat(start_date_str)
+    except (ValueError, TypeError):
+        preview_start = project.start_date
+
+    # Generate scheduled dates for preview
+    try:
+        task_dicts = generate_tasks_from_template(template_set, project, preview_start)
+    except SchedulingError:
+        task_dicts = []
+
+    pk_to_scheduled = {d['template_pk']: d for d in task_dicts}
+
+    # Build section data with their tasks
+    sections_qs = template_set.sections.prefetch_related('tasks__depends_on').order_by('sort_order', 'id')
+    sections = []
+    for sec in sections_qs:
+        tasks = []
+        for tmpl in sec.tasks.order_by('sort_order', 'id'):
+            scheduled = pk_to_scheduled.get(tmpl.pk)
+            tasks.append({
+                'pk': tmpl.pk,
+                'name': tmpl.name,
+                'who': tmpl.who,
+                'days': tmpl.days,
+                'stage_name': tmpl.stage_name,
+                'start': scheduled['start'] if scheduled else None,
+                'end': scheduled['end'] if scheduled else None,
+                'deps': [d.name for d in tmpl.depends_on.all()],
+            })
+        # Compute section date range from scheduled tasks
+        task_starts = [t['start'] for t in tasks if t['start']]
+        task_ends = [t['end'] for t in tasks if t['end']]
+        sections.append({
+            'pk': sec.pk,
+            'name': sec.name,
+            'depends_on_previous': sec.depends_on_previous,
+            'day_offset': sec.day_offset,
+            'tasks': tasks,
+            'start': min(task_starts) if task_starts else None,
+            'end': max(task_ends) if task_ends else None,
+        })
+
+    has_error = len(task_dicts) == 0 and template_set.sections.exists()
+
+    return render(request, 'forms/_template_preview.html', {
+        'project': project,
+        'template_set': template_set,
+        'sections': sections,
+        'start_date': preview_start,
+        'has_error': has_error,
+    })

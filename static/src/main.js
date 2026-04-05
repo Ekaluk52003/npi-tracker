@@ -1,7 +1,8 @@
 import 'vite/modulepreload-polyfill';
 import './style.css';
 import Alpine from 'alpinejs';
-import 'htmx.org';
+import htmx from 'htmx.org';
+window.htmx = htmx;
 import { renderProjectGantt, renderPortfolioGantt } from './gantt.js';
 
 window.Alpine = Alpine;

@@ -1,0 +1,91 @@
+<div x-data="applyTemplate('{{ form.start_date.value|default:'' }}')"
+     x-show="open" x-cloak
+     class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="open = false; document.getElementById('modal-container').innerHTML=''"></div>
+    <div class="relative bg-[var(--surface)] rounded-xl border border-[var(--border)] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" @click.stop>
+        <div class="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] px-5 py-4 flex items-center justify-between z-10">
+            <h2 class="text-lg font-semibold">Apply Task Template</h2>
+            <button @click="open = false; document.getElementById('modal-container').innerHTML=''" class="text-[var(--text-muted)] hover:text-[var(--text)] text-xl">&times;</button>
+        </div>
+
+        {% if has_existing_tasks %}
+        <div class="mx-5 mt-4 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm flex items-start gap-2">
+            <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+            <span>This project has <strong>{{ project.tasks.count }} existing task{{ project.tasks.count|pluralize }}</strong>. New tasks will be appended unless you check "Replace existing tasks" below.</span>
+        </div>
+        {% endif %}
+
+        <form hx-post="{% url 'template-apply' project.pk %}"
+              hx-target="#modal-container" hx-swap="innerHTML"
+              class="p-5 space-y-5">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Template Set -->
+            <div>
+                <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">Template Set</label>
+                <select name="template_set" x-model="selectedSetId" @change="loadPreview()"
+                        class="w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none">
+                    <option value="">-- Select a template --</option>
+                    {% for ts in template_sets %}
+                    <option value="{{ ts.pk }}">{{ ts.name }}{% if ts.description %} -- {{ ts.description }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+                {% if form.template_set.errors %}<p class="text-red-400 text-xs mt-1">{{ form.template_set.errors.0 }}</p>{% endif %}
+            </div>
+
+            <!-- Start Date -->
+            <div>
+                <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">Project Start Date</label>
+                <input type="date" name="start_date" x-model="startDate"
+                       @change="if (selectedSetId) loadPreview()"
+                       value="{{ form.start_date.value|default:'' }}"
+                       class="w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none">
+                {% if form.start_date.errors %}<p class="text-red-400 text-xs mt-1">{{ form.start_date.errors.0 }}</p>{% endif %}
+            </div>
+
+            <!-- Preview Panel -->
+            <div id="template-preview-panel"
+                 class="min-h-[80px] rounded-lg border border-[var(--border)] bg-[var(--surface2)]">
+                <p class="text-[var(--text-muted)] text-sm text-center py-8"
+                   x-show="!selectedSetId">Select a template set to preview tasks</p>
+            </div>
+
+            {% if has_existing_tasks %}
+            <label class="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer">
+                <input type="checkbox" name="replace_existing" value="true"
+                       class="rounded border-[var(--border)] bg-[var(--surface2)] text-[var(--accent)] focus:ring-[var(--accent)]">
+                <span>Replace existing tasks (deletes all {{ project.tasks.count }} current task{{ project.tasks.count|pluralize }})</span>
+            </label>
+            {% endif %}
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
+                <button type="button" @click="open = false; document.getElementById('modal-container').innerHTML=''" class="btn-secondary">Cancel</button>
+                <button type="submit" :disabled="!selectedSetId"
+                        class="action-btn disabled:opacity-40 disabled:cursor-not-allowed">Generate Tasks</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function applyTemplate(initialDate) {
+    return {
+        open: true,
+        selectedSetId: '',
+        startDate: initialDate,
+        loadPreview() {
+            if (!this.selectedSetId) return;
+            const url = `/project/{{ project.pk }}/apply-template/${this.selectedSetId}/preview/?start_date=${this.startDate}`;
+            htmx.ajax('GET', url, { target: '#template-preview-panel', swap: 'innerHTML' });
+        },
+    };
+}
+</script>

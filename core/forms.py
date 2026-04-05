@@ -1,5 +1,5 @@
 from django import forms
-from .models import Project, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem
+from .models import Project, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet
 
 
 input_cls = 'w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none'
@@ -147,3 +147,21 @@ class GateChecklistItemForm(forms.ModelForm):
         widgets = {
             'label': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'Add checklist item…'}),
         }
+
+
+class ApplyTemplateForm(forms.Form):
+    template_set = forms.ModelChoiceField(
+        queryset=TaskTemplateSet.objects.all(),
+        empty_label='— Select a template —',
+        widget=forms.Select(attrs={'class': select_cls}),
+        label='Template Set',
+    )
+    start_date = forms.DateField(
+        widget=forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
+        label='Start Date',
+    )
+    replace_existing = forms.BooleanField(
+        required=False,
+        label='Replace existing tasks',
+        initial=False,
+    )

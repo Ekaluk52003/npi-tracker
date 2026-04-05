@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Project, BuildStage, GateChecklistItem, Task, Issue, TeamMember, NREItem
+from .models import (
+    Project, BuildStage, GateChecklistItem, Task, Issue, TeamMember, NREItem,
+    TaskTemplateSet, SectionTemplate, TaskTemplate,
+)
 
 
 class BuildStageInline(admin.TabularInline):
@@ -55,3 +58,47 @@ class TeamMemberAdmin(admin.ModelAdmin):
 class NREItemAdmin(admin.ModelAdmin):
     list_display = ['desc', 'project', 'category', 'cost', 'po_status', 'stage']
     list_filter = ['category', 'po_status']
+
+
+class SectionTemplateInline(admin.TabularInline):
+    model = SectionTemplate
+    extra = 1
+    fields = ['sort_order', 'name', 'depends_on_previous', 'day_offset']
+
+
+class TaskTemplateInline(admin.TabularInline):
+    model = TaskTemplate
+    extra = 1
+    fields = ['sort_order', 'name', 'who', 'days', 'stage_name']
+
+
+@admin.register(TaskTemplateSet)
+class TaskTemplateSetAdmin(admin.ModelAdmin):
+    list_display = ['name', 'section_count', 'created_at']
+    inlines = [SectionTemplateInline]
+
+    @admin.display(description='Sections')
+    def section_count(self, obj):
+        return obj.sections.count()
+
+
+@admin.register(SectionTemplate)
+class SectionTemplateAdmin(admin.ModelAdmin):
+    list_display = ['name', 'template_set', 'sort_order', 'depends_on_previous', 'day_offset', 'task_count']
+    list_filter = ['template_set']
+    list_editable = ['sort_order', 'depends_on_previous', 'day_offset']
+    inlines = [TaskTemplateInline]
+
+    @admin.display(description='Tasks')
+    def task_count(self, obj):
+        return obj.tasks.count()
+
+
+@admin.register(TaskTemplate)
+class TaskTemplateAdmin(admin.ModelAdmin):
+    list_display = ['name', 'section', 'stage_name', 'days', 'sort_order']
+    list_filter = ['section__template_set', 'stage_name']
+    list_editable = ['sort_order']
+    filter_horizontal = ['depends_on']
+    search_fields = ['name', 'section__name']
+    ordering = ['section__template_set', 'section__sort_order', 'sort_order', 'id']

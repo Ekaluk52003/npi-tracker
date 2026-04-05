@@ -1,0 +1,62 @@
+{% if has_error %}
+<div class="px-4 py-3 text-red-400 text-sm text-center">
+    Dependency cycle detected in this template. Please fix dependencies in admin.
+</div>
+{% elif sections %}
+<div class="divide-y divide-[var(--border)]">
+    {% for sec in sections %}
+    <div class="px-4 py-3">
+        <!-- Section header -->
+        <div class="flex items-center gap-3 mb-2">
+            <span class="text-xs font-semibold text-[var(--text)] uppercase tracking-wide flex-1">{{ sec.name }}</span>
+            {% if sec.depends_on_previous %}
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">After previous</span>
+            {% elif sec.day_offset > 0 %}
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20">+{{ sec.day_offset }}d offset</span>
+            {% endif %}
+            {% if sec.start %}
+            <span class="text-[10px] text-[var(--text-muted)] tabular-nums">{{ sec.start|date:"M d" }} - {{ sec.end|date:"M d" }}</span>
+            {% endif %}
+        </div>
+
+        <!-- Section date override -->
+        <div class="flex items-center gap-2 mb-2">
+            <label class="text-[10px] text-[var(--text-muted)] shrink-0">Override start:</label>
+            <input type="date" name="section_date_{{ sec.pk }}"
+                   class="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text)] focus:border-[var(--accent)] focus:outline-none">
+        </div>
+
+        <!-- Tasks -->
+        <div class="space-y-1">
+            {% for t in sec.tasks %}
+            <div class="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-[var(--surface)] text-sm">
+                <span class="flex-1 text-[var(--text)] truncate">{{ t.name }}</span>
+                {% if t.who and t.who != 'TBD' %}
+                <span class="text-[10px] text-[var(--text-muted)]">{{ t.who }}</span>
+                {% endif %}
+                {% if t.stage_name %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">{{ t.stage_name }}</span>
+                {% endif %}
+                <span class="text-xs text-[var(--text-muted)] tabular-nums shrink-0">{{ t.days }}d</span>
+                {% if t.start %}
+                <span class="text-xs text-[var(--text-muted)] tabular-nums shrink-0 w-36 text-right">{{ t.start|date:"M d" }} - {{ t.end|date:"M d" }}</span>
+                {% endif %}
+            </div>
+            {% if t.deps %}
+            <div class="ml-4 text-[10px] text-[var(--text-muted)] -mt-0.5 mb-0.5">
+                After: {{ t.deps|join:", " }}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Summary footer -->
+    <div class="px-4 py-2.5 flex items-center justify-between text-xs text-[var(--text-muted)]">
+        <span>{{ sections|length }} section{{ sections|length|pluralize }} total</span>
+    </div>
+</div>
+{% else %}
+<p class="text-[var(--text-muted)] text-sm text-center py-8">No sections in this template set.</p>
+{% endif %}

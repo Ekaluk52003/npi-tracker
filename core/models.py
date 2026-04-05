@@ -357,3 +357,64 @@ class NREItem(models.Model):
     @property
     def stage_name(self):
         return self.stage.name if self.stage else ''
+
+
+class TaskTemplateSet(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class SectionTemplate(models.Model):
+    template_set = models.ForeignKey(
+        TaskTemplateSet, on_delete=models.CASCADE, related_name='sections'
+    )
+    name = models.CharField(max_length=200)
+    sort_order = models.IntegerField(default=0)
+    depends_on_previous = models.BooleanField(
+        default=False,
+        help_text='If true, this section starts after all tasks in the previous section finish.',
+    )
+    day_offset = models.IntegerField(
+        default=0,
+        help_text='Days from project start date. Ignored if depends_on_previous is true.',
+    )
+
+    class Meta:
+        ordering = ['sort_order', 'id']
+
+    def __str__(self):
+        return f'{self.template_set.name} / {self.name}'
+
+
+class TaskTemplate(models.Model):
+    section = models.ForeignKey(
+        SectionTemplate, on_delete=models.CASCADE, related_name='tasks'
+    )
+    name = models.CharField(max_length=300)
+    who = models.CharField(max_length=200, default='TBD')
+    days = models.IntegerField(default=1)
+    stage_name = models.CharField(
+        max_length=50, blank=True,
+        help_text='Matched to BuildStage.name on the target project (case-insensitive).',
+    )
+    depends_on = models.ManyToManyField(
+        'self',
+        symmetrical=False,
+        blank=True,
+        related_name='dependents',
+        help_text='Tasks that must finish before this task can start.',
+    )
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'id']
+
+    def __str__(self):
+        return f'{self.section.name} / {self.name}'

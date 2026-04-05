@@ -77,7 +77,7 @@ export function renderProjectGantt(containerId, dataId) {
   let data;
   try { data = JSON.parse(dataEl.textContent); } catch { return; }
 
-  const { sections, stages, min_date, max_date, today } = data;
+  const { project_id, sections, stages, min_date, max_date, today } = data;
   if (!sections || sections.length === 0) {
     el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted)">No tasks to display. Add tasks to see the Gantt chart.</div>';
     return;
@@ -122,9 +122,10 @@ export function renderProjectGantt(containerId, dataId) {
     }
     const t = row.task;
     const issChip = t.open_issues
-      ? `<span class="issue-chip has-open">${t.open_issues}</span>`
+      ? `<span class="issue-chip has-open" data-issue-url="/project/${project_id}/tasks/${t.id}/issues/">${t.open_issues}</span>`
       : '';
-    return `<div class="task-row status-${t.status}">
+    const editUrl = `/project/${project_id}/tasks/${t.id}/edit/`;
+    return `<div class="task-row status-${t.status}" style="cursor:pointer" data-edit-url="${editUrl}">
       <div class="tc-cell tc-item">${row.num}</div>
       <div class="tc-cell tc-task">
         <div>${esc(t.name)}${stageTag(t.stage, t.stage_color)}</div>
@@ -201,6 +202,30 @@ export function renderProjectGantt(containerId, dataId) {
   }
   if (todayWkIdx > 0 && gr) {
     setTimeout(() => { gr.scrollLeft = Math.max(0, (todayWkIdx - 3) * WK_W); }, 50);
+  }
+
+  // Click task row to open edit modal, or issue chip to open issue edit
+  if (gl) {
+    gl.addEventListener('click', (e) => {
+      const modal = document.getElementById('modal-container');
+      if (!modal) return;
+
+      // Check if an issue chip was clicked
+      const issueChip = e.target.closest('[data-issue-url]');
+      if (issueChip) {
+        fetch(issueChip.dataset.issueUrl, { headers: { 'HX-Request': 'true' } })
+          .then(r => r.text())
+          .then(html => { modal.innerHTML = html; if (window.htmx) htmx.process(modal); });
+        return;
+      }
+
+      // Otherwise open task edit
+      const row = e.target.closest('[data-edit-url]');
+      if (!row) return;
+      fetch(row.dataset.editUrl, { headers: { 'HX-Request': 'true' } })
+        .then(r => r.text())
+        .then(html => { modal.innerHTML = html; if (window.htmx) htmx.process(modal); });
+    });
   }
 }
 
