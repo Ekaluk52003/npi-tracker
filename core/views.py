@@ -728,16 +728,26 @@ def template_preview(request, pk, set_pk):
     except (ValueError, TypeError):
         preview_start = project.start_date
 
+    # Parse per-section date overrides from GET
+    section_overrides = {}
+    for key, val in request.GET.items():
+        if key.startswith('section_date_') and val:
+            try:
+                sec_pk = int(key.replace('section_date_', ''))
+                section_overrides[sec_pk] = date.fromisoformat(val)
+            except (ValueError, TypeError):
+                pass
+
     # Generate scheduled dates for preview
     try:
-        task_dicts = generate_tasks_from_template(template_set, project, preview_start)
+        task_dicts = generate_tasks_from_template(template_set, project, preview_start, section_overrides)
     except SchedulingError:
         task_dicts = []
 
     pk_to_scheduled = {d['template_pk']: d for d in task_dicts}
 
     # Build section data with their tasks
-    sections_qs = template_set.sections.prefetch_related('tasks__depends_on').order_by('sort_order', 'id')
+    sections_qs = template_set.sections.select_related('depends_on').prefetch_related('tasks__depends_on').order_by('sort_order', 'id')
     sections = []
     for sec in sections_qs:
         tasks = []
@@ -759,7 +769,8 @@ def template_preview(request, pk, set_pk):
         sections.append({
             'pk': sec.pk,
             'name': sec.name,
-            'depends_on_previous': sec.depends_on_previous,
+            'depends_on': sec.depends_on.pk if sec.depends_on else None,
+            'depends_on_name': sec.depends_on.name if sec.depends_on else None,
             'day_offset': sec.day_offset,
             'tasks': tasks,
             'start': min(task_starts) if task_starts else None,

@@ -83,7 +83,10 @@ function applyTemplate(initialDate) {
         startDate: initialDate,
         loadPreview() {
             if (!this.selectedSetId) return;
-            const url = `/project/{{ project.pk }}/apply-template/${this.selectedSetId}/preview/?start_date=${this.startDate}`;
+            let url = `/project/{{ project.pk }}/apply-template/${this.selectedSetId}/preview/?start_date=${this.startDate}`;
+            document.querySelectorAll('#template-preview-panel input[name^="section_date_"]').forEach(input => {
+                if (input.value) url += `&${input.name}=${input.value}`;
+            });
             htmx.ajax('GET', url, { target: '#template-preview-panel', swap: 'innerHTML' });
         },
     };

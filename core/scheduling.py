@@ -96,7 +96,7 @@ def generate_tasks_from_template(
 
     Section scheduling rules:
       - If section has a manual override date (from section_overrides), use that
-      - Elif depends_on_previous=True, start day after previous section's last task ends
+      - Elif depends_on is set, start day after the referenced section's last task ends
       - Else start at start_date + day_offset
 
     Within each section, tasks are scheduled via Kahn's topological sort.
@@ -105,7 +105,7 @@ def generate_tasks_from_template(
 
     sections = list(
         template_set.sections
-        .prefetch_related('tasks__depends_on')
+        .prefetch_related('tasks__depends_on', 'depends_on')
         .order_by('sort_order', 'id')
     )
 
@@ -115,14 +115,14 @@ def generate_tasks_from_template(
     stage_map = {s.name.lower(): s for s in project.stages.all()}
 
     all_results = []
-    prev_section_end = None
+    section_ends = {}  # Track end date of each section for dependencies
 
     for sec in sections:
         # Determine section start date
         if sec.pk in section_overrides:
             section_start = section_overrides[sec.pk]
-        elif sec.depends_on_previous and prev_section_end is not None:
-            section_start = prev_section_end + timedelta(days=1)
+        elif sec.depends_on and sec.depends_on.pk in section_ends:
+            section_start = section_ends[sec.depends_on.pk] + timedelta(days=1)
         else:
             section_start = start_date + timedelta(days=sec.day_offset)
 
@@ -132,6 +132,6 @@ def generate_tasks_from_template(
         )
 
         all_results.extend(section_results)
-        prev_section_end = section_end
+        section_ends[sec.pk] = section_end
 
     return all_results

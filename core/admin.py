@@ -75,7 +75,7 @@ class NREItemAdmin(admin.ModelAdmin):
 class SectionTemplateInline(admin.TabularInline):
     model = SectionTemplate
     extra = 1
-    fields = ['sort_order', 'name', 'depends_on_previous', 'day_offset']
+    fields = ['sort_order', 'name', 'depends_on', 'day_offset']
 
 
 class TaskTemplateInline(admin.TabularInline):
@@ -96,9 +96,9 @@ class TaskTemplateSetAdmin(admin.ModelAdmin):
 
 @admin.register(SectionTemplate)
 class SectionTemplateAdmin(admin.ModelAdmin):
-    list_display = ['name', 'template_set', 'sort_order', 'depends_on_previous', 'day_offset', 'task_count']
+    list_display = ['name', 'template_set', 'sort_order', 'depends_on', 'day_offset', 'task_count']
     list_filter = ['template_set']
-    list_editable = ['sort_order', 'depends_on_previous', 'day_offset']
+    list_editable = ['sort_order', 'depends_on', 'day_offset']
     inlines = [TaskTemplateInline]
 
     @admin.display(description='Tasks')

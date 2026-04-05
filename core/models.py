@@ -394,13 +394,17 @@ class SectionTemplate(models.Model):
     )
     name = models.CharField(max_length=200)
     sort_order = models.IntegerField(default=0)
-    depends_on_previous = models.BooleanField(
-        default=False,
-        help_text='If true, this section starts after all tasks in the previous section finish.',
+    depends_on = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='dependent_sections',
+        help_text='If set, this section starts after the selected section finishes.',
     )
     day_offset = models.IntegerField(
         default=0,
-        help_text='Days from project start date. Ignored if depends_on_previous is true.',
+        help_text='Days from project start date. Ignored if depends_on is set.',
     )
 
     class Meta:
