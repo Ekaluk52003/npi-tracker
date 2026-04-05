@@ -207,6 +207,19 @@ class GateChecklistItem(models.Model):
         return self.label
 
 
+class ProjectSection(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='sections')
+    name = models.CharField(max_length=200)
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'id']
+        unique_together = ['project', 'name']
+
+    def __str__(self):
+        return self.name
+
+
 class Task(models.Model):
     STATUS_CHOICES = [
         ('open', 'Open'), ('inprogress', 'In Progress'),
@@ -215,7 +228,7 @@ class Task(models.Model):
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks')
     name = models.CharField(max_length=300)
-    section = models.CharField(max_length=200, default='General')
+    section = models.ForeignKey(ProjectSection, on_delete=models.CASCADE, related_name='tasks')
     remark = models.TextField(blank=True)
     who = models.CharField(max_length=200, default='TBD')
     days = models.IntegerField(default=1)
@@ -226,10 +239,14 @@ class Task(models.Model):
     sort_order = models.IntegerField(default=0)
 
     class Meta:
-        ordering = ['sort_order', 'start']
+        ordering = ['section__sort_order', 'start']
 
     def __str__(self):
         return self.name
+
+    @property
+    def section_name(self):
+        return self.section.name
 
     @property
     def status_label(self):

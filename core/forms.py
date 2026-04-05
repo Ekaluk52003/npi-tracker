@@ -1,5 +1,5 @@
 from django import forms
-from .models import Project, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet
+from .models import Project, ProjectSection, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet
 
 
 input_cls = 'w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none'
@@ -26,7 +26,7 @@ class TaskForm(forms.ModelForm):
         fields = ['name', 'section', 'remark', 'who', 'days', 'start', 'end', 'status', 'stage']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. PCB Production'}),
-            'section': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Pre-req: Main PCBA'}),
+            'section': forms.Select(attrs={'class': select_cls}),
             'remark': forms.Textarea(attrs={'class': textarea_cls, 'placeholder': 'Supplier info, dependencies, notes…', 'rows': 2}),
             'who': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Axis, SVI'}),
             'days': forms.NumberInput(attrs={'class': input_cls, 'min': 1}),
@@ -39,8 +39,10 @@ class TaskForm(forms.ModelForm):
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
         if project:
+            self.fields['section'].queryset = project.sections.all()
             self.fields['stage'].queryset = project.stages.all()
         elif self.instance and self.instance.pk:
+            self.fields['section'].queryset = self.instance.project.sections.all()
             self.fields['stage'].queryset = self.instance.project.stages.all()
         self.fields['stage'].empty_label = '— None —'
 
@@ -146,6 +148,16 @@ class GateChecklistItemForm(forms.ModelForm):
         fields = ['label']
         widgets = {
             'label': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'Add checklist item…'}),
+        }
+
+
+class ProjectSectionForm(forms.ModelForm):
+    class Meta:
+        model = ProjectSection
+        fields = ['name', 'sort_order']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Pre-req: Main PCBA'}),
+            'sort_order': forms.NumberInput(attrs={'class': input_cls, 'min': 0}),
         }
 
 

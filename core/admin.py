@@ -1,12 +1,17 @@
 from django.contrib import admin
 from .models import (
-    Project, BuildStage, GateChecklistItem, Task, Issue, TeamMember, NREItem,
+    Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem,
     TaskTemplateSet, SectionTemplate, TaskTemplate,
 )
 
 
 class BuildStageInline(admin.TabularInline):
     model = BuildStage
+    extra = 0
+
+
+class ProjectSectionInline(admin.TabularInline):
+    model = ProjectSection
     extra = 0
 
 
@@ -23,7 +28,7 @@ class IssueInline(admin.TabularInline):
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     list_display = ['name', 'customer', 'pgm', 'start_date', 'end_date']
-    inlines = [BuildStageInline, TaskInline, IssueInline]
+    inlines = [BuildStageInline, ProjectSectionInline, TaskInline, IssueInline]
 
 
 @admin.register(BuildStage)
@@ -35,6 +40,13 @@ class BuildStageAdmin(admin.ModelAdmin):
 @admin.register(GateChecklistItem)
 class GateChecklistItemAdmin(admin.ModelAdmin):
     list_display = ['label', 'stage', 'checked']
+
+
+@admin.register(ProjectSection)
+class ProjectSectionAdmin(admin.ModelAdmin):
+    list_display = ['name', 'project', 'sort_order']
+    list_filter = ['project']
+    list_editable = ['sort_order']
 
 
 @admin.register(Task)

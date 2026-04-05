@@ -6,8 +6,8 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 from django.db import transaction
-from .models import Project, BuildStage, GateChecklistItem, Task, Issue, TeamMember, NREItem, TaskTemplateSet
-from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ApplyTemplateForm
+from .models import Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem, TaskTemplateSet
+from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ProjectSectionForm, ApplyTemplateForm
 from .scheduling import generate_tasks_from_template, SchedulingError
 
 
@@ -35,6 +35,7 @@ def _project_ctx(project, tab, extra=None):
         'open_issue_count': project.issues.exclude(status='resolved').count(),
         'nre_no_po_count': project.nre_items.filter(po_status='no-po').count(),
         'project_stages': list(project.stages.all()),
+        'project_sections': list(project.sections.all()),
     }
     if extra:
         ctx.update(extra)
@@ -62,14 +63,14 @@ def _fmt_volume(val):
 
 
 def _gantt_data_for_project(project, stage_filter=''):
-    tasks = project.tasks.select_related('stage').all()
+    tasks = project.tasks.select_related('stage', 'section').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
-    for section, group in groupby(tasks, key=lambda t: t.section):
+    for section, group in groupby(tasks, key=lambda t: t.section_id):
         task_list = list(group)
         sections.append({
-            'section': section,
+            'section': task_list[0].section.name if task_list else '',
             'tasks': [{
                 'id': t.pk,
                 'name': t.name,
@@ -195,14 +196,15 @@ def project_gantt(request, pk):
 
 
 def project_list(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'stages'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__section', 'stages'), pk=pk)
     stage_filter = request.GET.get('stage', '')
-    tasks = project.tasks.select_related('stage').all()
+    tasks = project.tasks.select_related('stage', 'section').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
-    for section, group in groupby(tasks, key=lambda t: t.section):
-        sections.append({'section': section, 'tasks': list(group)})
+    for section_id, group in groupby(tasks, key=lambda t: t.section_id):
+        task_list = list(group)
+        sections.append({'section': task_list[0].section.name, 'tasks': task_list})
     ctx = _project_ctx(project, 'list', {
         'sections': sections,
         'stage_filter': stage_filter,
@@ -211,20 +213,20 @@ def project_list(request, pk):
 
 
 def project_milestones(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'stages'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__section', 'stages'), pk=pk)
     stage_filter = request.GET.get('stage', '')
-    tasks = project.tasks.select_related('stage').all()
+    tasks = project.tasks.select_related('stage', 'section').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
-    for section, group in groupby(tasks, key=lambda t: t.section):
+    for section_id, group in groupby(tasks, key=lambda t: t.section_id):
         task_list = list(group)
         total = len(task_list)
         done = sum(1 for t in task_list if t.status == 'done')
         starts = [t.start for t in task_list]
         ends = [t.end for t in task_list]
         sections.append({
-            'section': section,
+            'section': task_list[0].section.name,
             'tasks': task_list,
             'total': total,
             'done': done,
@@ -326,6 +328,50 @@ def project_create(request):
     else:
         form = ProjectForm()
     return render(request, 'forms/_project_form.html', {'form': form})
+
+
+# ── Section CRUD ────────────────────────────────────────────────────────
+
+def section_create(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    if request.method == 'POST':
+        form = ProjectSectionForm(request.POST)
+        if form.is_valid():
+            section = form.save(commit=False)
+            section.project = project
+            if not section.sort_order:
+                section.sort_order = project.sections.count()
+            section.save()
+            if request.htmx:
+                return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
+            return redirect('project-gantt', pk=pk)
+    else:
+        form = ProjectSectionForm(initial={'sort_order': project.sections.count()})
+    return render(request, 'forms/_section_form.html', {'form': form, 'project': project})
+
+
+def section_edit(request, pk, sid):
+    project = get_object_or_404(Project, pk=pk)
+    section = get_object_or_404(ProjectSection, pk=sid, project=project)
+    if request.method == 'POST':
+        form = ProjectSectionForm(request.POST, instance=section)
+        if form.is_valid():
+            form.save()
+            if request.htmx:
+                return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
+            return redirect('project-gantt', pk=pk)
+    else:
+        form = ProjectSectionForm(instance=section)
+    return render(request, 'forms/_section_form.html', {'form': form, 'project': project, 'section': section})
+
+
+def section_delete(request, pk, sid):
+    project = get_object_or_404(Project, pk=pk)
+    section = get_object_or_404(ProjectSection, pk=sid, project=project)
+    section.delete()
+    if request.htmx:
+        return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
+    return redirect('project-gantt', pk=pk)
 
 
 # ── Task CRUD ────────────────────────────────────────────────────────────
@@ -624,11 +670,25 @@ def template_apply(request, pk):
                 with transaction.atomic():
                     if replace_existing:
                         project.tasks.all().delete()
+
+                    # Create ProjectSections from template section names
+                    section_cache = {}
+                    base_section_order = project.sections.count()
+                    for d in task_dicts:
+                        sec_name = d['section']
+                        if sec_name not in section_cache:
+                            ps, created = ProjectSection.objects.get_or_create(
+                                project=project, name=sec_name,
+                                defaults={'sort_order': base_section_order + len(section_cache)},
+                            )
+                            section_cache[sec_name] = ps
+
                     base_sort = project.tasks.count()
                     tasks_to_create = []
                     for i, d in enumerate(task_dicts):
                         d.pop('template_pk', None)
                         d['sort_order'] = base_sort + i
+                        d['section'] = section_cache[d['section']]
                         tasks_to_create.append(
                             Task(project=project, **d)
                         )

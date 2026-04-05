@@ -18,6 +18,11 @@ urlpatterns = [
     # Project CRUD
     path('project/create/', views.project_create, name='project-create'),
 
+    # Section CRUD
+    path('project/<int:pk>/sections/create/', views.section_create, name='section-create'),
+    path('project/<int:pk>/sections/<int:sid>/edit/', views.section_edit, name='section-edit'),
+    path('project/<int:pk>/sections/<int:sid>/delete/', views.section_delete, name='section-delete'),
+
     # Task CRUD
     path('project/<int:pk>/tasks/create/', views.task_create, name='task-create'),
     path('project/<int:pk>/tasks/<int:tid>/edit/', views.task_edit, name='task-edit'),
