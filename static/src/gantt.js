@@ -28,9 +28,9 @@ function getISOWeek(d) {
 function fmtDateShort(d) {
   const dt = new Date(d);
   const dd = String(dt.getDate()).padStart(2, '0');
-  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const mon = dt.toLocaleDateString('en-US', { month: 'short' });
   const yy = String(dt.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
+  return `${dd} ${mon} ${yy}`;
 }
 
 function getDayNumbers(weekStart) {
