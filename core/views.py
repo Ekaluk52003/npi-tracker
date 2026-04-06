@@ -751,6 +751,11 @@ def template_apply(request, pk):
                     tasks_to_create.append(Task(project=project, **d))
                 Task.objects.bulk_create(tasks_to_create)
 
+                # Update planned_date on each stage that was applied
+                for stage, ts, stage_start in stage_template_pairs:
+                    stage.planned_date = stage_start
+                    stage.save(update_fields=['planned_date'])
+
         except SchedulingError as exc:
             return _render_form(
                 error=str(exc),
