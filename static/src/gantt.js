@@ -70,9 +70,9 @@ function stageTag(stage, color) {
 function getMondayAligned(minDate, maxDate) {
   const weeks = [];
   const start = getMonday(minDate);
-  start.setDate(start.getDate() - 7);
+  start.setDate(start.getDate() - 14); // 2 weeks padding before
   const end = getMonday(maxDate);
-  end.setDate(end.getDate() + 14);
+  end.setDate(end.getDate() + 42); // 6 weeks padding after for dragging
   let cur = new Date(start);
   while (cur <= end) {
     weeks.push(new Date(cur));
@@ -236,9 +236,57 @@ export function renderProjectGantt(containerId, dataId) {
   // Drag and resize handlers
   let draggedBar = null, dragStartX = 0, dragStartLeft = 0, isResize = false;
   let selectedBars = new Set(); // Multi-select tracking
+  let maxGridX = weeks.length * WK_W; // Track current grid bounds
+  let dragGuideLines = null; // Guide lines during drag
 
   function pxToDate(px) {
     return new Date(weeks[0].getTime() + px * 7 * 86400000 / WK_W);
+  }
+
+  function createDragGuides() {
+    // Create container for guide lines and date tooltip
+    const guides = document.createElement('div');
+    guides.id = 'drag-guides';
+    guides.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:5';
+    return guides;
+  }
+
+  function updateDragGuides(bar, guides) {
+    const grScroll = document.getElementById('gr-scroll');
+    if (!grScroll) return;
+
+    const barLeft = parseFloat(bar.style.left);
+    const barWidth = parseFloat(bar.style.width);
+    const barRight = barLeft + barWidth;
+
+    // Clear existing lines
+    guides.innerHTML = '';
+
+    // Start date line
+    const startLine = document.createElement('div');
+    startLine.style.cssText = `position:absolute;left:${barLeft}px;top:0;width:1px;height:100%;background:var(--accent);opacity:0.7;z-index:5`;
+    guides.appendChild(startLine);
+
+    // End date line
+    const endLine = document.createElement('div');
+    endLine.style.cssText = `position:absolute;left:${barRight}px;top:0;width:1px;height:100%;background:var(--accent);opacity:0.4;z-index:5`;
+    guides.appendChild(endLine);
+
+    // Start date tooltip
+    const startDate = pxToDate(barLeft);
+    const startLabel = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const startTooltip = document.createElement('div');
+    startTooltip.style.cssText = `position:absolute;left:${barLeft}px;top:-24px;transform:translateX(-50%);background:var(--accent);color:white;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;white-space:nowrap;z-index:6`;
+    startTooltip.textContent = startLabel;
+    guides.appendChild(startTooltip);
+
+    // End date tooltip
+    const endDate = pxToDate(barRight);
+    const endLabel = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endTooltip = document.createElement('div');
+    endTooltip.style.cssText = `position:absolute;left:${barRight}px;top:-24px;transform:translateX(-50%);background:var(--text-muted);color:var(--bg);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;white-space:nowrap;z-index:6;opacity:0.7`;
+    endTooltip.textContent = endLabel;
+    guides.appendChild(endTooltip);
   }
 
   function dateToString(d) {
@@ -335,19 +383,121 @@ export function renderProjectGantt(containerId, dataId) {
       if (isResize) {
         const newWidth = Math.max(16, dragStartLeft + deltaX);
         draggedBar.style.width = newWidth + 'px';
+
+        // Extend grid if resizing beyond bounds
+        const newRight = parseFloat(draggedBar.style.left) + newWidth;
+        if (newRight > maxGridX) {
+          expandGridWidth(newRight);
+        }
+
+        // Update guide lines for resize
+        if (!dragGuideLines) {
+          dragGuideLines = createDragGuides();
+          const container = gr?.querySelector('[style*="position:relative"]');
+          if (container && container.children.length > 0) {
+            container.insertBefore(dragGuideLines, container.firstChild);
+          }
+        }
+        updateDragGuides(draggedBar, dragGuideLines);
       } else {
         // Move dragged bar and all selected bars
         const barsToMove = selectedBars.size > 0 ? selectedBars : new Set([draggedBar]);
+        let maxRight = 0;
         barsToMove.forEach(bar => {
           const barStartLeft = parseFloat(bar.dataset.startLeft || bar.style.left);
           const newLeft = barStartLeft + deltaX;
           bar.style.left = newLeft + 'px';
+          const barRight = newLeft + parseFloat(bar.style.width);
+          maxRight = Math.max(maxRight, barRight);
         });
+
+        // Extend grid if dragging beyond bounds
+        if (maxRight > maxGridX) {
+          expandGridWidth(maxRight);
+        }
+
+        // Update guide lines for the primary dragged bar
+        if (!dragGuideLines) {
+          dragGuideLines = createDragGuides();
+          const container = gr?.querySelector('[style*="position:relative"]');
+          if (container && container.children.length > 0) {
+            container.insertBefore(dragGuideLines, container.firstChild);
+          }
+        }
+        updateDragGuides(draggedBar, dragGuideLines);
       }
     });
 
+    function expandGridWidth(newMinWidth) {
+      const grScroll = document.getElementById('gr-scroll');
+      if (!grScroll) return;
+
+      const container = grScroll.querySelector('[style*="position:relative"]');
+      if (!container) return;
+
+      // Add more weeks to the grid
+      const newWeeksNeeded = Math.ceil((newMinWidth - maxGridX) / WK_W) + 2;
+      for (let i = 0; i < newWeeksNeeded; i++) {
+        const newWeek = new Date(weeks[weeks.length - 1]);
+        newWeek.setDate(newWeek.getDate() + 7);
+        weeks.push(newWeek);
+      }
+
+      maxGridX = weeks.length * WK_W;
+
+      // Update all timeline rows with new width
+      const timelineRows = container.querySelectorAll('.timeline-row');
+      timelineRows.forEach(row => {
+        row.style.minWidth = maxGridX + 'px';
+      });
+
+      // Add new cells to existing rows
+      const cellsToAdd = newWeeksNeeded;
+      timelineRows.forEach(row => {
+        const isSection = row.classList.contains('section-row');
+        if (isSection) {
+          for (let i = 0; i < cellsToAdd; i++) {
+            const newCell = document.createElement('div');
+            newCell.className = 'wk-cell';
+            row.appendChild(newCell);
+          }
+        } else {
+          // Find the existing cells container and add new ones before the bars
+          const cells = row.querySelectorAll('.wk-cell');
+          const insertBefore = row.querySelector('.gantt-bar') || row.firstChild;
+          for (let i = 0; i < cellsToAdd; i++) {
+            const newCell = document.createElement('div');
+            newCell.className = 'wk-cell';
+            if (insertBefore) {
+              row.insertBefore(newCell, insertBefore);
+            } else {
+              row.appendChild(newCell);
+            }
+          }
+        }
+      });
+
+      // Update timeline header
+      const timelineHeader = gr?.querySelector('.timeline-header');
+      if (timelineHeader) {
+        timelineHeader.style.minWidth = maxGridX + 'px';
+        // Add new week header cells
+        const newHeaderHtml = weeks.slice(-newWeeksNeeded).map((w, i) => {
+          const dayNums = getDayNumbers(w).map(n => `<span class="wk-day-num">${n}</span>`).join('');
+          return `<div class="wk-header-cell">Wk${getISOWeek(w)}<span class="wk-date">${fmtDateShort(w)}</span><div class="wk-day-row">${dayNums}</div></div>`;
+        }).join('');
+        timelineHeader.innerHTML += newHeaderHtml;
+      }
+    }
+
     document.addEventListener('mouseup', async (e) => {
       if (!draggedBar) return;
+
+      // Remove guide lines
+      if (dragGuideLines && dragGuideLines.parentNode) {
+        dragGuideLines.parentNode.removeChild(dragGuideLines);
+      }
+      dragGuideLines = null;
 
       const barsToSave = selectedBars.size > 0 ? selectedBars : new Set([draggedBar]);
       draggedBar = null;
