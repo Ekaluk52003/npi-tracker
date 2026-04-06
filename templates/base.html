@@ -1,4 +1,4 @@
-{% load django_vite %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -7,8 +7,8 @@
     <title>{% block title %}NPI Tracker{% endblock %}</title>
     <style>[x-cloak] { display: none !important; }</style>
     <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('npi-theme') || 'dark')</script>
-    {% vite_hmr_client %}
-    {% vite_asset 'static/src/main.js' %}
+    <link rel="stylesheet" href="{% static 'assets/main-BeeMBKME.css' %}">
+    <script src="{% static 'assets/main-DtuYroGc.js' %}" defer></script>
 </head>
 <body class="bg-[var(--bg)] text-[var(--text)] min-h-screen" x-data="{ sidebarOpen: false }" x-cloak>
 

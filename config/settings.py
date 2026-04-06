@@ -15,8 +15,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_vite',
-    'django_htmx',
     'core',
 ]
 
@@ -29,7 +27,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django_htmx.middleware.HtmxMiddleware',
+    'core.middleware.HtmxMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -89,19 +87,6 @@ STATICFILES_DIRS = [
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-STORAGES = {
-    'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
-    },
-}
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-DJANGO_VITE = {
-    'default': {
-        'dev_mode': DEBUG,
-        'dev_server_host': 'localhost',
-        'dev_server_port': 5174,
-        'manifest_path': BASE_DIR / 'assets' / 'manifest.json',
-    }
-}
