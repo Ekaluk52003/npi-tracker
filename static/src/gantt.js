@@ -235,6 +235,7 @@ export function renderProjectGantt(containerId, dataId) {
 
   // Drag and resize handlers
   let draggedBar = null, dragStartX = 0, dragStartLeft = 0, isResize = false;
+  let selectedBars = new Set(); // Multi-select tracking
 
   function pxToDate(px) {
     return new Date(weeks[0].getTime() + px * 7 * 86400000 / WK_W);
@@ -268,12 +269,47 @@ export function renderProjectGantt(containerId, dataId) {
     return cookieValue;
   }
 
+  function toggleBarSelection(bar, multiSelect) {
+    if (multiSelect) {
+      if (selectedBars.has(bar)) {
+        selectedBars.delete(bar);
+        bar.classList.remove('gantt-bar-selected');
+      } else {
+        selectedBars.add(bar);
+        bar.classList.add('gantt-bar-selected');
+      }
+    } else {
+      selectedBars.forEach(b => b.classList.remove('gantt-bar-selected'));
+      selectedBars.clear();
+      if (!selectedBars.has(bar)) {
+        selectedBars.add(bar);
+        bar.classList.add('gantt-bar-selected');
+      }
+    }
+  }
+
   if (gr) {
     gr.addEventListener('mousedown', (e) => {
       const bar = e.target.closest('.gantt-bar');
       if (!bar) return;
 
       const isResizeHandle = e.target.classList.contains('gantt-resize-handle');
+      const isMultiSelect = e.shiftKey || e.ctrlKey || e.metaKey;
+
+      // Handle selection
+      if (!isResizeHandle && isMultiSelect) {
+        toggleBarSelection(bar, true);
+        e.preventDefault();
+        return;
+      }
+
+      // If clicking bar without multi-select, clear other selections
+      if (!isResizeHandle && !isMultiSelect) {
+        if (!selectedBars.has(bar)) {
+          toggleBarSelection(bar, false);
+        }
+      }
+
       draggedBar = bar;
       dragStartX = e.clientX;
       dragStartLeft = parseFloat(bar.style.left);
@@ -281,6 +317,12 @@ export function renderProjectGantt(containerId, dataId) {
 
       if (isResize) {
         dragStartLeft = parseFloat(bar.style.width);
+      } else {
+        // Store initial positions for all bars that will move
+        const barsToMove = selectedBars.size > 0 ? selectedBars : new Set([draggedBar]);
+        barsToMove.forEach(b => {
+          b.dataset.startLeft = parseFloat(b.style.left);
+        });
       }
 
       e.preventDefault();
@@ -294,61 +336,75 @@ export function renderProjectGantt(containerId, dataId) {
         const newWidth = Math.max(16, dragStartLeft + deltaX);
         draggedBar.style.width = newWidth + 'px';
       } else {
-        const newLeft = dragStartLeft + deltaX;
-        draggedBar.style.left = newLeft + 'px';
+        // Move dragged bar and all selected bars
+        const barsToMove = selectedBars.size > 0 ? selectedBars : new Set([draggedBar]);
+        barsToMove.forEach(bar => {
+          const barStartLeft = parseFloat(bar.dataset.startLeft || bar.style.left);
+          const newLeft = barStartLeft + deltaX;
+          bar.style.left = newLeft + 'px';
+        });
       }
     });
 
     document.addEventListener('mouseup', async (e) => {
       if (!draggedBar) return;
 
-      const taskId = draggedBar.dataset.taskId;
-      const taskName = draggedBar.dataset.taskName;
-      const newLeft = parseFloat(draggedBar.style.left);
-      const newWidth = parseFloat(draggedBar.style.width);
-
-      const startDate = pxToDate(newLeft);
-      const endDate = pxToDate(newLeft + newWidth);
-      const startStr = dateToString(startDate);
-      const endStr = dateToString(endDate);
-
+      const barsToSave = selectedBars.size > 0 ? selectedBars : new Set([draggedBar]);
       draggedBar = null;
 
-      // Save to backend
-      try {
-        const csrftoken = getCookie('csrftoken');
-        const response = await fetch(`/api/tasks/${taskId}/`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrftoken || ''
-          },
-          body: JSON.stringify({
-            start: startStr,
-            end: endStr
-          })
-        });
-        if (response.ok) {
-          // Update the task panel with new dates
-          const taskRow = gl?.querySelector(`[data-task-id="${taskId}"]`);
-          if (taskRow) {
-            const startCell = taskRow.querySelector('.tc-start');
-            const endCell = taskRow.querySelector('.tc-end');
-            if (startCell) {
-              startCell.textContent = formatDateDisplay(startStr);
-              startCell.dataset.date = startStr;
+      // Save all moved bars
+      const savePromises = Array.from(barsToSave).map(async (bar) => {
+        const taskId = bar.dataset.taskId;
+        const taskName = bar.dataset.taskName;
+        const newLeft = parseFloat(bar.style.left);
+        const newWidth = parseFloat(bar.style.width);
+
+        const startDate = pxToDate(newLeft);
+        const endDate = pxToDate(newLeft + newWidth);
+        const startStr = dateToString(startDate);
+        const endStr = dateToString(endDate);
+
+        try {
+          const csrftoken = getCookie('csrftoken');
+          const response = await fetch(`/api/tasks/${taskId}/`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrftoken || ''
+            },
+            body: JSON.stringify({
+              start: startStr,
+              end: endStr
+            })
+          });
+          if (response.ok) {
+            // Update the task panel with new dates
+            const taskRow = gl?.querySelector(`[data-task-id="${taskId}"]`);
+            if (taskRow) {
+              const startCell = taskRow.querySelector('.tc-start');
+              const endCell = taskRow.querySelector('.tc-end');
+              if (startCell) {
+                startCell.textContent = formatDateDisplay(startStr);
+                startCell.dataset.date = startStr;
+              }
+              if (endCell) {
+                endCell.textContent = formatDateDisplay(endStr);
+                endCell.dataset.date = endStr;
+              }
             }
-            if (endCell) {
-              endCell.textContent = formatDateDisplay(endStr);
-              endCell.dataset.date = endStr;
-            }
+          } else {
+            console.error(`Failed to save task ${taskName}:`, response.statusText);
           }
-        } else {
-          console.error(`Failed to save task ${taskName}:`, response.statusText);
+        } catch (err) {
+          console.error(`Error saving task ${taskName}:`, err);
         }
-      } catch (err) {
-        console.error(`Error saving task ${taskName}:`, err);
-      }
+      });
+
+      await Promise.all(savePromises);
+
+      // Clear selection after save
+      selectedBars.forEach(bar => bar.classList.remove('gantt-bar-selected'));
+      selectedBars.clear();
     });
   }
 

@@ -289,6 +289,7 @@ body {
 .gantt-bar .issue-flag { position: absolute; top: -5px; right: -3px; width: 10px; height: 10px; background: #ef4444; border-radius: 50%; border: 1px solid var(--bg); }
 .gantt-resize-handle:hover { background: rgba(255,255,255,0.3) !important; }
 .gantt-bar:active { opacity: 0.9; }
+.gantt-bar-selected { outline: 2px solid #fff; outline-offset: -1px; opacity: 0.9; box-shadow: 0 0 0 3px rgba(79,126,248,0.4) !important; }
 .today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); opacity: 0.5; z-index: 10; pointer-events: none; }
 .gantt-stage-marker { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 2px dashed; z-index: 4; pointer-events: none; opacity: 0.6; }
 @media (max-width: 1024px) {
