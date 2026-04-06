@@ -160,20 +160,3 @@ class ProjectSectionForm(forms.ModelForm):
             'sort_order': forms.NumberInput(attrs={'class': input_cls, 'min': 0}),
         }
 
-
-class ApplyTemplateForm(forms.Form):
-    template_set = forms.ModelChoiceField(
-        queryset=TaskTemplateSet.objects.all(),
-        empty_label='— Select a template —',
-        widget=forms.Select(attrs={'class': select_cls}),
-        label='Template Set',
-    )
-    start_date = forms.DateField(
-        widget=forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
-        label='Start Date',
-    )
-    replace_existing = forms.BooleanField(
-        required=False,
-        label='Replace existing tasks',
-        initial=False,
-    )

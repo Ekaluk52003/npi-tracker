@@ -9,7 +9,7 @@
             </span>
         </div>
         {% if sec.start and sec.end %}
-        <div class="text-[11px] text-[var(--text-muted)] mb-2">{{ sec.start|date:"M d" }} &rarr; {{ sec.end|date:"M d, Y" }}</div>
+        <div class="text-[11px] text-[var(--text-muted)] mb-2">{{ sec.start|date:"d M y" }} &rarr; {{ sec.end|date:"d M y" }}</div>
         {% endif %}
         <div class="text-xs text-[var(--text-muted)] mb-1.5">{{ sec.done }}/{{ sec.total }} tasks done</div>
         <div class="w-full h-1.5 bg-[var(--surface2)] rounded-full mb-3">

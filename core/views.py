@@ -7,7 +7,7 @@ from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from .models import Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem, TaskTemplateSet
-from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ProjectSectionForm, ApplyTemplateForm
+from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ProjectSectionForm
 from .scheduling import generate_tasks_from_template, SchedulingError
 
 
@@ -650,81 +650,119 @@ def gate_toggle(request, pk, sid, gid):
 
 def template_apply(request, pk):
     project = get_object_or_404(Project, pk=pk)
-    has_existing_tasks = project.tasks.exists()
+    stages = list(project.stages.order_by('sort_order'))
     template_sets = TaskTemplateSet.objects.all()
+    has_existing_tasks = project.tasks.exists()
 
-    if request.method == 'POST':
-        form = ApplyTemplateForm(request.POST)
-        if form.is_valid():
-            template_set = form.cleaned_data['template_set']
-            start_date = form.cleaned_data['start_date']
-            replace_existing = form.cleaned_data['replace_existing']
-
-            # Parse per-section date overrides from POST
-            section_overrides = {}
-            for key, val in request.POST.items():
-                if key.startswith('section_date_') and val:
-                    try:
-                        sec_pk = int(key.replace('section_date_', ''))
-                        section_overrides[sec_pk] = date.fromisoformat(val)
-                    except (ValueError, TypeError):
-                        pass
-
-            try:
-                task_dicts = generate_tasks_from_template(
-                    template_set, project, start_date, section_overrides
-                )
-
-                with transaction.atomic():
-                    if replace_existing:
-                        project.tasks.all().delete()
-
-                    # Create ProjectSections from template section names
-                    section_cache = {}
-                    base_section_order = project.sections.count()
-                    for d in task_dicts:
-                        sec_name = d['section']
-                        if sec_name not in section_cache:
-                            ps, created = ProjectSection.objects.get_or_create(
-                                project=project, name=sec_name,
-                                defaults={'sort_order': base_section_order + len(section_cache)},
-                            )
-                            section_cache[sec_name] = ps
-
-                    base_sort = project.tasks.count()
-                    tasks_to_create = []
-                    for i, d in enumerate(task_dicts):
-                        d.pop('template_pk', None)
-                        d['sort_order'] = base_sort + i
-                        d['section'] = section_cache[d['section']]
-                        tasks_to_create.append(
-                            Task(project=project, **d)
-                        )
-                    Task.objects.bulk_create(tasks_to_create)
-            except SchedulingError as exc:
-                form.add_error(None, str(exc))
-                return render(request, 'forms/_apply_template_form.html', {
-                    'form': form, 'project': project,
-                    'has_existing_tasks': has_existing_tasks,
-                    'template_sets': template_sets,
-                })
-
-            if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/gantt/'})
-            return redirect('project-gantt', pk=pk)
-
+    def _render_form(error=None, selected_templates=None, stage_dates=None):
         return render(request, 'forms/_apply_template_form.html', {
-            'form': form, 'project': project,
-            'has_existing_tasks': has_existing_tasks,
+            'project': project,
+            'stages': stages,
             'template_sets': template_sets,
+            'has_existing_tasks': has_existing_tasks,
+            'error': error,
+            'selected_templates_json': json.dumps(
+                {str(k): str(v) for k, v in (selected_templates or {}).items()}
+            ),
+            'stage_dates_json': json.dumps(
+                {str(k): str(v) for k, v in (stage_dates or {}).items()}
+            ),
         })
 
-    form = ApplyTemplateForm(initial={'start_date': project.start_date})
-    return render(request, 'forms/_apply_template_form.html', {
-        'form': form, 'project': project,
-        'has_existing_tasks': has_existing_tasks,
-        'template_sets': template_sets,
-    })
+    if request.method == 'POST':
+        replace_existing = request.POST.get('replace_existing') == 'true'
+
+        # Collect per-stage template + start date selections
+        stage_template_pairs = []   # (stage, template_set, start_date)
+        selected_templates = {}
+        stage_dates = {}
+
+        for stage in stages:
+            set_pk_str = request.POST.get(f'stage_{stage.pk}_template', '')
+            date_str = request.POST.get(f'stage_{stage.pk}_start_date', '')
+            selected_templates[stage.pk] = set_pk_str
+            stage_dates[stage.pk] = date_str
+
+            if set_pk_str:
+                try:
+                    ts = TaskTemplateSet.objects.get(pk=int(set_pk_str))
+                    try:
+                        stage_start = date.fromisoformat(date_str) if date_str else None
+                    except ValueError:
+                        stage_start = None
+                    stage_template_pairs.append((stage, ts, stage_start))
+                except (TaskTemplateSet.DoesNotExist, ValueError):
+                    pass
+
+        if not stage_template_pairs:
+            return _render_form(
+                error='Please select at least one template set for a stage.',
+                selected_templates=selected_templates,
+                stage_dates=stage_dates,
+            )
+
+        missing = [s.name for s, ts, d in stage_template_pairs if d is None]
+        if missing:
+            return _render_form(
+                error=f'Please set a start date for: {", ".join(missing)}',
+                selected_templates=selected_templates,
+                stage_dates=stage_dates,
+            )
+
+        # Parse per-section date overrides from POST (section PKs are globally unique)
+        section_overrides = {}
+        for key, val in request.POST.items():
+            if key.startswith('section_date_') and val:
+                try:
+                    sec_pk = int(key.replace('section_date_', ''))
+                    section_overrides[sec_pk] = date.fromisoformat(val)
+                except (ValueError, TypeError):
+                    pass
+
+        try:
+            all_task_dicts = []
+            for stage, ts, stage_start in stage_template_pairs:
+                task_dicts = generate_tasks_from_template(
+                    ts, project, stage_start, section_overrides, forced_stage=stage
+                )
+                all_task_dicts.extend(task_dicts)
+
+            with transaction.atomic():
+                if replace_existing:
+                    project.tasks.all().delete()
+
+                section_cache = {}
+                base_section_order = project.sections.count()
+                for d in all_task_dicts:
+                    sec_name = d['section']
+                    if sec_name not in section_cache:
+                        ps, _ = ProjectSection.objects.get_or_create(
+                            project=project, name=sec_name,
+                            defaults={'sort_order': base_section_order + len(section_cache)},
+                        )
+                        section_cache[sec_name] = ps
+
+                base_sort = project.tasks.count()
+                tasks_to_create = []
+                for i, d in enumerate(all_task_dicts):
+                    d.pop('template_pk', None)
+                    d['sort_order'] = base_sort + i
+                    d['section'] = section_cache[d['section']]
+                    tasks_to_create.append(Task(project=project, **d))
+                Task.objects.bulk_create(tasks_to_create)
+
+        except SchedulingError as exc:
+            return _render_form(
+                error=str(exc),
+                selected_templates=selected_templates,
+                stage_dates=stage_dates,
+            )
+
+        if request.htmx:
+            return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/gantt/'})
+        return redirect('project-gantt', pk=pk)
+
+    return _render_form()
 
 
 def template_preview(request, pk, set_pk):
@@ -766,7 +804,6 @@ def template_preview(request, pk, set_pk):
                 'name': tmpl.name,
                 'who': tmpl.who,
                 'days': tmpl.days,
-                'stage_name': tmpl.stage_name,
                 'start': scheduled['start'] if scheduled else None,
                 'end': scheduled['end'] if scheduled else None,
                 'deps': [d.name for d in tmpl.depends_on.all()],

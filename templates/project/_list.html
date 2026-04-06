@@ -29,8 +29,8 @@
                 </td>
                 <td class="px-3 py-2 text-[var(--text-muted)] text-xs max-w-[200px] truncate">{{ task.remark|truncatewords:10 }}</td>
                 <td class="px-3 py-2"><span class="text-xs px-2 py-0.5 rounded-full bg-[var(--surface2)] text-[var(--text-muted)]">{{ task.who }}</span></td>
-                <td class="px-3 py-2 text-[var(--text-muted)]">{{ task.start|date:"M d" }}</td>
-                <td class="px-3 py-2 text-[var(--text-muted)]">{{ task.end|date:"M d" }}</td>
+                <td class="px-3 py-2 text-[var(--text-muted)]">{{ task.start|date:"d M y" }}</td>
+                <td class="px-3 py-2 text-[var(--text-muted)]">{{ task.end|date:"d M y" }}</td>
                 <td class="px-3 py-2 text-center"><span class="status-dot status-dot-{{ task.status }}">{{ task.status_label }}</span></td>
                 <td class="px-3 py-2 text-center">
                     {% with oi=task.open_issues.count %}

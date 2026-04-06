@@ -1,4 +1,4 @@
-<div x-data="applyTemplate('{{ form.start_date.value|default:'' }}')"
+<div x-data="applyTemplate({{ selected_templates_json|default:'{}' }}, {{ stage_dates_json|default:'{}' }})"
      x-show="open" x-cloak
      class="fixed inset-0 z-[100] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="open = false; document.getElementById('modal-container').innerHTML=''"></div>
@@ -19,43 +19,61 @@
 
         <form hx-post="{% url 'template-apply' project.pk %}"
               hx-target="#modal-container" hx-swap="innerHTML"
-              class="p-5 space-y-5">
+              class="p-5 space-y-4">
             {% csrf_token %}
 
-            {% if form.non_field_errors %}
+            {% if error %}
             <div class="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                {{ error }}
             </div>
             {% endif %}
 
-            <!-- Template Set -->
-            <div>
-                <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">Template Set</label>
-                <select name="template_set" x-model="selectedSetId" @change="loadPreview()"
-                        class="w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none">
-                    <option value="">-- Select a template --</option>
-                    {% for ts in template_sets %}
-                    <option value="{{ ts.pk }}">{{ ts.name }}{% if ts.description %} -- {{ ts.description }}{% endif %}</option>
-                    {% endfor %}
-                </select>
-                {% if form.template_set.errors %}<p class="text-red-400 text-xs mt-1">{{ form.template_set.errors.0 }}</p>{% endif %}
-            </div>
+            <!-- Per-Stage rows -->
+            <div class="space-y-4">
+                <p class="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">Select Template &amp; Start Date per Stage</p>
 
-            <!-- Start Date -->
-            <div>
-                <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">Project Start Date</label>
-                <input type="date" name="start_date" x-model="startDate"
-                       @change="if (selectedSetId) loadPreview()"
-                       value="{{ form.start_date.value|default:'' }}"
-                       class="w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none">
-                {% if form.start_date.errors %}<p class="text-red-400 text-xs mt-1">{{ form.start_date.errors.0 }}</p>{% endif %}
-            </div>
+                {% for stage in stages %}
+                <div class="rounded-lg border border-[var(--border)] overflow-hidden"
+                     @section-date-changed="loadPreview('{{ stage.pk }}')">
 
-            <!-- Preview Panel -->
-            <div id="template-preview-panel"
-                 class="min-h-[80px] rounded-lg border border-[var(--border)] bg-[var(--surface2)]">
-                <p class="text-[var(--text-muted)] text-sm text-center py-8"
-                   x-show="!selectedSetId">Select a template set to preview tasks</p>
+                    <!-- Stage header: color · name · date · template -->
+                    <div class="flex items-center gap-3 px-4 py-3 bg-[var(--surface2)] flex-wrap">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full shrink-0" style="background-color:{{ stage.color }}"></span>
+                        <span class="text-sm font-medium text-[var(--text)] flex-1 min-w-[80px]">
+                            {{ stage.name }}
+                            <span class="text-[var(--text-muted)] font-normal ml-1">{{ stage.full_name }}</span>
+                        </span>
+
+                        <!-- Per-stage start date -->
+                        <input type="date"
+                               name="stage_{{ stage.pk }}_start_date"
+                               x-init="stageDates['{{ stage.pk }}'] = stageDates['{{ stage.pk }}'] || ''; $el.value = stageDates['{{ stage.pk }}']"
+                               @change="stageDates['{{ stage.pk }}'] = $event.target.value; if(stageTemplates['{{ stage.pk }}']) loadPreview('{{ stage.pk }}')"
+                               class="bg-[var(--surface)] border border-[var(--border)] rounded-md px-2 py-1.5 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none"
+                               placeholder="Start date">
+
+                        <!-- Template set selector -->
+                        <select name="stage_{{ stage.pk }}_template"
+                                x-init="stageTemplates['{{ stage.pk }}'] = stageTemplates['{{ stage.pk }}'] || ''; $el.value = stageTemplates['{{ stage.pk }}']; if ($el.value && stageDates['{{ stage.pk }}']) loadPreview('{{ stage.pk }}')"
+                                @change="stageTemplates['{{ stage.pk }}'] = $event.target.value; if(stageDates['{{ stage.pk }}']) loadPreview('{{ stage.pk }}')"
+                                class="bg-[var(--surface)] border border-[var(--border)] rounded-md px-2 py-1.5 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none min-w-[180px]">
+                            <option value="">— No template —</option>
+                            {% for ts in template_sets %}
+                            <option value="{{ ts.pk }}">{{ ts.name }}{% if ts.description %} — {{ ts.description }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Preview panel -->
+                    <div id="preview-stage-{{ stage.pk }}"
+                         x-show="stageTemplates['{{ stage.pk }}'] && stageDates['{{ stage.pk }}']"
+                         x-cloak
+                         class="border-t border-[var(--border)]">
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-[var(--text-muted)] text-sm text-center py-4">No build stages defined for this project. <a href="{% url 'project-stages' project.pk %}" class="text-[var(--accent)] hover:underline">Add stages first.</a></p>
+                {% endfor %}
             </div>
 
             {% if has_existing_tasks %}
@@ -68,7 +86,7 @@
 
             <div class="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
                 <button type="button" @click="open = false; document.getElementById('modal-container').innerHTML=''" class="btn-secondary">Cancel</button>
-                <button type="submit" :disabled="!selectedSetId"
+                <button type="submit" :disabled="!hasAnySelected()"
                         class="action-btn disabled:opacity-40 disabled:cursor-not-allowed">Generate Tasks</button>
             </div>
         </form>
@@ -76,18 +94,30 @@
 </div>
 
 <script>
-function applyTemplate(initialDate) {
+function applyTemplate(initialTemplates, initialDates) {
     return {
         open: true,
-        selectedSetId: '',
-        startDate: initialDate,
-        loadPreview() {
-            if (!this.selectedSetId) return;
-            let url = `/project/{{ project.pk }}/apply-template/${this.selectedSetId}/preview/?start_date=${this.startDate}`;
-            document.querySelectorAll('#template-preview-panel input[name^="section_date_"]').forEach(input => {
-                if (input.value) url += `&${input.name}=${input.value}`;
-            });
-            htmx.ajax('GET', url, { target: '#template-preview-panel', swap: 'innerHTML' });
+        stageTemplates: initialTemplates || {},
+        stageDates: initialDates || {},
+        loadPreview(stagePk) {
+            const key = String(stagePk);
+            const setId = this.stageTemplates[key];
+            const startDate = this.stageDates[key];
+            const panel = document.getElementById(`preview-stage-${stagePk}`);
+            if (!setId || !startDate) {
+                if (panel) panel.innerHTML = '';
+                return;
+            }
+            let url = `/project/{{ project.pk }}/apply-template/${setId}/preview/?start_date=${startDate}`;
+            if (panel) {
+                panel.querySelectorAll('input[name^="section_date_"]').forEach(input => {
+                    if (input.value) url += `&${input.name}=${input.value}`;
+                });
+            }
+            htmx.ajax('GET', url, { target: `#preview-stage-${stagePk}`, swap: 'innerHTML' });
+        },
+        hasAnySelected() {
+            return Object.keys(this.stageTemplates).some(k => this.stageTemplates[k]);
         },
     };
 }

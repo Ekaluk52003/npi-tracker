@@ -15,7 +15,7 @@
             <span class="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20">+{{ sec.day_offset }}d offset</span>
             {% endif %}
             {% if sec.start %}
-            <span class="text-[10px] text-[var(--text-muted)] tabular-nums">{{ sec.start|date:"M d" }} - {{ sec.end|date:"M d" }}</span>
+            <span class="text-[10px] text-[var(--text-muted)] tabular-nums">{{ sec.start|date:"d M y" }} - {{ sec.end|date:"d M y" }}</span>
             {% endif %}
         </div>
 
@@ -23,7 +23,7 @@
         <div class="flex items-center gap-2 mb-2">
             <label class="text-[10px] text-[var(--text-muted)] shrink-0">Override start:</label>
             <input type="date" name="section_date_{{ sec.pk }}"
-                   @change="loadPreview()"
+                   @change="$dispatch('section-date-changed')"
                    class="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text)] focus:border-[var(--accent)] focus:outline-none">
         </div>
 
@@ -35,12 +35,10 @@
                 {% if t.who and t.who != 'TBD' %}
                 <span class="text-[10px] text-[var(--text-muted)]">{{ t.who }}</span>
                 {% endif %}
-                {% if t.stage_name %}
-                <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">{{ t.stage_name }}</span>
-                {% endif %}
+
                 <span class="text-xs text-[var(--text-muted)] tabular-nums shrink-0">{{ t.days }}d</span>
                 {% if t.start %}
-                <span class="text-xs text-[var(--text-muted)] tabular-nums shrink-0 w-36 text-right">{{ t.start|date:"M d" }} - {{ t.end|date:"M d" }}</span>
+                <span class="text-xs text-[var(--text-muted)] tabular-nums shrink-0 w-36 text-right">{{ t.start|date:"d M y" }} - {{ t.end|date:"d M y" }}</span>
                 {% endif %}
             </div>
             {% if t.deps %}

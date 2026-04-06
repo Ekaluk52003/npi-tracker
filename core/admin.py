@@ -81,7 +81,7 @@ class SectionTemplateInline(admin.TabularInline):
 class TaskTemplateInline(admin.TabularInline):
     model = TaskTemplate
     extra = 1
-    fields = ['sort_order', 'name', 'who', 'days', 'stage_name']
+    fields = ['sort_order', 'name', 'who', 'days']
 
 
 @admin.register(TaskTemplateSet)
@@ -108,8 +108,8 @@ class SectionTemplateAdmin(admin.ModelAdmin):
 
 @admin.register(TaskTemplate)
 class TaskTemplateAdmin(admin.ModelAdmin):
-    list_display = ['name', 'section', 'stage_name', 'days', 'sort_order']
-    list_filter = ['section__template_set', 'stage_name']
+    list_display = ['name', 'section', 'days', 'sort_order']
+    list_filter = ['section__template_set']
     list_editable = ['sort_order']
     filter_horizontal = ['depends_on']
     search_fields = ['name', 'section__name']

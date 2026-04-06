@@ -19,7 +19,7 @@
                 {% if issue.desc %}<p class="text-xs text-[var(--text-muted)]">{{ issue.desc|truncatewords:20 }}</p>{% endif %}
                 <div class="flex items-center gap-3 text-[11px] text-[var(--text-muted)] mt-1">
                     {% if issue.owner %}<span>Owner: {{ issue.owner }}</span>{% endif %}
-                    {% if issue.due %}<span>Due: {{ issue.due|date:"M d" }}</span>{% endif %}
+                    {% if issue.due %}<span>Due: {{ issue.due|date:"d M y" }}</span>{% endif %}
                     {% if issue.stage %}<span class="stage-pill-sm" style="background:{{ issue.stage.color }}22;color:{{ issue.stage.color }}">{{ issue.stage.name }}</span>{% endif %}
                 </div>
             </div>

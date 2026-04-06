@@ -421,10 +421,6 @@ class TaskTemplate(models.Model):
     name = models.CharField(max_length=300)
     who = models.CharField(max_length=200, default='TBD')
     days = models.IntegerField(default=1)
-    stage_name = models.CharField(
-        max_length=50, blank=True,
-        help_text='Matched to BuildStage.name on the target project (case-insensitive).',
-    )
     depends_on = models.ManyToManyField(
         'self',
         symmetrical=False,

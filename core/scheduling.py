@@ -4,17 +4,18 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .models import TaskTemplateSet, Project
+    from .models import TaskTemplateSet, Project, BuildStage
 
 
 class SchedulingError(Exception):
     pass
 
 
-def _schedule_tasks_in_section(templates, stage_map, section_start):
+def _schedule_tasks_in_section(templates, forced_stage, section_start):
     """
     Kahn's topological sort for tasks within a single section.
     Returns list of dicts and the latest end date across all tasks.
+    forced_stage: a BuildStage instance (or None) assigned to every task in this section.
     """
     if not templates:
         return [], section_start
@@ -55,8 +56,6 @@ def _schedule_tasks_in_section(templates, stage_map, section_start):
         if task_end > max_end:
             max_end = task_end
 
-        stage = stage_map.get(tmpl.stage_name.lower()) if tmpl.stage_name else None
-
         result.append({
             'template_pk': pk,
             'name': tmpl.name,
@@ -66,7 +65,7 @@ def _schedule_tasks_in_section(templates, stage_map, section_start):
             'start': task_start,
             'end': task_end,
             'status': 'open',
-            'stage': stage,
+            'stage': forced_stage,
             'sort_order': tmpl.sort_order,
         })
 
@@ -90,6 +89,7 @@ def generate_tasks_from_template(
     project: "Project",
     start_date: date,
     section_overrides: dict[int, date] | None = None,
+    forced_stage: "BuildStage | None" = None,
 ) -> list[dict]:
     """
     Schedule all sections and their tasks.
@@ -112,8 +112,6 @@ def generate_tasks_from_template(
     if not sections:
         return []
 
-    stage_map = {s.name.lower(): s for s in project.stages.all()}
-
     all_results = []
     section_ends = {}  # Track end date of each section for dependencies
 
@@ -128,7 +126,7 @@ def generate_tasks_from_template(
 
         templates = list(sec.tasks.prefetch_related('depends_on').order_by('sort_order', 'id'))
         section_results, section_end = _schedule_tasks_in_section(
-            templates, stage_map, section_start
+            templates, forced_stage, section_start
         )
 
         all_results.extend(section_results)

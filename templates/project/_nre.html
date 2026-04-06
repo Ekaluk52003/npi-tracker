@@ -54,7 +54,7 @@
                 <td class="px-3 py-2">
                     {% if nre.due %}
                     <span class="{% if nre.is_overdue %}text-red-400 font-medium{% else %}text-[var(--text-muted)]{% endif %}">
-                        {{ nre.due|date:"M d" }}{% if nre.is_overdue %} &#9888;{% endif %}
+                        {{ nre.due|date:"d M y" }}{% if nre.is_overdue %} &#9888;{% endif %}
                     </span>
                     {% else %}—{% endif %}
                 </td>
