@@ -32,3 +32,4 @@ assets/
 # OS
 .DS_Store
 Thumbs.db
+spec.md
