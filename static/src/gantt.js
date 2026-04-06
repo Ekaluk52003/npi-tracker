@@ -131,6 +131,8 @@ export function renderProjectGantt(containerId, dataId) {
       return `<div class="task-row section-row">
         <div class="tc-cell tc-item"></div>
         <div class="tc-cell tc-task" style="color:var(--text-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding-left:14px">${esc(row.label)}</div>
+        <div class="tc-cell tc-start"></div>
+        <div class="tc-cell tc-end"></div>
       </div>`;
     }
     const t = row.task;
@@ -138,12 +140,18 @@ export function renderProjectGantt(containerId, dataId) {
       ? `<span class="issue-chip has-open" data-issue-url="/project/${project_id}/tasks/${t.id}/issues/">${t.open_issues}</span>`
       : `<span class="issue-chip-add" data-issue-url="/project/${project_id}/tasks/${t.id}/issues/" title="No open issues — click to add">+</span>`;
     const editUrl = `/project/${project_id}/tasks/${t.id}/edit/`;
-    return `<div class="task-row status-${t.status}" style="cursor:pointer" data-edit-url="${editUrl}">
+    const startDateObj = parseDate(t.start);
+    const endDateObj = parseDate(t.end);
+    const startDisp = startDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+    const endDisp = endDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+    return `<div class="task-row status-${t.status}" style="cursor:pointer" data-edit-url="${editUrl}" data-task-id="${t.id}">
       <div class="tc-cell tc-item">${row.num}</div>
       <div class="tc-cell tc-task">
         <div>${esc(t.name)}${stageTag(t.stage, t.stage_color)}</div>
         ${t.remark ? `<div class="tc-remark">${esc(t.remark)}</div>` : ''}
       </div>
+      <div class="tc-cell tc-start tc-date" data-date="${t.start}">${startDisp}</div>
+      <div class="tc-cell tc-end tc-date" data-date="${t.end}">${endDisp}</div>
       <div class="tc-cell tc-who"><span class="who-pill" title="${esc(t.who)}">${esc(t.who)}</span></div>
       <div class="tc-cell tc-dur">${t.days}d</div>
       <div class="tc-cell tc-status"><span class="status-dot">${STATUS_LABELS[t.status] || t.status}</span></div>
@@ -164,8 +172,10 @@ export function renderProjectGantt(containerId, dataId) {
     const issueFlag = t.open_issues ? '<span class="issue-flag" title="Has open issues"></span>' : '';
     return `<div class="timeline-row" style="min-width:${weeks.length * WK_W}px;position:relative">
       ${cells}
-      <div class="gantt-bar ${t.status}" style="left:${barLeft}px;width:${barWidth}px" title="${esc(t.name)}: ${t.start} → ${t.end}">
-        ${barLabel}${issueFlag}
+      <div class="gantt-bar ${t.status}" style="left:${barLeft}px;width:${barWidth}px" title="${esc(t.name)}: ${t.start} → ${t.end}" data-task-id="${t.id}" data-task-name="${esc(t.name)}">
+        <div style="position:absolute;left:0;top:0;width:100%;height:100%;cursor:move;user-select:none"></div>
+        <span style="position:relative;z-index:1">${barLabel}${issueFlag}</span>
+        <div class="gantt-resize-handle" style="position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:e-resize;background:transparent;z-index:10"></div>
       </div>
     </div>`;
   }).join('');
@@ -177,6 +187,8 @@ export function renderProjectGantt(containerId, dataId) {
           <div class="gantt-header-left">
             <div class="gh-cell gh-item">#</div>
             <div class="gh-cell gh-task">Task</div>
+            <div class="gh-cell gh-start">Start</div>
+            <div class="gh-cell gh-end">End</div>
             <div class="gh-cell gh-who">Assigned</div>
             <div class="gh-cell gh-dur">Days</div>
             <div class="gh-cell gh-status">Status</div>
@@ -219,6 +231,125 @@ export function renderProjectGantt(containerId, dataId) {
   }
   if (todayWkIdx > 0 && gr) {
     setTimeout(() => { gr.scrollLeft = Math.max(0, (todayWkIdx - 3) * WK_W); }, 50);
+  }
+
+  // Drag and resize handlers
+  let draggedBar = null, dragStartX = 0, dragStartLeft = 0, isResize = false;
+
+  function pxToDate(px) {
+    return new Date(weeks[0].getTime() + px * 7 * 86400000 / WK_W);
+  }
+
+  function dateToString(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function formatDateDisplay(dateStr) {
+    const [y, m, d] = dateStr.split('-');
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+  }
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  if (gr) {
+    gr.addEventListener('mousedown', (e) => {
+      const bar = e.target.closest('.gantt-bar');
+      if (!bar) return;
+
+      const isResizeHandle = e.target.classList.contains('gantt-resize-handle');
+      draggedBar = bar;
+      dragStartX = e.clientX;
+      dragStartLeft = parseFloat(bar.style.left);
+      isResize = isResizeHandle;
+
+      if (isResize) {
+        dragStartLeft = parseFloat(bar.style.width);
+      }
+
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!draggedBar) return;
+
+      const deltaX = e.clientX - dragStartX;
+      if (isResize) {
+        const newWidth = Math.max(16, dragStartLeft + deltaX);
+        draggedBar.style.width = newWidth + 'px';
+      } else {
+        const newLeft = dragStartLeft + deltaX;
+        draggedBar.style.left = newLeft + 'px';
+      }
+    });
+
+    document.addEventListener('mouseup', async (e) => {
+      if (!draggedBar) return;
+
+      const taskId = draggedBar.dataset.taskId;
+      const taskName = draggedBar.dataset.taskName;
+      const newLeft = parseFloat(draggedBar.style.left);
+      const newWidth = parseFloat(draggedBar.style.width);
+
+      const startDate = pxToDate(newLeft);
+      const endDate = pxToDate(newLeft + newWidth);
+      const startStr = dateToString(startDate);
+      const endStr = dateToString(endDate);
+
+      draggedBar = null;
+
+      // Save to backend
+      try {
+        const csrftoken = getCookie('csrftoken');
+        const response = await fetch(`/api/tasks/${taskId}/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken || ''
+          },
+          body: JSON.stringify({
+            start: startStr,
+            end: endStr
+          })
+        });
+        if (response.ok) {
+          // Update the task panel with new dates
+          const taskRow = gl?.querySelector(`[data-task-id="${taskId}"]`);
+          if (taskRow) {
+            const startCell = taskRow.querySelector('.tc-start');
+            const endCell = taskRow.querySelector('.tc-end');
+            if (startCell) {
+              startCell.textContent = formatDateDisplay(startStr);
+              startCell.dataset.date = startStr;
+            }
+            if (endCell) {
+              endCell.textContent = formatDateDisplay(endStr);
+              endCell.dataset.date = endStr;
+            }
+          }
+        } else {
+          console.error(`Failed to save task ${taskName}:`, response.statusText);
+        }
+      } catch (err) {
+        console.error(`Error saving task ${taskName}:`, err);
+      }
+    });
   }
 
   // Click task row to open edit modal, or issue chip to open issue edit

@@ -2,9 +2,10 @@ import json
 from datetime import date, timedelta
 from itertools import groupby
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
+from django.views.decorators.csrf import csrf_protect
 from django.db import transaction
 from .models import Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem, TaskTemplateSet
 from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ProjectSectionForm
@@ -836,3 +837,26 @@ def template_preview(request, pk, set_pk):
         'start_date': preview_start,
         'has_error': has_error,
     })
+
+
+# ── API Endpoints ────────────────────────────────────────────────────────────
+
+@csrf_protect
+@require_http_methods(['PATCH'])
+def api_task_update(request, task_id):
+    """Update task dates (start/end) via API."""
+    try:
+        task = Task.objects.get(pk=task_id)
+    except Task.DoesNotExist:
+        return JsonResponse({'error': 'Task not found'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        if 'start' in data:
+            task.start = date.fromisoformat(data['start'])
+        if 'end' in data:
+            task.end = date.fromisoformat(data['end'])
+        task.save(update_fields=['start', 'end'])
+        return JsonResponse({'success': True, 'start': task.start.isoformat(), 'end': task.end.isoformat()})
+    except (json.JSONDecodeError, ValueError) as e:
+        return JsonResponse({'error': f'Invalid data: {str(e)}'}, status=400)

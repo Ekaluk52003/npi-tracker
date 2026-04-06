@@ -58,4 +58,7 @@ urlpatterns = [
 
     # Portfolio issues modal
     path('project/<int:pk>/issues-modal/', views.project_issues_modal, name='project-issues-modal'),
+
+    # API Endpoints
+    path('api/tasks/<int:task_id>/', views.api_task_update, name='api-task-update'),
 ]
