@@ -1,0 +1,34 @@
+<div id="gate-checklist-section" class="border-t border-[var(--border)] pt-4">
+    <h3 class="text-sm font-semibold mb-2">Gate Checklist</h3>
+    {% for item in gate_items %}
+    <div class="flex items-center gap-2 py-1 text-sm">
+        <button type="button"
+                name="toggle_gate_item"
+                value="{{ item.pk }}"
+                hx-post="{% url 'stage-edit' project.pk stage.pk %}"
+                hx-target="#gate-checklist-section"
+                hx-swap="outerHTML"
+                class="cursor-pointer text-base leading-none {% if item.checked %}text-emerald-400{% else %}text-[var(--text-muted)]{% endif %} hover:text-emerald-400">
+            {% if item.checked %}✓{% else %}☐{% endif %}
+        </button>
+        <span class="flex-1">{{ item.label }}</span>
+        <button type="button"
+                name="delete_gate_item"
+                value="{{ item.pk }}"
+                hx-post="{% url 'stage-edit' project.pk stage.pk %}"
+                hx-target="#gate-checklist-section"
+                hx-swap="outerHTML"
+                class="text-xs text-red-400 hover:underline">&times;</button>
+    </div>
+    {% endfor %}
+    <div class="flex gap-2 mt-2">
+        {{ gate_form.label }}
+        <button type="button"
+                name="add_gate_item"
+                value="1"
+                hx-post="{% url 'stage-edit' project.pk stage.pk %}"
+                hx-target="#gate-checklist-section"
+                hx-swap="outerHTML"
+                class="text-xs text-[var(--accent)] hover:underline whitespace-nowrap">+ Add</button>
+    </div>
+</div>

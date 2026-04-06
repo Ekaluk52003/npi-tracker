@@ -150,6 +150,10 @@ class GateChecklistItemForm(forms.ModelForm):
             'label': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'Add checklist item…'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['label'].required = False
+
 
 class ProjectSectionForm(forms.ModelForm):
     class Meta:

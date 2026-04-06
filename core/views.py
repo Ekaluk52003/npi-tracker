@@ -594,22 +594,49 @@ def stage_edit(request, pk, sid):
     stage = get_object_or_404(BuildStage, pk=sid, project=project)
     gate_form = GateChecklistItemForm()
     if request.method == 'POST':
+        # Handle gate checklist operations first (without closing modal)
         if 'add_gate_item' in request.POST:
             gf = GateChecklistItemForm(request.POST)
-            if gf.is_valid():
+            if gf.is_valid() and gf.cleaned_data.get('label'):
                 item = gf.save(commit=False)
                 item.stage = stage
                 item.sort_order = stage.gate_items.count()
                 item.save()
-            if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/stages/'})
-            return redirect('project-stages', pk=pk)
+            gate_form = GateChecklistItemForm()
+            ctx = {
+                'gate_form': gate_form,
+                'project': project,
+                'stage': stage,
+                'gate_items': stage.gate_items.all(),
+                'is_new': False,
+            }
+            return render(request, 'forms/_gate_checklist_partial.html', ctx)
         if 'delete_gate_item' in request.POST:
             gid = request.POST.get('delete_gate_item')
             GateChecklistItem.objects.filter(pk=gid, stage=stage).delete()
-            if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/stages/'})
-            return redirect('project-stages', pk=pk)
+            ctx = {
+                'gate_form': GateChecklistItemForm(),
+                'project': project,
+                'stage': stage,
+                'gate_items': stage.gate_items.all(),
+                'is_new': False,
+            }
+            return render(request, 'forms/_gate_checklist_partial.html', ctx)
+        if 'toggle_gate_item' in request.POST:
+            gid = request.POST.get('toggle_gate_item')
+            item = get_object_or_404(GateChecklistItem, pk=gid, stage=stage)
+            item.checked = not item.checked
+            item.save()
+            ctx = {
+                'gate_form': GateChecklistItemForm(),
+                'project': project,
+                'stage': stage,
+                'gate_items': stage.gate_items.all(),
+                'is_new': False,
+            }
+            return render(request, 'forms/_gate_checklist_partial.html', ctx)
+
+        # Save the main stage form and redirect
         form = BuildStageForm(request.POST, instance=stage)
         if form.is_valid():
             form.save()

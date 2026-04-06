@@ -18,21 +18,7 @@
             {% endfor %}
 
             {% if not is_new %}
-            <!-- Gate Checklist Items -->
-            <div class="border-t border-[var(--border)] pt-4">
-                <h3 class="text-sm font-semibold mb-2">Gate Checklist</h3>
-                {% for item in gate_items %}
-                <div class="flex items-center gap-2 py-1 text-sm">
-                    <span class="{% if item.checked %}text-emerald-400{% else %}text-[var(--text-muted)]{% endif %}">{% if item.checked %}&#10003;{% else %}&#9633;{% endif %}</span>
-                    <span class="flex-1">{{ item.label }}</span>
-                    <button type="submit" name="delete_gate_item" value="{{ item.pk }}" class="text-xs text-red-400 hover:underline">&times;</button>
-                </div>
-                {% endfor %}
-                <div class="flex gap-2 mt-2">
-                    {{ gate_form.label }}
-                    <button type="submit" name="add_gate_item" value="1" class="text-xs text-[var(--accent)] hover:underline whitespace-nowrap">+ Add</button>
-                </div>
-            </div>
+            {% include 'forms/_gate_checklist_partial.html' %}
             {% endif %}
 
             <div class="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
