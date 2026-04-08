@@ -75,14 +75,14 @@ class NREItemAdmin(admin.ModelAdmin):
 
 class TaskTemplateNestedInline(nested_admin.NestedTabularInline):
     model = TaskTemplate
-    extra = 1
+    extra = 0
     fields = ['sort_order', 'name', 'who', 'days']
     sortable_field_name = 'sort_order'
 
 
 class SectionTemplateNestedInline(nested_admin.NestedStackedInline):
     model = SectionTemplate
-    extra = 1
+    extra = 0
     fields = ['sort_order', 'name', 'depends_on', 'day_offset']
     inlines = [TaskTemplateNestedInline]
     sortable_field_name = 'sort_order'
@@ -91,7 +91,7 @@ class SectionTemplateNestedInline(nested_admin.NestedStackedInline):
 # Keep flat inlines for standalone SectionTemplate admin
 class TaskTemplateInline(admin.TabularInline):
     model = TaskTemplate
-    extra = 1
+    extra = 0
     fields = ['sort_order', 'name', 'who', 'days']
 
 
@@ -99,6 +99,13 @@ class TaskTemplateInline(admin.TabularInline):
 class TaskTemplateSetAdmin(nested_admin.NestedModelAdmin):
     list_display = ['name', 'section_count', 'created_at']
     inlines = [SectionTemplateNestedInline]
+
+    class Media:
+        js = (
+            'admin/js/vendor/jquery/jquery.min.js',
+            'admin/js/jquery.init.js',
+            'core/admin/inline_collapse.js',
+        )
 
     @admin.display(description='Sections')
     def section_count(self, obj):
