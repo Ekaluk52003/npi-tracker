@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_vite',
     'django_htmx',
+    'nested_admin',
     'core',
 ]
 

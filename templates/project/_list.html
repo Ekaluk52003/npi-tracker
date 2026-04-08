@@ -11,12 +11,13 @@
                 <th class="px-3 py-2.5 text-left font-medium">End</th>
                 <th class="px-3 py-2.5 text-center font-medium">Status</th>
                 <th class="px-3 py-2.5 text-center font-medium">Issues</th>
+                <th class="px-3 py-2.5 text-center font-medium">NRE</th>
             </tr>
         </thead>
         <tbody>
             {% for sec in sections %}
             <tr class="bg-[var(--surface2)]">
-                <td colspan="8" class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{{ sec.section }}</td>
+                <td colspan="9" class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{{ sec.section }}</td>
             </tr>
             {% for task in sec.tasks %}
             <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] cursor-pointer transition"
@@ -37,10 +38,15 @@
                     {% if oi %}<span class="issue-chip has-open" hx-get="{% url 'task-issues-modal' project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML" hx-trigger="click consume" style="cursor:pointer">{{ oi }}</span>{% else %}<span class="text-emerald-400 text-xs cursor-pointer hover:opacity-60 transition" hx-get="{% url 'task-issues-modal' project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML" hx-trigger="click consume" title="No open issues — click to add">&#10003;</span>{% endif %}
                     {% endwith %}
                 </td>
+                <td class="px-3 py-2 text-center">
+                    {% with nc=task.linked_nre.count %}
+                    {% if nc %}<a href="{% url 'project-nre' project.pk %}" class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition" title="{{ nc }} linked NRE item{{ nc|pluralize }}">{{ nc }}</a>{% endif %}
+                    {% endwith %}
+                </td>
             </tr>
             {% endfor %}
             {% empty %}
-            <tr><td colspan="8" class="px-4 py-8 text-center text-[var(--text-muted)]">No tasks yet. Click "+ Add Task" to create one.</td></tr>
+            <tr><td colspan="9" class="px-4 py-8 text-center text-[var(--text-muted)]">No tasks yet. Click "+ Add Task" to create one.</td></tr>
             {% endfor %}
         </tbody>
     </table>

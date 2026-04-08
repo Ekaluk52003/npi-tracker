@@ -1,4 +1,5 @@
 from django.contrib import admin
+import nested_admin
 from .models import (
     Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem,
     TaskTemplateSet, SectionTemplate, TaskTemplate,
@@ -72,12 +73,22 @@ class NREItemAdmin(admin.ModelAdmin):
     list_filter = ['category', 'po_status']
 
 
-class SectionTemplateInline(admin.TabularInline):
+class TaskTemplateNestedInline(nested_admin.NestedTabularInline):
+    model = TaskTemplate
+    extra = 1
+    fields = ['sort_order', 'name', 'who', 'days']
+    sortable_field_name = 'sort_order'
+
+
+class SectionTemplateNestedInline(nested_admin.NestedStackedInline):
     model = SectionTemplate
     extra = 1
     fields = ['sort_order', 'name', 'depends_on', 'day_offset']
+    inlines = [TaskTemplateNestedInline]
+    sortable_field_name = 'sort_order'
 
 
+# Keep flat inlines for standalone SectionTemplate admin
 class TaskTemplateInline(admin.TabularInline):
     model = TaskTemplate
     extra = 1
@@ -85,9 +96,9 @@ class TaskTemplateInline(admin.TabularInline):
 
 
 @admin.register(TaskTemplateSet)
-class TaskTemplateSetAdmin(admin.ModelAdmin):
+class TaskTemplateSetAdmin(nested_admin.NestedModelAdmin):
     list_display = ['name', 'section_count', 'created_at']
-    inlines = [SectionTemplateInline]
+    inlines = [SectionTemplateNestedInline]
 
     @admin.display(description='Sections')
     def section_count(self, obj):

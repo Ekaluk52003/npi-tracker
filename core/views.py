@@ -65,7 +65,7 @@ def _fmt_volume(val):
 
 
 def _gantt_data_for_project(project, stage_filter=''):
-    tasks = project.tasks.select_related('stage', 'section').all()
+    tasks = project.tasks.select_related('stage', 'section').prefetch_related('linked_nre').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
@@ -85,6 +85,7 @@ def _gantt_data_for_project(project, stage_filter=''):
                 'stage_color': t.stage.color if t.stage else '',
                 'remark': t.remark[:60] if t.remark else '',
                 'open_issues': t.linked_issues.exclude(status='resolved').count(),
+                'nre_count': t.linked_nre.count(),
             } for t in task_list],
         })
     all_tasks = project.tasks.all()
@@ -191,7 +192,7 @@ def project_detail(request, pk):
 
 @login_required
 def project_gantt(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'stages', 'issues'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__linked_nre', 'stages', 'issues'), pk=pk)
     stage_filter = request.GET.get('stage', '')
     gantt_data = _gantt_data_for_project(project, stage_filter)
     ctx = _project_ctx(project, 'gantt', {
@@ -203,9 +204,9 @@ def project_gantt(request, pk):
 
 @login_required
 def project_list(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__section', 'stages'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__section', 'tasks__linked_nre', 'stages'), pk=pk)
     stage_filter = request.GET.get('stage', '')
-    tasks = project.tasks.select_related('stage', 'section').all()
+    tasks = project.tasks.select_related('stage', 'section').prefetch_related('linked_nre').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []

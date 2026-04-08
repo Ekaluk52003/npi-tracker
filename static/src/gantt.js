@@ -173,6 +173,9 @@ export function renderProjectGantt(containerId, dataId) {
     const issChip = t.open_issues
       ? `<span class="issue-chip has-open" data-issue-url="/project/${project_id}/tasks/${t.id}/issues/">${t.open_issues}</span>`
       : `<span class="issue-chip-add" data-issue-url="/project/${project_id}/tasks/${t.id}/issues/" title="No open issues — click to add">+</span>`;
+    const nreChip = t.nre_count
+      ? `<a class="nre-chip" href="/project/${project_id}/nre/" title="${t.nre_count} linked NRE item${t.nre_count !== 1 ? 's' : ''}">${t.nre_count}</a>`
+      : '';
     const editUrl = `/project/${project_id}/tasks/${t.id}/edit/`;
     const startDateObj = parseDate(t.start);
     const endDateObj = parseDate(t.end);
@@ -190,6 +193,7 @@ export function renderProjectGantt(containerId, dataId) {
       <div class="tc-cell tc-dur">${t.days}d</div>
       <div class="tc-cell tc-status"><span class="status-dot">${STATUS_LABELS[t.status] || t.status}</span></div>
       <div class="tc-cell tc-issues">${issChip}</div>
+      <div class="tc-cell tc-nre">${nreChip}</div>
     </div>`;
   }).join('');
 
@@ -227,6 +231,7 @@ export function renderProjectGantt(containerId, dataId) {
             <div class="gh-cell gh-dur">Days</div>
             <div class="gh-cell gh-status">Status</div>
             <div class="gh-cell gh-issues">\u26A0</div>
+            <div class="gh-cell gh-nre">NRE</div>
           </div>
           <div style="width:6px;min-width:6px;flex-shrink:0"></div>
           <div class="gantt-header-right" id="gh-header-scroll">

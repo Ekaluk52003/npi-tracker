@@ -256,6 +256,7 @@ body {
 .gh-dur { width: 46px; text-align: center; }
 .gh-status { width: 90px; }
 .gh-issues { width: 40px; text-align: center; }
+.gh-nre { width: 40px; text-align: center; }
 .gantt-tasks { overflow-y: auto; overflow-x: hidden; flex: 1; }
 .task-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); height: 40px; overflow: hidden; }
 .task-row:hover { background: rgba(45,155,132,0.04); }
@@ -274,6 +275,7 @@ body {
 .tc-dur { width: 46px; text-align: center; color: var(--text-muted); font-size: 12px; justify-content: center; }
 .tc-status { width: 90px; }
 .tc-issues { width: 40px; text-align: center; justify-content: center; }
+.tc-nre { width: 40px; text-align: center; justify-content: center; }
 .stage-tag { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 0.25rem; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; vertical-align: middle; margin-left: 4px; }
 .stage-tag.etb { background: var(--surface2); color: var(--accent); }
 .stage-tag.ps { background: var(--surface2); color: var(--warning); }
@@ -289,6 +291,8 @@ body {
 .issue-chip.has-resolved { color: var(--success); border-color: var(--success); }
 .issue-chip-add { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 0.2rem; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--text-muted); border: 1px dashed var(--border); opacity: 0.5; transition: all 0.2s; }
 .issue-chip-add:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
+.nre-chip { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 0.2rem; font-size: 10px; font-weight: 700; cursor: pointer; color: #f59e0b; border: 1px solid #f59e0b55; background: #f59e0b18; text-decoration: none; transition: all 0.2s; }
+.nre-chip:hover { background: #f59e0b30; border-color: #f59e0b; }
 .timeline-header { display: flex; flex-shrink: 0; }
 .month-header-cell { display: flex; align-items: center; justify-content: center; padding: 8px 6px; border-right: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text); text-align: center; flex-shrink: 0; background: rgba(45, 155, 132, 0.05); letter-spacing: 0.3px; box-sizing: border-box; }
 .wk-header-cell { min-width: 80px; width: 80px; padding: 6px 2px; border-right: 1px solid var(--border); font-size: 10px; font-weight: 700; color: var(--text-muted); text-align: center; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.3px; }
