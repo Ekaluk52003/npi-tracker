@@ -1,6 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
-
+@import "tailwindcss";
 @source "../../templates/**/*.html";
 
 /* ── Theme Variables ─────────────────────────────────────────────── */
@@ -243,7 +242,7 @@ body {
 .gantt-shared-header { display: flex; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
 .gantt-header-left { width: 690px; min-width: 690px; display: flex; align-items: stretch; border-right: 1px solid var(--border); }
 .gantt-header-left .gh-cell { display: flex; align-items: center; }
-.gantt-header-right { flex: 1; overflow-x: hidden; min-width: 0; }
+.gantt-header-right { flex: 1; overflow-x: auto; overflow-y: hidden; min-width: 0; }
 .gantt-body { display: flex; flex: 1; overflow: hidden; }
 .gantt-left { width: 690px; min-width: 690px; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
 .gantt-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
@@ -290,6 +289,7 @@ body {
 .issue-chip-add { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 0.2rem; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--text-muted); border: 1px dashed var(--border); opacity: 0.5; transition: all 0.2s; }
 .issue-chip-add:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
 .timeline-header { display: flex; flex-shrink: 0; }
+.month-header-cell { display: flex; align-items: center; justify-content: center; padding: 8px 6px; border-right: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text); text-align: center; flex-shrink: 0; background: rgba(45, 155, 132, 0.05); letter-spacing: 0.3px; box-sizing: border-box; }
 .wk-header-cell { min-width: 80px; width: 80px; padding: 6px 2px; border-right: 1px solid var(--border); font-size: 10px; font-weight: 700; color: var(--text-muted); text-align: center; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.3px; }
 .wk-header-cell.current { color: var(--accent); background: rgba(45,155,132,0.06); }
 .wk-date { font-size: 9px; color: var(--text-muted); opacity: 0.8; display: block; font-weight: 500; }

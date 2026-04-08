@@ -81,6 +81,31 @@ function getMondayAligned(minDate, maxDate) {
   return weeks;
 }
 
+function groupWeeksByMonth(weeks) {
+  const groups = [];
+  let currentMonth = null;
+  let currentGroup = [];
+
+  for (let i = 0; i < weeks.length; i++) {
+    const week = weeks[i];
+    const monthKey = `${week.getFullYear()}-${week.getMonth()}`;
+
+    if (currentMonth !== monthKey) {
+      if (currentGroup.length > 0) {
+        groups.push({ month: currentMonth, weeks: currentGroup, startIdx: i - currentGroup.length });
+      }
+      currentMonth = monthKey;
+      currentGroup = [week];
+    } else {
+      currentGroup.push(week);
+    }
+  }
+  if (currentGroup.length > 0) {
+    groups.push({ month: currentMonth, weeks: currentGroup, startIdx: weeks.length - currentGroup.length });
+  }
+  return groups;
+}
+
 export function renderProjectGantt(containerId, dataId) {
   const el = document.getElementById(containerId);
   const dataEl = document.getElementById(dataId);
@@ -118,7 +143,16 @@ export function renderProjectGantt(containerId, dataId) {
     }
   }
 
-  // Week header
+  // Week header and month grouping
+  const monthGroups = groupWeeksByMonth(weeks);
+  const monthHeader = monthGroups.map(group => {
+    const [year, month] = group.month.split('-').map(Number);
+    const monthDate = new Date(year, month, 1);
+    const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const span = group.weeks.length;
+    return `<div class="month-header-cell" style="width:${span * 80}px">${monthLabel}</div>`;
+  }).join('');
+
   const wkHeader = weeks.map((w, i) => {
     const isCur = i === todayWkIdx;
     const dayNums = getDayNumbers(w).map(n => `<span class="wk-day-num">${n}</span>`).join('');
@@ -195,6 +229,7 @@ export function renderProjectGantt(containerId, dataId) {
             <div class="gh-cell gh-issues">\u26A0</div>
           </div>
           <div class="gantt-header-right" id="gh-header-scroll">
+            <div style="display:flex;min-width:${weeks.length * WK_W}px;border-bottom:1px solid var(--border)">${monthHeader}</div>
             <div class="timeline-header" style="min-width:${weeks.length * WK_W}px">${wkHeader}</div>
           </div>
         </div>
@@ -649,7 +684,16 @@ export function renderPortfolioGantt(containerId, dataId) {
   const todayOffInWk = todayWkIdx >= 0 ? (todayD - weeks[todayWkIdx]) / (7 * 86400000) : -1;
   const todayPx = todayWkIdx >= 0 ? todayWkIdx * PCELL_W + todayOffInWk * PCELL_W : -999;
 
-  // Week header
+  // Week header and month grouping
+  const monthGroups = groupWeeksByMonth(weeks);
+  const monthHeader = monthGroups.map(group => {
+    const [year, month] = group.month.split('-').map(Number);
+    const monthDate = new Date(year, month, 1);
+    const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const span = group.weeks.length;
+    return `<div style="width:${span * PCELL_W}px" class="month-header-cell">${monthLabel}</div>`;
+  }).join('');
+
   const wkHeader = weeks.map((w, i) => {
     const isCur = i === todayWkIdx;
     const dayNums = getDayNumbers(w).map(n => `<span style="font-size:7px;font-weight:400;opacity:0.5;width:${Math.floor(PCELL_W / 7)}px;text-align:center">${n}</span>`).join('');
@@ -708,6 +752,10 @@ export function renderPortfolioGantt(containerId, dataId) {
     <div style="overflow:auto;position:relative;border-radius:0.5rem">
       <div style="display:flex;position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
         <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;z-index:4;background:var(--surface);border-right:1px solid var(--border);padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);display:flex;align-items:center">Project / Stage</div>
+        <div style="display:flex;width:${weeks.length * PCELL_W}px;min-width:${weeks.length * PCELL_W}px">${monthHeader}</div>
+      </div>
+      <div style="display:flex;position:sticky;top:48px;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
+        <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;z-index:4;background:var(--surface);border-right:1px solid var(--border)"></div>
         <div style="display:flex;width:${weeks.length * PCELL_W}px;min-width:${weeks.length * PCELL_W}px">${wkHeader}</div>
       </div>
       <div style="position:relative">${rowsHtml}${todayLine}</div>
