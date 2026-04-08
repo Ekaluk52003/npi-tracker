@@ -6,6 +6,7 @@ from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_protect
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from .models import Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem, TaskTemplateSet
 from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ProjectSectionForm
@@ -147,6 +148,7 @@ def _portfolio_gantt_data(projects):
 
 # ── Portfolio ────────────────────────────────────────────────────────────
 
+@login_required
 def portfolio(request):
     projects = Project.objects.prefetch_related('stages', 'tasks', 'issues', 'nre_items').all()
     project_rows = []
@@ -173,6 +175,7 @@ def portfolio(request):
     return _htmx(request, 'portfolio/portfolio.html', 'portfolio/_content.html', ctx)
 
 
+@login_required
 def project_issues_modal(request, pk):
     project = get_object_or_404(Project, pk=pk)
     issues = project.issues.select_related('stage').all()
@@ -181,10 +184,12 @@ def project_issues_modal(request, pk):
 
 # ── Project Detail Tabs ──────────────────────────────────────────────────
 
+@login_required
 def project_detail(request, pk):
     return redirect('project-gantt', pk=pk)
 
 
+@login_required
 def project_gantt(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'stages', 'issues'), pk=pk)
     stage_filter = request.GET.get('stage', '')
@@ -196,6 +201,7 @@ def project_gantt(request, pk):
     return _htmx_tab(request, 'project/detail.html', 'project/_gantt.html', ctx)
 
 
+@login_required
 def project_list(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__section', 'stages'), pk=pk)
     stage_filter = request.GET.get('stage', '')
@@ -213,6 +219,7 @@ def project_list(request, pk):
     return _htmx_tab(request, 'project/detail.html', 'project/_list.html', ctx)
 
 
+@login_required
 def project_milestones(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__section', 'stages'), pk=pk)
     stage_filter = request.GET.get('stage', '')
@@ -242,6 +249,7 @@ def project_milestones(request, pk):
     return _htmx_tab(request, 'project/detail.html', 'project/_milestones.html', ctx)
 
 
+@login_required
 def project_team(request, pk):
     project = get_object_or_404(Project, pk=pk)
     members = project.team_members.all()
@@ -253,6 +261,7 @@ def project_team(request, pk):
     return _htmx_tab(request, 'project/detail.html', 'project/_team.html', ctx)
 
 
+@login_required
 def project_stages(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('stages__gate_items', 'tasks__stage', 'issues__stage', 'nre_items__stage'), pk=pk)
     stages = list(project.stages.all())
@@ -264,6 +273,7 @@ def project_stages(request, pk):
     return _htmx_tab(request, 'project/detail.html', 'project/_stages.html', ctx)
 
 
+@login_required
 def project_nre(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('nre_items__stage', 'tasks', 'stages'), pk=pk)
     items = project.nre_items.select_related('stage').all()
@@ -286,6 +296,7 @@ def project_nre(request, pk):
     return _htmx_tab(request, 'project/detail.html', 'project/_nre.html', ctx)
 
 
+@login_required
 def project_issues(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('issues__linked_tasks', 'issues__stage', 'stages'), pk=pk)
     open_issues = project.issues.select_related('stage').exclude(status='resolved')
@@ -299,6 +310,7 @@ def project_issues(request, pk):
 
 # ── Project CRUD ─────────────────────────────────────────────────────────
 
+@login_required
 def project_create(request):
     if request.method == 'POST':
         form = ProjectForm(request.POST)
@@ -333,6 +345,7 @@ def project_create(request):
 
 # ── Section CRUD ────────────────────────────────────────────────────────
 
+@login_required
 def section_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -351,6 +364,7 @@ def section_create(request, pk):
     return render(request, 'forms/_section_form.html', {'form': form, 'project': project})
 
 
+@login_required
 def section_edit(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
     section = get_object_or_404(ProjectSection, pk=sid, project=project)
@@ -366,6 +380,7 @@ def section_edit(request, pk, sid):
     return render(request, 'forms/_section_form.html', {'form': form, 'project': project, 'section': section})
 
 
+@login_required
 def section_delete(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
     section = get_object_or_404(ProjectSection, pk=sid, project=project)
@@ -377,6 +392,7 @@ def section_delete(request, pk, sid):
 
 # ── Task CRUD ────────────────────────────────────────────────────────────
 
+@login_required
 def task_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -393,6 +409,7 @@ def task_create(request, pk):
     return render(request, 'forms/_task_form.html', {'form': form, 'project': project})
 
 
+@login_required
 def task_edit(request, pk, tid):
     project = get_object_or_404(Project, pk=pk)
     task = get_object_or_404(Task, pk=tid, project=project)
@@ -408,6 +425,7 @@ def task_edit(request, pk, tid):
     return render(request, 'forms/_task_form.html', {'form': form, 'project': project, 'task': task})
 
 
+@login_required
 def task_delete(request, pk, tid):
     project = get_object_or_404(Project, pk=pk)
     task = get_object_or_404(Task, pk=tid, project=project)
@@ -419,6 +437,7 @@ def task_delete(request, pk, tid):
 
 # ── Issue CRUD ───────────────────────────────────────────────────────────
 
+@login_required
 def issue_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     task_id = request.GET.get('task_id')
@@ -444,6 +463,7 @@ def issue_create(request, pk):
     return render(request, 'forms/_issue_form.html', {'form': form, 'project': project})
 
 
+@login_required
 def issue_edit(request, pk, iid):
     project = get_object_or_404(Project, pk=pk)
     issue = get_object_or_404(Issue, pk=iid, project=project)
@@ -459,6 +479,7 @@ def issue_edit(request, pk, iid):
     return render(request, 'forms/_issue_form.html', {'form': form, 'project': project, 'issue': issue})
 
 
+@login_required
 def issue_delete(request, pk, iid):
     project = get_object_or_404(Project, pk=pk)
     issue = get_object_or_404(Issue, pk=iid, project=project)
@@ -470,6 +491,7 @@ def issue_delete(request, pk, iid):
 
 # ── Team CRUD ────────────────────────────────────────────────────────────
 
+@login_required
 def member_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -486,6 +508,7 @@ def member_create(request, pk):
     return render(request, 'forms/_member_form.html', {'form': form, 'project': project})
 
 
+@login_required
 def member_edit(request, pk, mid):
     project = get_object_or_404(Project, pk=pk)
     member = get_object_or_404(TeamMember, pk=mid, project=project)
@@ -501,6 +524,7 @@ def member_edit(request, pk, mid):
     return render(request, 'forms/_member_form.html', {'form': form, 'project': project, 'member': member})
 
 
+@login_required
 def member_delete(request, pk, mid):
     project = get_object_or_404(Project, pk=pk)
     member = get_object_or_404(TeamMember, pk=mid, project=project)
@@ -512,6 +536,7 @@ def member_delete(request, pk, mid):
 
 # ── NRE CRUD ─────────────────────────────────────────────────────────────
 
+@login_required
 def nre_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -529,6 +554,7 @@ def nre_create(request, pk):
     return render(request, 'forms/_nre_form.html', {'form': form, 'project': project})
 
 
+@login_required
 def nre_edit(request, pk, nid):
     project = get_object_or_404(Project, pk=pk)
     nre = get_object_or_404(NREItem, pk=nid, project=project)
@@ -544,6 +570,7 @@ def nre_edit(request, pk, nid):
     return render(request, 'forms/_nre_form.html', {'form': form, 'project': project, 'nre': nre})
 
 
+@login_required
 def nre_delete(request, pk, nid):
     project = get_object_or_404(Project, pk=pk)
     nre = get_object_or_404(NREItem, pk=nid, project=project)
@@ -555,6 +582,7 @@ def nre_delete(request, pk, nid):
 
 # ── Task Issues Modal ───────────────────────────────────────────────────
 
+@login_required
 def task_issues_modal(request, pk, tid):
     project = get_object_or_404(Project, pk=pk)
     task = get_object_or_404(Task, pk=tid, project=project)
@@ -568,6 +596,7 @@ def task_issues_modal(request, pk, tid):
 
 # ── Build Stage CRUD ────────────────────────────────────────────────────
 
+@login_required
 def stage_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -589,6 +618,7 @@ def stage_create(request, pk):
     })
 
 
+@login_required
 def stage_edit(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
     stage = get_object_or_404(BuildStage, pk=sid, project=project)
@@ -654,6 +684,7 @@ def stage_edit(request, pk, sid):
     })
 
 
+@login_required
 def stage_delete(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
     stage = get_object_or_404(BuildStage, pk=sid, project=project)
@@ -663,6 +694,7 @@ def stage_delete(request, pk, sid):
     return redirect('project-stages', pk=pk)
 
 
+@login_required
 def gate_toggle(request, pk, sid, gid):
     project = get_object_or_404(Project, pk=pk)
     stage = get_object_or_404(BuildStage, pk=sid, project=project)
@@ -676,6 +708,7 @@ def gate_toggle(request, pk, sid, gid):
 
 # ── Apply Task Template ────────────────────────────────────────────────
 
+@login_required
 def template_apply(request, pk):
     project = get_object_or_404(Project, pk=pk)
     stages = list(project.stages.order_by('sort_order'))
@@ -798,6 +831,7 @@ def template_apply(request, pk):
     return _render_form()
 
 
+@login_required
 def template_preview(request, pk, set_pk):
     project = get_object_or_404(Project, pk=pk)
     template_set = get_object_or_404(TaskTemplateSet, pk=set_pk)
@@ -868,6 +902,7 @@ def template_preview(request, pk, set_pk):
 
 # ── API Endpoints ────────────────────────────────────────────────────────────
 
+@login_required
 @csrf_protect
 @require_http_methods(['PATCH'])
 def api_task_update(request, task_id):

@@ -36,11 +36,19 @@
     </div>
 
     <!-- New Project button -->
-    <div class="p-3 border-t border-[var(--border)]">
+    <div class="p-3 border-t border-[var(--border)] space-y-2">
         <button hx-get="{% url 'project-create' %}" hx-target="#modal-container" hx-swap="innerHTML"
                 class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             New Project
         </button>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit"
+                    class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Sign out {{ request.user.username }}
+            </button>
+        </form>
     </div>
 </aside>
