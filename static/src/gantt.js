@@ -807,7 +807,7 @@ export function renderPortfolioGantt(containerId, dataId) {
     return todayD >= w && todayD < n;
   });
   const todayOffInWk = todayWkIdx >= 0 ? (todayD - weeks[todayWkIdx]) / (7 * 86400000) : -1;
-  const todayPx = todayWkIdx >= 0 ? todayWkIdx * PCELL_W + todayOffInWk * PCELL_W : -999;
+  const todayPx = todayWkIdx >= 0 ? todayWkIdx * PCELL_W + todayOffInWk * PCELL_W + PCELL_W / 14 : -999;
 
   // Week header and month grouping
   const monthGroups = groupWeeksByMonth(weeks);
@@ -855,7 +855,7 @@ export function renderPortfolioGantt(containerId, dataId) {
     }).join('');
 
     return `<div style="display:flex;border-bottom:1px solid var(--border);height:${rowH}px;min-width:${LEFT_W + weeks.length * PCELL_W}px">
-      <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;background:var(--surface);z-index:2;border-right:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="window.location='/project/${p.id}/'">
+      <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;background:var(--surface);z-index:3;border-right:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="window.location='/project/${p.id}/'">
         <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></span>
         <div style="overflow:hidden;min-width:0">
           <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${esc(p.name)}</div>
@@ -875,16 +875,23 @@ export function renderPortfolioGantt(containerId, dataId) {
 
   el.innerHTML = `
     <div style="overflow:auto;position:relative;border-radius:0.5rem">
-      <div style="display:flex;position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
+      <div id="pg-month-hdr" style="display:flex;position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
         <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;z-index:4;background:var(--surface);border-right:1px solid var(--border);padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);display:flex;align-items:center">Project / Stage</div>
         <div style="display:flex;width:${weeks.length * PCELL_W}px;min-width:${weeks.length * PCELL_W}px">${monthHeader}</div>
       </div>
-      <div style="display:flex;position:sticky;top:48px;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
+      <div id="pg-week-hdr" style="display:flex;position:sticky;top:48px;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
         <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;z-index:4;background:var(--surface);border-right:1px solid var(--border)"></div>
         <div style="display:flex;width:${weeks.length * PCELL_W}px;min-width:${weeks.length * PCELL_W}px">${wkHeader}</div>
       </div>
       <div style="position:relative">${rowsHtml}${todayLine}</div>
     </div>`;
+
+  // Fix week header sticky top to match actual month header height
+  const monthHdr = el.querySelector('#pg-month-hdr');
+  const weekHdr = el.querySelector('#pg-week-hdr');
+  if (monthHdr && weekHdr) {
+    weekHdr.style.top = monthHdr.offsetHeight + 'px';
+  }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
