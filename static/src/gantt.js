@@ -36,7 +36,7 @@ function fmtDateShort(d) {
 function getDayNumbers(weekStart) {
   const nums = [];
   for (let i = 0; i < 7; i++) {
-    nums.push(i + 1); // 1=Mon, 2=Tue, ..., 7=Sun
+    nums.push(i + 1); // 1=Mon ... 7=Sun
   }
   return nums;
 }
@@ -130,7 +130,7 @@ export function renderProjectGantt(containerId, dataId) {
     return todayD >= w && todayD < n;
   });
   const todayOffInWk = todayWkIdx >= 0 ? (todayD - weeks[todayWkIdx]) / (7 * 86400000) : -1;
-  const todayPx = todayWkIdx >= 0 ? todayWkIdx * WK_W + todayOffInWk * WK_W : -999;
+  const todayPx = todayWkIdx >= 0 ? todayWkIdx * WK_W + todayOffInWk * WK_W + WK_W / 14 : -999;
 
   // Build flat row list
   const rows = [];
@@ -220,7 +220,7 @@ export function renderProjectGantt(containerId, dataId) {
         <div class="gantt-shared-header">
           <div class="gantt-header-left">
             <div class="gh-cell gh-item">#</div>
-            <div class="gh-cell gh-task">Task</div>
+            <div class="gh-cell gh-task" id="gh-task-col" style="position:relative">Task<span id="gh-task-resize" style="position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:col-resize;z-index:10;background:transparent" title="Drag to resize"></span></div>
             <div class="gh-cell gh-start">Start</div>
             <div class="gh-cell gh-end">End</div>
             <div class="gh-cell gh-who">Assigned</div>
@@ -228,15 +228,17 @@ export function renderProjectGantt(containerId, dataId) {
             <div class="gh-cell gh-status">Status</div>
             <div class="gh-cell gh-issues">\u26A0</div>
           </div>
+          <div style="width:6px;min-width:6px;flex-shrink:0"></div>
           <div class="gantt-header-right" id="gh-header-scroll">
             <div style="display:flex;min-width:${weeks.length * WK_W}px;border-bottom:1px solid var(--border)">${monthHeader}</div>
             <div class="timeline-header" style="min-width:${weeks.length * WK_W}px">${wkHeader}</div>
           </div>
         </div>
         <div class="gantt-body">
-          <div class="gantt-left">
+          <div class="gantt-left" id="gantt-left-panel">
             <div class="gantt-tasks" id="gl-scroll">${leftRows}</div>
           </div>
+          <div class="gantt-resize-divider" id="gantt-resize-divider" style="width:6px;cursor:col-resize;background:var(--border);flex-shrink:0;transition:background 0.2s;user-select:none"></div>
           <div class="gantt-right">
             <div id="gr-scroll" style="overflow:auto;flex:1;position:relative">
               <div style="position:relative;min-width:${weeks.length * WK_W}px">
@@ -266,6 +268,129 @@ export function renderProjectGantt(containerId, dataId) {
   }
   if (todayWkIdx > 0 && gr) {
     setTimeout(() => { gr.scrollLeft = Math.max(0, (todayWkIdx - 3) * WK_W); }, 50);
+  }
+
+  // Left panel resize handler
+  const leftPanel = document.getElementById('gantt-left-panel');
+  const resizeDivider = document.getElementById('gantt-resize-divider');
+  const headerLeft = document.querySelector('.gantt-header-left');
+
+  if (leftPanel && resizeDivider && headerLeft) {
+    const STORAGE_KEY = 'gantt-left-width';
+    const DEFAULT_WIDTH = 690;
+    const MIN_WIDTH = 300;
+    const MAX_WIDTH = 1200;
+
+    // Load saved width
+    const savedWidth = localStorage.getItem(STORAGE_KEY);
+    const initialWidth = savedWidth ? Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, parseInt(savedWidth))) : DEFAULT_WIDTH;
+
+    function setLeftWidth(width) {
+      const constrained = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width));
+      leftPanel.style.width = constrained + 'px';
+      leftPanel.style.minWidth = constrained + 'px';
+      headerLeft.style.width = constrained + 'px';
+      headerLeft.style.minWidth = constrained + 'px';
+      localStorage.setItem(STORAGE_KEY, constrained);
+    }
+
+    setLeftWidth(initialWidth);
+
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+
+    resizeDivider.addEventListener('mouseenter', () => {
+      if (!isResizing) resizeDivider.style.background = 'var(--accent)';
+    });
+    resizeDivider.addEventListener('mouseleave', () => {
+      if (!isResizing) resizeDivider.style.background = 'var(--border)';
+    });
+
+    resizeDivider.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      startX = e.clientX;
+      startWidth = leftPanel.offsetWidth;
+      resizeDivider.style.background = 'var(--accent)';
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      const deltaX = e.clientX - startX;
+      setLeftWidth(startWidth + deltaX);
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        resizeDivider.style.background = 'var(--border)';
+        document.body.style.cursor = 'auto';
+        document.body.style.userSelect = 'auto';
+      }
+    });
+  }
+
+  // Task column resize handler
+  const taskResizeHandle = document.getElementById('gh-task-resize');
+  const taskColHeader = document.getElementById('gh-task-col');
+
+  if (taskResizeHandle && taskColHeader) {
+    const TASK_COL_KEY = 'gantt-task-col-width';
+    const TASK_COL_MIN = 120;
+    const TASK_COL_MAX = 600;
+
+    let colStyleTag = document.getElementById('gantt-task-col-style');
+    if (!colStyleTag) {
+      colStyleTag = document.createElement('style');
+      colStyleTag.id = 'gantt-task-col-style';
+      document.head.appendChild(colStyleTag);
+    }
+
+    function setTaskColWidth(width) {
+      const w = Math.max(TASK_COL_MIN, Math.min(TASK_COL_MAX, width));
+      colStyleTag.textContent = `#gh-task-col { flex: none !important; width: ${w}px !important; } .tc-task { flex: none !important; width: ${w}px !important; }`;
+      localStorage.setItem(TASK_COL_KEY, w);
+    }
+
+    const savedTaskW = localStorage.getItem(TASK_COL_KEY);
+    if (savedTaskW) setTaskColWidth(parseInt(savedTaskW));
+
+    let isColResizing = false;
+    let colStartX = 0;
+    let colStartWidth = 0;
+
+    taskResizeHandle.addEventListener('mouseenter', () => {
+      if (!isColResizing) taskResizeHandle.style.background = 'var(--accent)';
+    });
+    taskResizeHandle.addEventListener('mouseleave', () => {
+      if (!isColResizing) taskResizeHandle.style.background = 'transparent';
+    });
+
+    taskResizeHandle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      isColResizing = true;
+      colStartX = e.clientX;
+      colStartWidth = taskColHeader.offsetWidth;
+      taskResizeHandle.style.background = 'var(--accent)';
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isColResizing) return;
+      setTaskColWidth(colStartWidth + (e.clientX - colStartX));
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isColResizing) {
+        isColResizing = false;
+        taskResizeHandle.style.background = 'transparent';
+        document.body.style.cursor = 'auto';
+        document.body.style.userSelect = 'auto';
+      }
+    });
   }
 
   // Drag and resize handlers
