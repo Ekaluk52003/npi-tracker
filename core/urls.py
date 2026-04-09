@@ -61,4 +61,6 @@ urlpatterns = [
 
     # API Endpoints
     path('api/tasks/<int:task_id>/', views.api_task_update, name='api-task-update'),
+    path('api/tasks/<int:task_id>/link/', views.api_task_link, name='api-task-link'),
+    path('api/tasks/<int:task_id>/unlink/', views.api_task_unlink, name='api-task-unlink'),
 ]

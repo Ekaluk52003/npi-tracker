@@ -64,8 +64,37 @@ def _fmt_volume(val):
     return f'{val:,}'
 
 
+def _would_create_cycle(task_id, dep_id):
+    """Return True if making task_id depend on dep_id would create a cycle."""
+    visited = set()
+    stack = [dep_id]
+    while stack:
+        curr = stack.pop()
+        if curr == task_id:
+            return True
+        if curr in visited:
+            continue
+        visited.add(curr)
+        stack.extend(Task.objects.get(pk=curr).depends_on.values_list('id', flat=True))
+    return False
+
+
+def _cascade_dependents(task):
+    """Push direct dependents to start after task.end. Returns list of updated task dicts."""
+    cascaded = []
+    for dep in task.dependents.all():
+        new_start = task.end + timedelta(days=1)
+        if dep.start == new_start:
+            continue
+        dep.start = new_start
+        dep.end = new_start + timedelta(days=dep.days - 1)
+        dep.save()
+        cascaded.append({'id': dep.id, 'start': dep.start.isoformat(), 'end': dep.end.isoformat(), 'days': dep.days})
+    return cascaded
+
+
 def _gantt_data_for_project(project, stage_filter=''):
-    tasks = project.tasks.select_related('stage', 'section').prefetch_related('linked_nre').all()
+    tasks = project.tasks.select_related('stage', 'section').prefetch_related('linked_nre', 'depends_on').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
@@ -86,6 +115,7 @@ def _gantt_data_for_project(project, stage_filter=''):
                 'remark': t.remark[:60] if t.remark else '',
                 'open_issues': t.linked_issues.exclude(status='resolved').count(),
                 'nre_count': t.linked_nre.count(),
+                'depends_on': list(t.depends_on.values_list('id', flat=True)),
             } for t in task_list],
         })
     all_tasks = project.tasks.all()
@@ -907,7 +937,7 @@ def template_preview(request, pk, set_pk):
 @csrf_protect
 @require_http_methods(['PATCH'])
 def api_task_update(request, task_id):
-    """Update task dates (start/end) via API."""
+    """Update task dates (start/end) via API. Cascades to direct dependents."""
     try:
         task = Task.objects.get(pk=task_id)
     except Task.DoesNotExist:
@@ -919,7 +949,71 @@ def api_task_update(request, task_id):
             task.start = date.fromisoformat(data['start'])
         if 'end' in data:
             task.end = date.fromisoformat(data['end'])
-        task.save(update_fields=['start', 'end'])
-        return JsonResponse({'success': True, 'start': task.start.isoformat(), 'end': task.end.isoformat()})
+        task.save()
+        cascaded = _cascade_dependents(task)
+        return JsonResponse({
+            'success': True,
+            'start': task.start.isoformat(),
+            'end': task.end.isoformat(),
+            'days': task.days,
+            'cascaded': cascaded,
+        })
     except (json.JSONDecodeError, ValueError) as e:
         return JsonResponse({'error': f'Invalid data: {str(e)}'}, status=400)
+
+
+@login_required
+@csrf_protect
+@require_http_methods(['POST'])
+def api_task_link(request, task_id):
+    """Link task_id to depend on dep_id (dep_id must finish before task_id starts)."""
+    try:
+        task = Task.objects.get(pk=task_id)
+    except Task.DoesNotExist:
+        return JsonResponse({'error': 'Task not found'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        dep_id = int(data['depends_on'])
+        dep = Task.objects.get(pk=dep_id)
+    except (json.JSONDecodeError, KeyError, ValueError, Task.DoesNotExist):
+        return JsonResponse({'error': 'Invalid data'}, status=400)
+
+    if dep_id == task.pk:
+        return JsonResponse({'error': 'A task cannot depend on itself'}, status=400)
+
+    if _would_create_cycle(task.pk, dep_id):
+        return JsonResponse({'error': 'Cannot link: this would create a circular dependency'}, status=400)
+
+    task.depends_on.add(dep)
+
+    # Push task forward if it starts before dep ends
+    cascaded = []
+    if task.start <= dep.end:
+        task.start = dep.end + timedelta(days=1)
+        task.end = task.start + timedelta(days=task.days - 1)
+        task.save()
+        cascaded.append({'id': task.pk, 'start': task.start.isoformat(), 'end': task.end.isoformat(), 'days': task.days})
+
+    return JsonResponse({'success': True, 'cascaded': cascaded})
+
+
+@login_required
+@csrf_protect
+@require_http_methods(['POST'])
+def api_task_unlink(request, task_id):
+    """Remove a dependency link from task_id."""
+    try:
+        task = Task.objects.get(pk=task_id)
+    except Task.DoesNotExist:
+        return JsonResponse({'error': 'Task not found'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        dep_id = int(data['depends_on'])
+        dep = Task.objects.get(pk=dep_id)
+    except (json.JSONDecodeError, KeyError, ValueError, Task.DoesNotExist):
+        return JsonResponse({'error': 'Invalid data'}, status=400)
+
+    task.depends_on.remove(dep)
+    return JsonResponse({'success': True})

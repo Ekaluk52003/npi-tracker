@@ -237,6 +237,12 @@ class Task(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     stage = models.ForeignKey(BuildStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
     sort_order = models.IntegerField(default=0)
+    depends_on = models.ManyToManyField(
+        'self',
+        symmetrical=False,
+        blank=True,
+        related_name='dependents',
+    )
 
     class Meta:
         ordering = ['section__sort_order', 'start']
@@ -244,6 +250,9 @@ class Task(models.Model):
     def save(self, *args, **kwargs):
         if self.start and self.end:
             self.days = (self.end - self.start).days + 1
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None and 'days' not in update_fields:
+                kwargs['update_fields'] = list(update_fields) + ['days']
         super().save(*args, **kwargs)
 
     def __str__(self):

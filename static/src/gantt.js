@@ -246,7 +246,7 @@ export function renderProjectGantt(containerId, dataId) {
           <div class="gantt-resize-divider" id="gantt-resize-divider" style="width:6px;cursor:col-resize;background:var(--border);flex-shrink:0;transition:background 0.2s;user-select:none"></div>
           <div class="gantt-right">
             <div id="gr-scroll" style="overflow:auto;flex:1;position:relative">
-              <div style="position:relative;min-width:${weeks.length * WK_W}px">
+              <div id="gr-timeline-content" style="position:relative;min-width:${weeks.length * WK_W}px">
                 ${timelineRows}
                 ${todayWkIdx >= 0 ? `<div class="today-line" style="left:${todayPx}px;height:100%;position:absolute;top:0"></div>` : ''}
               </div>
@@ -274,6 +274,239 @@ export function renderProjectGantt(containerId, dataId) {
   if (todayWkIdx > 0 && gr) {
     setTimeout(() => { gr.scrollLeft = Math.max(0, (todayWkIdx - 3) * WK_W); }, 50);
   }
+
+  // ── Dependency state ────────────────────────────────────────────────────────
+  const timelineContent = document.getElementById('gr-timeline-content');
+
+  // Build taskBarMap: taskId (string) → bar element
+  const taskBarMap = {};
+  el.querySelectorAll('.gantt-bar[data-task-id]').forEach(bar => {
+    taskBarMap[bar.dataset.taskId] = bar;
+  });
+
+  // Build links: [{from: predecessorId, to: successorId}, ...]
+  const links = [];
+  for (const sec of sections) {
+    for (const t of sec.tasks) {
+      if (t.depends_on) {
+        for (const depId of t.depends_on) {
+          links.push({ from: depId, to: t.id });
+        }
+      }
+    }
+  }
+
+  function updateCascadedBars(cascaded) {
+    for (const t of cascaded) {
+      const bar = taskBarMap[t.id];
+      if (bar) {
+        const startD = parseDate(t.start);
+        const endD = parseDate(t.end);
+        const newLeft = (startD - weeks[0]) / (7 * 86400000) * WK_W;
+        const newWidth = Math.max(16, (endD - startD) / (7 * 86400000) * WK_W);
+        bar.style.left = `${newLeft}px`;
+        bar.style.width = `${newWidth}px`;
+      }
+      const taskRow = gl?.querySelector(`[data-task-id="${t.id}"]`);
+      if (taskRow) {
+        const sc = taskRow.querySelector('.tc-start');
+        const ec = taskRow.querySelector('.tc-end');
+        const dc = taskRow.querySelector('.tc-dur');
+        if (sc) { sc.textContent = formatDateDisplay(t.start); sc.dataset.date = t.start; }
+        if (ec) { ec.textContent = formatDateDisplay(t.end); ec.dataset.date = t.end; }
+        if (dc) dc.textContent = `${t.days}d`;
+      }
+    }
+  }
+
+  function drawDependencyArrows() {
+    if (!timelineContent) return;
+    timelineContent.querySelector('.dep-svg')?.remove();
+    if (links.length === 0) return;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('dep-svg');
+    svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:4';
+
+    // Arrowhead marker
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', 'dep-arrowhead');
+    marker.setAttribute('markerWidth', '5'); marker.setAttribute('markerHeight', '5');
+    marker.setAttribute('refX', '5'); marker.setAttribute('refY', '2.5');
+    marker.setAttribute('orient', 'auto');
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    poly.setAttribute('points', '0 0, 5 2.5, 0 5');
+    poly.setAttribute('fill', '#6366f1'); poly.setAttribute('opacity', '0.75');
+    marker.appendChild(poly); defs.appendChild(marker); svg.appendChild(defs);
+
+    for (const link of links) {
+      const fromBar = taskBarMap[link.from];
+      const toBar = taskBarMap[link.to];
+      if (!fromBar || !toBar) continue;
+      const fromRow = fromBar.closest('.timeline-row');
+      const toRow = toBar.closest('.timeline-row');
+      if (!fromRow || !toRow) continue;
+
+      const x1 = parseFloat(fromBar.style.left) + parseFloat(fromBar.style.width);
+      const y1 = fromRow.offsetTop + fromRow.offsetHeight / 2;
+      const x2 = parseFloat(toBar.style.left);
+      const y2 = toRow.offsetTop + toRow.offsetHeight / 2;
+
+      // Bezier S-curve: control points pull horizontally from each endpoint
+      const cx = Math.max(40, Math.abs(x2 - x1) * 0.5);
+      const d = `M ${x1} ${y1} C ${x1 + cx} ${y1}, ${x2 - cx} ${y2}, ${x2} ${y2}`;
+
+      // Visible path
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d); path.setAttribute('stroke', '#6366f1');
+      path.setAttribute('stroke-width', '1.5'); path.setAttribute('fill', 'none');
+      path.setAttribute('marker-end', 'url(#dep-arrowhead)'); path.setAttribute('opacity', '0.65');
+
+      // Endpoint dots
+      const dot1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot1.setAttribute('cx', x1); dot1.setAttribute('cy', y1); dot1.setAttribute('r', '3');
+      dot1.setAttribute('fill', '#6366f1'); dot1.setAttribute('opacity', '0.65');
+
+      const dot2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot2.setAttribute('cx', x2); dot2.setAttribute('cy', y2); dot2.setAttribute('r', '3');
+      dot2.setAttribute('fill', '#6366f1'); dot2.setAttribute('opacity', '0.65');
+
+      svg.appendChild(dot1); svg.appendChild(dot2);
+
+      // Wider invisible hit area for easier clicking
+      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      hit.setAttribute('d', d); hit.setAttribute('stroke', 'transparent');
+      hit.setAttribute('stroke-width', '10'); hit.setAttribute('fill', 'none');
+      hit.style.cursor = 'pointer'; hit.style.pointerEvents = 'stroke';
+      hit.dataset.from = link.from; hit.dataset.to = link.to;
+      hit.title = 'Click to remove dependency';
+
+      const fromId = link.from;
+      const toId = link.to;
+      hit.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm('Remove this dependency link?')) return;
+        try {
+          const resp = await fetch(`/api/tasks/${toId}/unlink/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || '' },
+            body: JSON.stringify({ depends_on: parseInt(fromId) }),
+          });
+          if (resp.ok) {
+            const idx = links.findIndex(l => l.from == fromId && l.to == toId);
+            if (idx !== -1) links.splice(idx, 1);
+            drawDependencyArrows();
+          }
+        } catch (err) { console.error('Unlink failed:', err); }
+      });
+
+      svg.appendChild(path); svg.appendChild(hit);
+    }
+
+    // SVG stays pointer-events:none so bars remain draggable;
+    // individual hit paths opt in with pointer-events:stroke
+    timelineContent.appendChild(svg);
+  }
+
+  function setupDepConnectors() {
+    if (!timelineContent) return;
+    let linkSourceId = null;
+    let sourceBar = null;
+
+    // Toast shown at top of gantt during link mode
+    const toast = document.createElement('div');
+    toast.style.cssText = 'display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1e1b4b;color:white;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;z-index:9999;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+    toast.textContent = 'Click another task to link — Esc to cancel';
+    document.body.appendChild(toast);
+
+    function enterLinkMode(taskId, bar) {
+      linkSourceId = taskId;
+      sourceBar = bar;
+      bar.style.outline = '2px dashed #6366f1';
+      bar.style.outlineOffset = '2px';
+      toast.style.display = 'block';
+      // Show all other zones so user sees where they can click
+      timelineContent.querySelectorAll('.dep-conn-zone').forEach(z => {
+        if (z.dataset.taskId !== taskId) z.style.opacity = '0.5';
+      });
+    }
+
+    function exitLinkMode() {
+      if (sourceBar) {
+        sourceBar.style.outline = '';
+        sourceBar.style.outlineOffset = '';
+      }
+      linkSourceId = null;
+      sourceBar = null;
+      toast.style.display = 'none';
+      timelineContent.querySelectorAll('.dep-conn-zone').forEach(z => z.style.opacity = '0');
+    }
+
+    for (const [taskId, bar] of Object.entries(taskBarMap)) {
+      const zone = document.createElement('div');
+      zone.className = 'dep-conn-zone';
+      zone.dataset.taskId = taskId;
+      zone.title = 'Click to start linking';
+      zone.style.cssText = 'position:absolute;right:0;top:0;width:18px;height:100%;cursor:crosshair;z-index:11;opacity:0;transition:opacity 0.15s;display:flex;align-items:center;justify-content:center';
+      const dot = document.createElement('div');
+      dot.style.cssText = 'width:10px;height:10px;border-radius:50%;background:white;opacity:0.9;pointer-events:none;box-shadow:0 0 0 2px #6366f1';
+      zone.appendChild(dot);
+      bar.appendChild(zone);
+
+      bar.addEventListener('mouseenter', () => { if (!linkSourceId) zone.style.opacity = '1'; });
+      bar.addEventListener('mouseleave', () => { if (!linkSourceId) zone.style.opacity = '0'; });
+
+      zone.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (linkSourceId === taskId) { exitLinkMode(); return; }
+        if (linkSourceId) {
+          // Zone clicked as a target — treat it as selecting this bar as target
+          zone.closest('.gantt-bar')?.dispatchEvent(new MouseEvent('click', { bubbles: false }));
+          return;
+        }
+        enterLinkMode(taskId, bar);
+      });
+    }
+
+    // Click on any bar while in link mode → create link
+    el.addEventListener('click', async (e) => {
+      if (!linkSourceId) return;
+      const targetBar = e.target.closest('.gantt-bar[data-task-id]');
+      if (!targetBar) { exitLinkMode(); return; }
+      const targetId = targetBar.dataset.taskId;
+      if (targetId === linkSourceId) { exitLinkMode(); return; }
+
+      const savedSourceId = linkSourceId;
+      exitLinkMode();
+
+      try {
+        const resp = await fetch(`/api/tasks/${targetId}/link/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || '' },
+          body: JSON.stringify({ depends_on: parseInt(savedSourceId) }),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+          if (!links.find(l => l.from == savedSourceId && l.to == targetId)) {
+            links.push({ from: parseInt(savedSourceId), to: parseInt(targetId) });
+          }
+          if (result.cascaded?.length) updateCascadedBars(result.cascaded);
+          drawDependencyArrows();
+        } else {
+          alert(result.error || 'Failed to link tasks');
+        }
+      } catch (err) { console.error('Link failed:', err); }
+    });
+
+    // Escape cancels link mode
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && linkSourceId) exitLinkMode();
+    });
+  }
+
+  drawDependencyArrows();
+  setupDepConnectors();
 
   // Left panel resize handler
   const leftPanel = document.getElementById('gantt-left-panel');
@@ -505,6 +738,7 @@ export function renderProjectGantt(containerId, dataId) {
     gr.addEventListener('mousedown', (e) => {
       const bar = e.target.closest('.gantt-bar');
       if (!bar) return;
+      if (e.target.closest('.dep-conn-zone')) return; // handled by connector logic
 
       const isResizeHandle = e.target.classList.contains('gantt-resize-handle');
       const isMultiSelect = e.shiftKey || e.ctrlKey || e.metaKey;
@@ -536,6 +770,19 @@ export function renderProjectGantt(containerId, dataId) {
         barsToMove.forEach(b => {
           b.dataset.startLeft = parseFloat(b.style.left);
         });
+      }
+
+      // Collect all directly linked bars (predecessors + successors) so they
+      // move in lockstep regardless of which bar in the chain is dragged
+      draggedBar._linkedBars = [];
+      for (const link of links) {
+        let linked = null;
+        if (String(link.from) === bar.dataset.taskId) linked = taskBarMap[String(link.to)];
+        if (String(link.to)   === bar.dataset.taskId) linked = taskBarMap[String(link.from)];
+        if (linked && !draggedBar._linkedBars.includes(linked)) {
+          linked.dataset.depOrigLeft = parseFloat(linked.style.left);
+          draggedBar._linkedBars.push(linked);
+        }
       }
 
       e.preventDefault();
@@ -590,6 +837,24 @@ export function renderProjectGantt(containerId, dataId) {
           }
         }
         updateDragGuides(draggedBar, dragGuideLines);
+
+        // Move all linked bars in lockstep (both predecessors and successors)
+        if (draggedBar._linkedBars) {
+          draggedBar._linkedBars.forEach(b => {
+            b.style.left = (parseFloat(b.dataset.depOrigLeft) + deltaX) + 'px';
+          });
+        }
+      }
+
+      // Redraw dependency arrows to follow the moving bar
+      if (links.length > 0) {
+        if (!draggedBar._rafPending) {
+          draggedBar._rafPending = true;
+          requestAnimationFrame(() => {
+            drawDependencyArrows();
+            if (draggedBar) draggedBar._rafPending = false;
+          });
+        }
       }
     });
 
@@ -665,6 +930,10 @@ export function renderProjectGantt(containerId, dataId) {
       dragGuideLines = null;
 
       const barsToSave = selectedBars.size > 0 ? selectedBars : new Set([draggedBar]);
+      // Also save every linked bar that moved with the dragged bar
+      if (draggedBar._linkedBars) {
+        draggedBar._linkedBars.forEach(b => barsToSave.add(b));
+      }
       draggedBar = null;
 
       // Save all moved bars
@@ -693,25 +962,29 @@ export function renderProjectGantt(containerId, dataId) {
             })
           });
           if (response.ok) {
-            // Update the task panel with new dates
+            const result = await response.json();
+
+            // Snap bar to exact date-aligned pixels from server response
+            // (drag position may be slightly off from date boundaries)
+            const snapStart = parseDate(result.start);
+            const snapEnd = parseDate(result.end);
+            const snapLeft = (snapStart - weeks[0]) / (7 * 86400000) * WK_W;
+            const snapWidth = Math.max(16, (snapEnd - snapStart) / (7 * 86400000) * WK_W);
+            bar.style.left = `${snapLeft}px`;
+            bar.style.width = `${snapWidth}px`;
+
+            // Update this task's panel cells using server dates
             const taskRow = gl?.querySelector(`[data-task-id="${taskId}"]`);
             if (taskRow) {
               const startCell = taskRow.querySelector('.tc-start');
               const endCell = taskRow.querySelector('.tc-end');
               const durCell = taskRow.querySelector('.tc-dur');
-              if (startCell) {
-                startCell.textContent = formatDateDisplay(startStr);
-                startCell.dataset.date = startStr;
-              }
-              if (endCell) {
-                endCell.textContent = formatDateDisplay(endStr);
-                endCell.dataset.date = endStr;
-              }
-              if (durCell) {
-                const diffDays = Math.round((endDate - startDate) / 86400000) + 1;
-                durCell.textContent = `${diffDays}d`;
-              }
+              if (startCell) { startCell.textContent = formatDateDisplay(result.start); startCell.dataset.date = result.start; }
+              if (endCell) { endCell.textContent = formatDateDisplay(result.end); endCell.dataset.date = result.end; }
+              if (durCell) { durCell.textContent = `${result.days}d`; }
             }
+            // Push cascaded dependents
+            if (result.cascaded?.length) updateCascadedBars(result.cascaded);
           } else {
             console.error(`Failed to save task ${taskName}:`, response.statusText);
           }
@@ -721,6 +994,7 @@ export function renderProjectGantt(containerId, dataId) {
       });
 
       await Promise.all(savePromises);
+      drawDependencyArrows();
 
       // Clear selection after save
       selectedBars.forEach(bar => bar.classList.remove('gantt-bar-selected'));
