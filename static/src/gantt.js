@@ -213,7 +213,7 @@ export function renderProjectGantt(containerId, dataId) {
       <div class="gantt-bar ${t.status}" style="left:${barLeft}px;width:${barWidth}px" title="${esc(t.name)}: ${t.start} → ${t.end}" data-task-id="${t.id}" data-task-name="${esc(t.name)}">
         <div style="position:absolute;left:0;top:0;width:100%;height:100%;cursor:move;user-select:none"></div>
         <span style="position:relative;z-index:1">${barLabel}${issueFlag}</span>
-        <div class="gantt-resize-handle" style="position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:e-resize;background:transparent;z-index:10"></div>
+        <div class="gantt-resize-handle" style="position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:e-resize;background:transparent;z-index:12"></div>
       </div>
     </div>`;
   }).join('');
@@ -319,6 +319,42 @@ export function renderProjectGantt(containerId, dataId) {
     }
   }
 
+  // Unlink confirmation state
+  let pendingUnlink = null; // { fromId, toId }
+
+  // Toast shown during unlink confirmation
+  const unlinkToast = document.createElement('div');
+  unlinkToast.style.cssText = 'display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#991b1b;color:white;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;z-index:9999;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+  unlinkToast.textContent = 'Click \u2715 again to remove link \u2014 Esc to cancel';
+  document.body.appendChild(unlinkToast);
+
+  function exitUnlinkMode() {
+    pendingUnlink = null;
+    unlinkToast.style.display = 'none';
+    drawDependencyArrows();
+  }
+
+  async function performUnlink(fromId, toId) {
+    try {
+      const resp = await fetch(`/api/tasks/${toId}/unlink/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || '' },
+        body: JSON.stringify({ depends_on: parseInt(fromId) }),
+      });
+      if (resp.ok) {
+        const idx = links.findIndex(l => l.from == fromId && l.to == toId);
+        if (idx !== -1) links.splice(idx, 1);
+      }
+    } catch (err) { console.error('Unlink failed:', err); }
+    pendingUnlink = null;
+    unlinkToast.style.display = 'none';
+    drawDependencyArrows();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pendingUnlink) exitUnlinkMode();
+  });
+
   function drawDependencyArrows() {
     if (!timelineContent) return;
     timelineContent.querySelector('.dep-svg')?.remove();
@@ -357,20 +393,26 @@ export function renderProjectGantt(containerId, dataId) {
       const cx = Math.max(40, Math.abs(x2 - x1) * 0.5);
       const d = `M ${x1} ${y1} C ${x1 + cx} ${y1}, ${x2 - cx} ${y2}, ${x2} ${y2}`;
 
+      const fromId = link.from;
+      const toId = link.to;
+      const isPending = pendingUnlink && pendingUnlink.fromId == fromId && pendingUnlink.toId == toId;
+      const linkColor = isPending ? '#ef4444' : '#6366f1';
+      const linkOpacity = isPending ? '1' : '0.65';
+
       // Visible path
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', d); path.setAttribute('stroke', '#6366f1');
-      path.setAttribute('stroke-width', '1.5'); path.setAttribute('fill', 'none');
-      path.setAttribute('marker-end', 'url(#dep-arrowhead)'); path.setAttribute('opacity', '0.65');
+      path.setAttribute('d', d); path.setAttribute('stroke', linkColor);
+      path.setAttribute('stroke-width', isPending ? '2.5' : '1.5'); path.setAttribute('fill', 'none');
+      path.setAttribute('marker-end', 'url(#dep-arrowhead)'); path.setAttribute('opacity', linkOpacity);
 
       // Endpoint dots
       const dot1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot1.setAttribute('cx', x1); dot1.setAttribute('cy', y1); dot1.setAttribute('r', '3');
-      dot1.setAttribute('fill', '#6366f1'); dot1.setAttribute('opacity', '0.65');
+      dot1.setAttribute('fill', linkColor); dot1.setAttribute('opacity', linkOpacity);
 
       const dot2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot2.setAttribute('cx', x2); dot2.setAttribute('cy', y2); dot2.setAttribute('r', '3');
-      dot2.setAttribute('fill', '#6366f1'); dot2.setAttribute('opacity', '0.65');
+      dot2.setAttribute('fill', linkColor); dot2.setAttribute('opacity', linkOpacity);
 
       svg.appendChild(dot1); svg.appendChild(dot2);
 
@@ -379,33 +421,95 @@ export function renderProjectGantt(containerId, dataId) {
       hit.setAttribute('d', d); hit.setAttribute('stroke', 'transparent');
       hit.setAttribute('stroke-width', '10'); hit.setAttribute('fill', 'none');
       hit.style.cursor = 'pointer'; hit.style.pointerEvents = 'stroke';
-      hit.dataset.from = link.from; hit.dataset.to = link.to;
+      hit.dataset.from = fromId; hit.dataset.to = toId;
       hit.title = 'Click to remove dependency';
 
-      const fromId = link.from;
-      const toId = link.to;
-      hit.addEventListener('click', async (e) => {
+      hit.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!confirm('Remove this dependency link?')) return;
-        try {
-          const resp = await fetch(`/api/tasks/${toId}/unlink/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || '' },
-            body: JSON.stringify({ depends_on: parseInt(fromId) }),
-          });
-          if (resp.ok) {
-            const idx = links.findIndex(l => l.from == fromId && l.to == toId);
-            if (idx !== -1) links.splice(idx, 1);
-            drawDependencyArrows();
-          }
-        } catch (err) { console.error('Unlink failed:', err); }
+        if (pendingUnlink && pendingUnlink.fromId == fromId && pendingUnlink.toId == toId) {
+          performUnlink(fromId, toId);
+        } else {
+          pendingUnlink = { fromId, toId };
+          unlinkToast.style.display = 'block';
+          drawDependencyArrows();
+        }
       });
 
       svg.appendChild(path); svg.appendChild(hit);
+
+      // X button at midpoint of the curve
+      const mx = (x1 + x2) / 2;
+      const my = (y1 + y2) / 2;
+
+      const btnGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      btnGroup.style.cursor = 'pointer';
+      btnGroup.style.pointerEvents = 'auto';
+      btnGroup.dataset.from = fromId;
+      btnGroup.dataset.to = toId;
+
+      const btnBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      btnBg.setAttribute('cx', mx); btnBg.setAttribute('cy', my); btnBg.setAttribute('r', isPending ? '9' : '7');
+      btnBg.setAttribute('fill', isPending ? '#ef4444' : '#64748b');
+      btnBg.setAttribute('opacity', isPending ? '1' : '0');
+      btnBg.setAttribute('class', 'dep-x-bg');
+
+      const xLine1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      xLine1.setAttribute('x1', mx - 3); xLine1.setAttribute('y1', my - 3);
+      xLine1.setAttribute('x2', mx + 3); xLine1.setAttribute('y2', my + 3);
+      xLine1.setAttribute('stroke', 'white'); xLine1.setAttribute('stroke-width', '1.5');
+      xLine1.setAttribute('stroke-linecap', 'round');
+      xLine1.setAttribute('opacity', isPending ? '1' : '0');
+      xLine1.setAttribute('class', 'dep-x-line');
+
+      const xLine2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      xLine2.setAttribute('x1', mx + 3); xLine2.setAttribute('y1', my - 3);
+      xLine2.setAttribute('x2', mx - 3); xLine2.setAttribute('y2', my + 3);
+      xLine2.setAttribute('stroke', 'white'); xLine2.setAttribute('stroke-width', '1.5');
+      xLine2.setAttribute('stroke-linecap', 'round');
+      xLine2.setAttribute('opacity', isPending ? '1' : '0');
+      xLine2.setAttribute('class', 'dep-x-line');
+
+      // Larger invisible hit target for the X button
+      const btnHit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      btnHit.setAttribute('cx', mx); btnHit.setAttribute('cy', my); btnHit.setAttribute('r', '12');
+      btnHit.setAttribute('fill', 'transparent');
+
+      btnGroup.appendChild(btnBg);
+      btnGroup.appendChild(xLine1);
+      btnGroup.appendChild(xLine2);
+      btnGroup.appendChild(btnHit);
+
+      btnGroup.addEventListener('mouseenter', () => {
+        btnBg.setAttribute('opacity', '1');
+        btnBg.setAttribute('fill', isPending ? '#dc2626' : '#ef4444');
+        btnBg.setAttribute('r', '9');
+        xLine1.setAttribute('opacity', '1');
+        xLine2.setAttribute('opacity', '1');
+      });
+      btnGroup.addEventListener('mouseleave', () => {
+        btnBg.setAttribute('opacity', isPending ? '1' : '0');
+        btnBg.setAttribute('fill', isPending ? '#ef4444' : '#64748b');
+        btnBg.setAttribute('r', isPending ? '9' : '7');
+        xLine1.setAttribute('opacity', isPending ? '1' : '0');
+        xLine2.setAttribute('opacity', isPending ? '1' : '0');
+      });
+
+      btnGroup.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (pendingUnlink && pendingUnlink.fromId == fromId && pendingUnlink.toId == toId) {
+          performUnlink(fromId, toId);
+        } else {
+          pendingUnlink = { fromId, toId };
+          unlinkToast.style.display = 'block';
+          drawDependencyArrows();
+        }
+      });
+
+      svg.appendChild(btnGroup);
     }
 
     // SVG stays pointer-events:none so bars remain draggable;
-    // individual hit paths opt in with pointer-events:stroke
+    // individual hit paths and X buttons opt in with pointer-events
     timelineContent.appendChild(svg);
   }
 
@@ -738,17 +842,20 @@ export function renderProjectGantt(containerId, dataId) {
     gr.addEventListener('mousedown', (e) => {
       const bar = e.target.closest('.gantt-bar');
       if (!bar) return;
-      if (e.target.closest('.dep-conn-zone')) return; // handled by connector logic
 
       const isResizeHandle = e.target.classList.contains('gantt-resize-handle');
+      const isConnZone = !isResizeHandle && e.target.closest('.dep-conn-zone');
       const isMultiSelect = e.shiftKey || e.ctrlKey || e.metaKey;
 
-      // Handle selection
+      // Handle selection (allow even from connector zone)
       if (!isResizeHandle && isMultiSelect) {
         toggleBarSelection(bar, true);
         e.preventDefault();
         return;
       }
+
+      // Connector zone without resize/multi-select: let click handler handle link mode
+      if (isConnZone) return;
 
       // If clicking bar without multi-select, clear other selections
       if (!isResizeHandle && !isMultiSelect) {
