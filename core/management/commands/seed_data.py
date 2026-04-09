@@ -16,7 +16,7 @@ class Command(BaseCommand):
         p1 = Project.objects.create(
             name='Greenland', pgm='Ekaluk', customer='Axis',
             start_date=date(2025, 10, 1), end_date=date(2026, 6, 30),
-            color='#4f7ef8', annual_volume=50000, annual_revenue=25000000, currency='THB',
+            color='#34B27B', annual_volume=50000, annual_revenue=25000000, currency='THB',
         )
         p1.create_default_stages()
 

@@ -10,7 +10,7 @@ class Project(models.Model):
     customer = models.CharField(max_length=200)
     start_date = models.DateField()
     end_date = models.DateField()
-    color = models.CharField(max_length=7, default='#4f7ef8')
+    color = models.CharField(max_length=7, default='#34B27B')
     annual_volume = models.IntegerField(null=True, blank=True)
     annual_revenue = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='THB')

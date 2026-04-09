@@ -4,50 +4,75 @@
      class="fixed inset-0 bg-black/50 z-40 lg:hidden" x-cloak></div>
 
 <!-- Sidebar -->
-<aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-       class="fixed top-0 left-0 z-50 w-[220px] h-screen bg-[var(--surface)] border-r border-[var(--border)] flex flex-col transition-transform lg:translate-x-0">
+<aside :class="[
+         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+         sidebarCollapsed ? 'lg:w-[56px]' : 'lg:w-[220px]'
+       ]"
+       class="fixed top-0 left-0 z-50 w-[220px] h-screen bg-[var(--surface)] border-r border-[var(--border)] flex flex-col transition-all duration-200 lg:translate-x-0 overflow-hidden">
 
-    <!-- Logo -->
-    <div class="px-4 py-4 border-b border-[var(--border)]">
-        <a href="{% url 'portfolio' %}" class="text-lg font-bold text-[var(--accent)]">NPI Tracker</a>
+    <!-- Logo + Collapse toggle -->
+    <div class="relative flex items-center border-b border-[var(--border)] shrink-0"
+         :class="sidebarCollapsed ? 'flex-col gap-1 px-0 py-3' : 'justify-between px-4 py-3'">
+        <a href="{% url 'portfolio' %}" class="flex items-center gap-2 min-w-0"
+           :class="sidebarCollapsed ? 'justify-center' : ''">
+            <svg class="w-6 h-6 shrink-0 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
+            <span class="text-sm font-bold text-[var(--accent)] whitespace-nowrap"
+                  x-show="!sidebarCollapsed" x-transition.opacity>PJM MASTER</span>
+        </a>
+        <button @click="sidebarCollapsed = !sidebarCollapsed"
+                class="hidden lg:flex items-center justify-center w-7 h-7 rounded-md hover:bg-[var(--surface2)] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors shrink-0"
+                :title="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+            <svg class="w-4 h-4 transition-transform" :class="sidebarCollapsed ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+        </button>
     </div>
 
     <!-- All Projects link -->
     <a href="{% url 'portfolio' %}"
-       class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-[var(--surface2)] {% if not project %}bg-[var(--surface2)] text-[var(--accent)]{% else %}text-[var(--text-muted)]{% endif %}">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-        All Projects
+       class="flex items-center gap-2.5 py-2.5 text-sm font-medium hover:bg-[var(--surface2)] transition-colors {% if not project %}bg-[var(--surface2)] text-[var(--accent)]{% else %}text-[var(--text-muted)]{% endif %}"
+       :class="sidebarCollapsed ? 'justify-center px-0' : 'px-4'"
+       :title="sidebarCollapsed ? 'All Projects' : ''">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        <span x-show="!sidebarCollapsed" x-transition.opacity class="whitespace-nowrap">All Projects</span>
     </a>
 
     <!-- Project list -->
-    <div class="flex-1 overflow-y-auto py-2">
-        <div class="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Projects</div>
+    <div class="flex-1 overflow-y-auto overflow-x-hidden py-2">
+        <div class="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+             x-show="!sidebarCollapsed" x-transition.opacity>Projects</div>
         {% for p in all_projects %}
         <a href="{% url 'project-detail' p.pk %}"
-           class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-[var(--surface2)] group {% if project.pk == p.pk %}bg-[var(--surface2)] text-[var(--text)]{% else %}text-[var(--text-muted)]{% endif %}"
-           @click="sidebarOpen = false">
-            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ p.color }}"></span>
-            <span class="truncate flex-1">{{ p.name }}</span>
+           class="flex items-center gap-2.5 py-2 text-sm hover:bg-[var(--surface2)] transition-colors group {% if project.pk == p.pk %}bg-[var(--surface2)] text-[var(--text)]{% else %}text-[var(--text-muted)]{% endif %}"
+           :class="sidebarCollapsed ? 'justify-center px-0' : 'px-4'"
+           @click="sidebarOpen = false"
+           :title="sidebarCollapsed ? '{{ p.name|escapejs }}' : ''">
+            <span class="w-6 h-6 rounded-md shrink-0 flex items-center justify-center text-[10px] font-bold bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">{{ p.name|first }}</span>
+            <span class="truncate flex-1 whitespace-nowrap" x-show="!sidebarCollapsed" x-transition.opacity>{{ p.name }}</span>
             {% if p.open_issue_count %}
-            <span class="text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5 font-medium">{{ p.open_issue_count }}</span>
+            <span class="text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5 font-medium"
+                  x-show="!sidebarCollapsed" x-transition.opacity>{{ p.open_issue_count }}</span>
             {% endif %}
         </a>
         {% endfor %}
     </div>
 
-    <!-- New Project button -->
-    <div class="p-3 border-t border-[var(--border)] space-y-2">
+    <!-- Footer actions -->
+    <div class="border-t border-[var(--border)] shrink-0"
+         :class="sidebarCollapsed ? 'p-1.5 space-y-1' : 'p-3 space-y-2'">
         <button hx-get="{% url 'project-create' %}" hx-target="#modal-container" hx-swap="innerHTML"
-                class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            New Project
+                class="w-full flex items-center justify-center gap-1.5 text-sm font-medium rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition"
+                :class="sidebarCollapsed ? 'px-0 py-2' : 'px-3 py-2'"
+                :title="sidebarCollapsed ? 'New Project' : ''">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span x-show="!sidebarCollapsed" x-transition.opacity class="whitespace-nowrap">New Project</span>
         </button>
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit"
-                    class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                Sign out {{ request.user.username }}
+                    class="w-full flex items-center justify-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition"
+                    :class="sidebarCollapsed ? 'px-0 py-1.5' : 'px-3 py-2'"
+                    :title="sidebarCollapsed ? 'Sign out' : ''">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                <span x-show="!sidebarCollapsed" x-transition.opacity class="whitespace-nowrap">Sign out {{ request.user.username }}</span>
             </button>
         </form>
     </div>

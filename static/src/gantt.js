@@ -674,7 +674,7 @@ export function renderProjectGantt(containerId, dataId) {
 
   if (leftPanel && resizeDivider && headerLeft) {
     const STORAGE_KEY = 'gantt-left-width';
-    const DEFAULT_WIDTH = 690;
+    const DEFAULT_WIDTH = 560;
     const MIN_WIDTH = 300;
     const MAX_WIDTH = 1200;
 

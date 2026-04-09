@@ -46,7 +46,7 @@ class Migration(migrations.Migration):
                 ('customer', models.CharField(max_length=200)),
                 ('start_date', models.DateField()),
                 ('end_date', models.DateField()),
-                ('color', models.CharField(default='#4f7ef8', max_length=7)),
+                ('color', models.CharField(default='#34B27B', max_length=7)),
                 ('annual_volume', models.IntegerField(blank=True, null=True)),
                 ('annual_revenue', models.DecimalField(blank=True, decimal_places=2, max_digits=14, null=True)),
                 ('currency', models.CharField(choices=[('THB', 'THB'), ('USD', 'USD'), ('EUR', 'EUR')], default='THB', max_length=3)),
