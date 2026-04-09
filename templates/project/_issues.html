@@ -1,55 +1,134 @@
 {% if open_issues.count or resolved_issues.count %}
-<div class="space-y-3">
-    {% for issue in open_issues %}
-    <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 border-l-4
-        {% if issue.severity == 'critical' %}border-l-red-500{% elif issue.severity == 'high' %}border-l-amber-500{% elif issue.severity == 'medium' %}border-l-blue-500{% else %}border-l-gray-500{% endif %}">
-        <div class="flex items-center gap-2 mb-2 flex-wrap">
-            <span class="severity-badge severity-{{ issue.severity }}">{{ issue.severity_label }}</span>
-            <span class="status-badge status-{{ issue.status }}">{{ issue.status_label }}</span>
-            <span class="font-semibold text-sm flex-1">{{ issue.title }}</span>
-            <button hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-                    class="text-xs text-[var(--accent)] hover:underline">Edit</button>
-            <button hx-post="{% url 'issue-delete' project.pk issue.pk %}" hx-confirm="Delete this issue?"
-                    hx-target="#content" hx-swap="innerHTML"
-                    class="text-xs text-red-400 hover:underline">Delete</button>
+<div x-data="{ showResolved: false }">
+
+    <!-- ── Summary Cards ─────────────────────────────────────────── -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div class="bg-[var(--surface)] rounded-lg border border-[var(--border)] p-4">
+            <div class="text-2xl font-bold text-[var(--text)]">{{ open_issues.count }}</div>
+            <div class="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wide font-medium">Open Issues</div>
         </div>
-        {% if issue.desc %}<p class="text-sm text-[var(--text-muted)] mb-2">{{ issue.desc }}</p>{% endif %}
-        {% if issue.impact %}<div class="text-xs px-2 py-1 bg-red-500/10 text-red-400 rounded mb-2">Impact: {{ issue.impact }}</div>{% endif %}
-        <div class="flex items-center gap-4 text-xs text-[var(--text-muted)]">
-            {% if issue.owner %}<span>Owner: {{ issue.owner }}</span>{% endif %}
-            {% if issue.due %}<span>Due: {{ issue.due|date:"d M y" }}</span>{% endif %}
-            {% if issue.stage %}<span class="stage-pill-sm" style="background:{{ issue.stage.color }}22;color:{{ issue.stage.color }}">{{ issue.stage.name }}</span>{% endif %}
+        <div class="bg-[var(--surface)] rounded-lg border border-[var(--border)] p-4">
+            <div class="text-2xl font-bold {% if critical_issues %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ critical_issues|length }}</div>
+            <div class="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wide font-medium">Critical</div>
         </div>
-        {% if issue.linked_tasks.count %}
-        <div class="flex flex-wrap gap-1 mt-2">
-            {% for t in issue.linked_tasks.all %}
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface2)] text-[var(--text-muted)]">#{{ t.pk }} {{ t.name|truncatewords:4 }}</span>
-            {% endfor %}
+        <div class="bg-[var(--surface)] rounded-lg border border-[var(--border)] p-4">
+            <div class="text-2xl font-bold {% if overdue_count %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ overdue_count }}</div>
+            <div class="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wide font-medium">Overdue</div>
+        </div>
+        <div class="bg-[var(--surface)] rounded-lg border border-[var(--border)] p-4">
+            <div class="text-2xl font-bold {% if no_owner_count %}text-amber-400{% else %}text-[var(--text-muted)]{% endif %}">{{ no_owner_count }}</div>
+            <div class="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wide font-medium">Unassigned</div>
+        </div>
+    </div>
+
+    <!-- ── Issue Table ────────────────────────────────────────────── -->
+    <div class="bg-[var(--surface)] rounded-lg border border-[var(--border)] overflow-hidden">
+        <!-- Table Header -->
+        <div class="hidden sm:grid sm:grid-cols-[minmax(0,1fr)_90px_100px_100px_90px_80px] gap-0 text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)] bg-[var(--surface2)]">
+            <div class="px-4 py-2.5">Issue</div>
+            <div class="px-3 py-2.5">Severity</div>
+            <div class="px-3 py-2.5">Status</div>
+            <div class="px-3 py-2.5">Owner</div>
+            <div class="px-3 py-2.5">Due</div>
+            <div class="px-3 py-2.5 text-right">Actions</div>
+        </div>
+
+        {% for issue in open_issues %}
+        <div class="sm:grid sm:grid-cols-[minmax(0,1fr)_90px_100px_100px_90px_80px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+            <!-- Title + desc + meta (mobile: stacked, desktop: first col) -->
+            <div class="px-4 py-3 min-w-0">
+                <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-1 self-stretch rounded-full flex-shrink-0
+                        {% if issue.severity == 'critical' %}bg-red-500{% elif issue.severity == 'high' %}bg-amber-500{% elif issue.severity == 'medium' %}bg-blue-400{% else %}bg-gray-500{% endif %}"></div>
+                    <div class="min-w-0 flex-1">
+                        <div class="font-semibold text-sm text-[var(--text)] truncate">{{ issue.title }}</div>
+                        {% if issue.desc %}<p class="text-xs text-[var(--text-muted)] mt-0.5 line-clamp-1">{{ issue.desc }}</p>{% endif %}
+                        <div class="flex items-center gap-2 mt-1 flex-wrap">
+                            {% if issue.stage %}<span class="stage-pill-sm" style="background:{{ issue.stage.color }}22;color:{{ issue.stage.color }}">{{ issue.stage.name }}</span>{% endif %}
+                            {% if issue.impact %}<span class="text-[10px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded">{{ issue.impact|truncatewords:6 }}</span>{% endif %}
+                            {% for t in issue.linked_tasks.all %}
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)]">#{{ t.pk }} {{ t.name|truncatewords:5 }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Severity -->
+            <div class="px-3 py-3 flex items-center">
+                <span class="severity-badge severity-{{ issue.severity }}">{{ issue.severity_label }}</span>
+            </div>
+            <!-- Status -->
+            <div class="px-3 py-3 flex items-center">
+                <span class="status-badge status-{{ issue.status }}">{{ issue.status_label }}</span>
+            </div>
+            <!-- Owner -->
+            <div class="px-3 py-3 flex items-center">
+                {% if issue.owner %}
+                <span class="text-xs text-[var(--text)] truncate" title="{{ issue.owner }}">{{ issue.owner }}</span>
+                {% else %}
+                <span class="text-xs text-amber-400/70 italic">Unassigned</span>
+                {% endif %}
+            </div>
+            <!-- Due -->
+            <div class="px-3 py-3 flex items-center">
+                {% if issue.due %}
+                <span class="text-xs {% if issue.due < today %}text-red-400 font-semibold{% else %}text-[var(--text-muted)]{% endif %}">
+                    {{ issue.due|date:"d M y" }}{% if issue.due < today %} <span class="text-[10px]">(overdue)</span>{% endif %}
+                </span>
+                {% else %}
+                <span class="text-xs text-[var(--text-muted)]">—</span>
+                {% endif %}
+            </div>
+            <!-- Actions -->
+            <div class="px-3 py-3 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                        class="text-xs text-[var(--accent)] hover:underline">Edit</button>
+                <button hx-post="{% url 'issue-delete' project.pk issue.pk %}" hx-confirm="Delete this issue?"
+                        hx-target="#content" hx-swap="innerHTML"
+                        class="text-xs text-red-400 hover:underline">Delete</button>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not open_issues.count %}
+        <div class="px-4 py-8 text-center text-[var(--text-muted)]">
+            <svg class="w-8 h-8 mx-auto mb-2 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <p class="text-sm">All issues resolved</p>
         </div>
         {% endif %}
     </div>
-    {% endfor %}
 
+    <!-- ── Resolved Section ───────────────────────────────────────── -->
     {% if resolved_issues.count %}
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mt-6 mb-2">Resolved</h3>
-    {% for issue in resolved_issues %}
-    <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 opacity-50">
-        <div class="flex items-center gap-2 mb-1 flex-wrap">
-            <span class="severity-badge severity-{{ issue.severity }}">{{ issue.severity_label }}</span>
-            <span class="status-badge status-resolved">Resolved</span>
-            <span class="font-medium text-sm flex-1">{{ issue.title }}</span>
-            <button hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-                    class="text-xs text-[var(--accent)] hover:underline">Edit</button>
+    <div class="mt-6">
+        <button @click="showResolved = !showResolved"
+                class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text)] transition-colors mb-3">
+            <svg class="w-3.5 h-3.5 transition-transform" :class="showResolved ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            Resolved ({{ resolved_issues.count }})
+        </button>
+        <div x-show="showResolved" x-transition.duration.200ms>
+            <div class="bg-[var(--surface)] rounded-lg border border-[var(--border)] overflow-hidden opacity-70">
+                {% for issue in resolved_issues %}
+                <div class="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--border)] last:border-b-0 hover:opacity-100 transition-opacity">
+                    <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span class="severity-badge severity-{{ issue.severity }} !text-[10px] !px-1.5 !py-0.5">{{ issue.severity_label }}</span>
+                    <span class="text-sm text-[var(--text-muted)] flex-1 truncate">{{ issue.title }}</span>
+                    {% if issue.owner %}<span class="text-[11px] text-[var(--text-muted)]">{{ issue.owner }}</span>{% endif %}
+                    <button hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                            class="text-xs text-[var(--accent)] hover:underline opacity-0 hover:opacity-100 transition-opacity">Edit</button>
+                </div>
+                {% endfor %}
+            </div>
         </div>
-        {% if issue.desc %}<p class="text-xs text-[var(--text-muted)]">{{ issue.desc|truncatewords:20 }}</p>{% endif %}
     </div>
-    {% endfor %}
     {% endif %}
+
 </div>
 {% else %}
-<div class="text-center py-16 text-[var(--text-muted)]">
-    <span class="text-4xl text-emerald-400">&#10003;</span>
-    <p class="text-lg mt-2 mb-3">No issues — all clear!</p>
+<div class="text-center py-20 text-[var(--text-muted)]">
+    <svg class="w-12 h-12 mx-auto mb-3 text-emerald-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <p class="text-lg font-medium text-[var(--text)] mb-1">No issues logged</p>
+    <p class="text-sm mb-5">Track blockers, risks and defects for this project.</p>
     <button hx-get="{% url 'issue-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
             class="action-btn">+ Log First Issue</button>
 </div>

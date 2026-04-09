@@ -135,12 +135,14 @@ export function renderProjectGantt(containerId, dataId) {
   // Build flat row list
   const rows = [];
   let itemNum = 0;
+  let secIdx = 0;
   for (const sec of sections) {
-    rows.push({ type: 'section', label: sec.section });
+    rows.push({ type: 'section', label: sec.section, secIdx });
     for (const t of sec.tasks) {
       itemNum++;
-      rows.push({ type: 'task', task: t, num: itemNum });
+      rows.push({ type: 'task', task: t, num: itemNum, secIdx });
     }
+    secIdx++;
   }
 
   // Week header and month grouping
@@ -162,8 +164,8 @@ export function renderProjectGantt(containerId, dataId) {
   // Left panel: header row + task rows
   const leftRows = rows.map(row => {
     if (row.type === 'section') {
-      return `<div class="task-row section-row">
-        <div class="tc-cell tc-item"></div>
+      return `<div class="task-row section-row" data-section-idx="${row.secIdx}" data-section-header="1" style="cursor:pointer">
+        <div class="tc-cell tc-item"><span class="section-chevron" style="font-size:10px;transition:transform 0.2s;display:inline-block">▼</span></div>
         <div class="tc-cell tc-task" style="color:var(--text-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding-left:14px">${esc(row.label)}</div>
         <div class="tc-cell tc-start"></div>
         <div class="tc-cell tc-end"></div>
@@ -181,7 +183,7 @@ export function renderProjectGantt(containerId, dataId) {
     const endDateObj = parseDate(t.end);
     const startDisp = startDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
     const endDisp = endDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-    return `<div class="task-row status-${t.status}" style="cursor:pointer" data-edit-url="${editUrl}" data-task-id="${t.id}">
+    return `<div class="task-row status-${t.status}" style="cursor:pointer" data-edit-url="${editUrl}" data-task-id="${t.id}" data-section-idx="${row.secIdx}">
       <div class="tc-cell tc-item">${row.num}</div>
       <div class="tc-cell tc-task">
         <div>${esc(t.name)}${stageTag(t.stage, t.stage_color)}</div>
@@ -200,7 +202,7 @@ export function renderProjectGantt(containerId, dataId) {
   // Right panel: timeline rows
   const timelineRows = rows.map(row => {
     if (row.type === 'section') {
-      return `<div class="timeline-row section-row" style="min-width:${weeks.length * WK_W}px">${weeks.map(() => '<div class="wk-cell"></div>').join('')}</div>`;
+      return `<div class="timeline-row section-row" style="min-width:${weeks.length * WK_W}px" data-section-idx="${row.secIdx}" data-section-header="1">${weeks.map(() => '<div class="wk-cell"></div>').join('')}</div>`;
     }
     const t = row.task;
     const barLeft = (parseDate(t.start) - weeks[0]) / (7 * 86400000) * WK_W;
@@ -208,7 +210,7 @@ export function renderProjectGantt(containerId, dataId) {
     const cells = weeks.map((w, i) => `<div class="wk-cell ${i === todayWkIdx ? 'current-wk' : ''}"></div>`).join('');
     const barLabel = barWidth > 40 ? esc(t.name).substring(0, Math.floor(barWidth / 7)) : '';
     const issueFlag = t.open_issues ? '<span class="issue-flag" title="Has open issues"></span>' : '';
-    return `<div class="timeline-row" style="min-width:${weeks.length * WK_W}px;position:relative">
+    return `<div class="timeline-row" style="min-width:${weeks.length * WK_W}px;position:relative" data-section-idx="${row.secIdx}">
       ${cells}
       <div class="gantt-bar ${t.status}" style="left:${barLeft}px;width:${barWidth}px" title="${esc(t.name)}: ${t.start} → ${t.end}" data-task-id="${t.id}" data-task-name="${esc(t.name)}">
         <div style="position:absolute;left:0;top:0;width:100%;height:100%;cursor:move;user-select:none"></div>
@@ -274,6 +276,59 @@ export function renderProjectGantt(containerId, dataId) {
   if (todayWkIdx > 0 && gr) {
     setTimeout(() => { gr.scrollLeft = Math.max(0, (todayWkIdx - 3) * WK_W); }, 50);
   }
+
+  // ── Section collapse/expand ────────────────────────────────────────────────
+  const COLLAPSE_KEY = `gantt-collapsed-${project_id}`;
+  const collapsedSections = new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]'));
+
+  function toggleSection(idx) {
+    if (collapsedSections.has(idx)) {
+      collapsedSections.delete(idx);
+    } else {
+      collapsedSections.add(idx);
+    }
+    localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...collapsedSections]));
+    applySectionVisibility();
+  }
+
+  function applySectionVisibility() {
+    for (const idx of [...Array(secIdx).keys()]) {
+      const collapsed = collapsedSections.has(idx);
+      // Left panel task rows
+      if (gl) gl.querySelectorAll(`[data-section-idx="${idx}"]:not([data-section-header])`).forEach(r => {
+        r.style.display = collapsed ? 'none' : '';
+      });
+      // Right panel timeline rows
+      if (gr) gr.querySelectorAll(`[data-section-idx="${idx}"]:not([data-section-header])`).forEach(r => {
+        r.style.display = collapsed ? 'none' : '';
+      });
+      // Chevron rotation on left header
+      if (gl) {
+        const header = gl.querySelector(`[data-section-idx="${idx}"][data-section-header]`);
+        if (header) {
+          const chev = header.querySelector('.section-chevron');
+          if (chev) chev.style.transform = collapsed ? 'rotate(-90deg)' : '';
+        }
+      }
+    }
+    // Redraw dependency arrows after visibility change
+    if (typeof drawDependencyArrows === 'function') {
+      setTimeout(() => drawDependencyArrows(), 0);
+    }
+  }
+
+  // Attach click handlers to section headers in left panel
+  if (gl) {
+    gl.querySelectorAll('[data-section-header="1"]').forEach(header => {
+      header.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSection(parseInt(header.dataset.sectionIdx));
+      });
+    });
+  }
+
+  // Apply initial collapsed state
+  applySectionVisibility();
 
   // ── Dependency state ────────────────────────────────────────────────────────
   const timelineContent = document.getElementById('gr-timeline-content');
@@ -838,6 +893,20 @@ export function renderProjectGantt(containerId, dataId) {
     }
   }
 
+  function updateBarLabel(bar, width) {
+    const labelSpan = bar.querySelector('span[style*="z-index:1"]');
+    if (!labelSpan) return;
+    const name = bar.dataset.taskName || '';
+    const issueFlag = labelSpan.querySelector('.issue-flag');
+    const flagHtml = issueFlag ? issueFlag.outerHTML : '';
+    if (width > 40) {
+      const maxChars = Math.floor(width / 7);
+      labelSpan.innerHTML = esc(name).substring(0, maxChars) + flagHtml;
+    } else {
+      labelSpan.innerHTML = flagHtml;
+    }
+  }
+
   if (gr) {
     gr.addEventListener('mousedown', (e) => {
       const bar = e.target.closest('.gantt-bar');
@@ -912,6 +981,9 @@ export function renderProjectGantt(containerId, dataId) {
       if (isResize) {
         const newWidth = Math.max(16, dragStartLeft + deltaX);
         draggedBar.style.width = newWidth + 'px';
+
+        // Update bar label to fit current width
+        updateBarLabel(draggedBar, newWidth);
 
         // Extend grid if resizing beyond bounds
         const newRight = parseFloat(draggedBar.style.left) + newWidth;

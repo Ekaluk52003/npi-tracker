@@ -332,9 +332,23 @@ def project_issues(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('issues__linked_tasks', 'issues__stage', 'stages'), pk=pk)
     open_issues = project.issues.select_related('stage').exclude(status='resolved')
     resolved_issues = project.issues.select_related('stage').filter(status='resolved')
+    today = date.today()
+    overdue_count = sum(1 for i in open_issues if i.due and i.due < today)
+    no_owner_count = sum(1 for i in open_issues if not i.owner)
+    critical_issues = [i for i in open_issues if i.severity == 'critical']
+    high_issues = [i for i in open_issues if i.severity == 'high']
+    medium_issues = [i for i in open_issues if i.severity == 'medium']
+    low_issues = [i for i in open_issues if i.severity == 'low']
     ctx = _project_ctx(project, 'issues', {
         'open_issues': open_issues,
         'resolved_issues': resolved_issues,
+        'critical_issues': critical_issues,
+        'high_issues': high_issues,
+        'medium_issues': medium_issues,
+        'low_issues': low_issues,
+        'overdue_count': overdue_count,
+        'no_owner_count': no_owner_count,
+        'today': today,
     })
     return _htmx_tab(request, 'project/detail.html', 'project/_issues.html', ctx)
 
