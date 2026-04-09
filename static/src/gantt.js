@@ -772,16 +772,26 @@ export function renderProjectGantt(containerId, dataId) {
         });
       }
 
-      // Collect all directly linked bars (predecessors + successors) so they
-      // move in lockstep regardless of which bar in the chain is dragged
+      // BFS through the entire dependency chain (all hops, both directions)
+      // so A→B→C all move together regardless of which bar is dragged
       draggedBar._linkedBars = [];
-      for (const link of links) {
-        let linked = null;
-        if (String(link.from) === bar.dataset.taskId) linked = taskBarMap[String(link.to)];
-        if (String(link.to)   === bar.dataset.taskId) linked = taskBarMap[String(link.from)];
-        if (linked && !draggedBar._linkedBars.includes(linked)) {
-          linked.dataset.depOrigLeft = parseFloat(linked.style.left);
-          draggedBar._linkedBars.push(linked);
+      const _visited = new Set([bar.dataset.taskId]);
+      const _queue = [bar.dataset.taskId];
+      while (_queue.length > 0) {
+        const cur = _queue.shift();
+        for (const link of links) {
+          let neighbor = null;
+          if (String(link.from) === cur) neighbor = String(link.to);
+          else if (String(link.to) === cur) neighbor = String(link.from);
+          if (neighbor && !_visited.has(neighbor)) {
+            _visited.add(neighbor);
+            _queue.push(neighbor);
+            const nb = taskBarMap[neighbor];
+            if (nb) {
+              nb.dataset.depOrigLeft = parseFloat(nb.style.left);
+              draggedBar._linkedBars.push(nb);
+            }
+          }
         }
       }
 
