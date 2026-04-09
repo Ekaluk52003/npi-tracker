@@ -698,6 +698,7 @@ export function renderProjectGantt(containerId, dataId) {
             if (taskRow) {
               const startCell = taskRow.querySelector('.tc-start');
               const endCell = taskRow.querySelector('.tc-end');
+              const durCell = taskRow.querySelector('.tc-dur');
               if (startCell) {
                 startCell.textContent = formatDateDisplay(startStr);
                 startCell.dataset.date = startStr;
@@ -705,6 +706,10 @@ export function renderProjectGantt(containerId, dataId) {
               if (endCell) {
                 endCell.textContent = formatDateDisplay(endStr);
                 endCell.dataset.date = endStr;
+              }
+              if (durCell) {
+                const diffDays = Math.round((endDate - startDate) / 86400000) + 1;
+                durCell.textContent = `${diffDays}d`;
               }
             }
           } else {

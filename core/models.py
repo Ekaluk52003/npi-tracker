@@ -48,7 +48,7 @@ class Project(models.Model):
     @property
     def duration_months(self):
         if self.start_date and self.end_date:
-            return round((self.end_date - self.start_date).days / 30.4)
+            return round((self.end_date - self.start_date).days / 30)
         return 0
 
     @property
@@ -240,6 +240,11 @@ class Task(models.Model):
 
     class Meta:
         ordering = ['section__sort_order', 'start']
+
+    def save(self, *args, **kwargs):
+        if self.start and self.end:
+            self.days = (self.end - self.start).days + 1
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

@@ -23,13 +23,12 @@ class ProjectForm(forms.ModelForm):
 class TaskForm(forms.ModelForm):
     class Meta:
         model = Task
-        fields = ['name', 'section', 'remark', 'who', 'days', 'start', 'end', 'status', 'stage']
+        fields = ['name', 'section', 'remark', 'who', 'start', 'end', 'status', 'stage']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. PCB Production'}),
             'section': forms.Select(attrs={'class': select_cls}),
             'remark': forms.Textarea(attrs={'class': textarea_cls, 'placeholder': 'Supplier info, dependencies, notes…', 'rows': 2}),
             'who': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Axis, SVI'}),
-            'days': forms.NumberInput(attrs={'class': input_cls, 'min': 1}),
             'start': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
             'end': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
             'status': forms.Select(attrs={'class': select_cls}),
