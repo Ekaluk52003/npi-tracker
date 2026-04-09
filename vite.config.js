@@ -17,7 +17,7 @@ export default defineConfig({
     },
   },
   server: {
-    host: 'localhost',
+    host: process.env.VITE_HOST || 'localhost',
     port: 5174,
     strictPort: true,
     open: false,

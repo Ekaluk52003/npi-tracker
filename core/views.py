@@ -169,7 +169,7 @@ def portfolio(request):
         })
     gantt_data = _portfolio_gantt_data(projects)
     ctx = {
-        'page_title': 'Portfolio Overview',
+        'page_title': 'Portfolio',
         'project_rows': project_rows,
         'portfolio_gantt_data': gantt_data,
     }

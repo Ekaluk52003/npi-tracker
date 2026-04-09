@@ -11,6 +11,8 @@ build/
 venv/
 env/
 .env
+.env.dev
+.env.prod
 
 # Django
 db.sqlite3
