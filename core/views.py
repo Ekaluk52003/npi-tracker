@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from itertools import groupby
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
@@ -1153,6 +1153,62 @@ def project_commit(request, pk):
             task_snapshot=ProjectPlanVersion.snapshot_project(project),
         )
     return HttpResponse(headers={'HX-Trigger-After-Settle': json.dumps({'versionCommitted': True})})
+
+
+@login_required
+@require_POST
+def project_version_restore(request, pk, vid):
+    project = get_object_or_404(Project, pk=pk)
+    version = get_object_or_404(ProjectPlanVersion, pk=vid, project=project)
+
+    with transaction.atomic():
+        # Drop all current tasks (clears M2M: depends_on, linked_issues, linked_nre)
+        project.tasks.all().delete()
+
+        # Reconcile sections: keep existing ones that appear in snapshot, create missing ones
+        snapshot_section_names = {t['section'] for t in version.task_snapshot}
+        project.sections.exclude(name__in=snapshot_section_names).delete()
+        section_map = {}
+        for t in version.task_snapshot:
+            name = t['section']
+            if name not in section_map:
+                sec, _ = ProjectSection.objects.get_or_create(
+                    project=project, name=name,
+                    defaults={'sort_order': 0}
+                )
+                section_map[name] = sec
+
+        # Create tasks, mapping old snapshot IDs → new Task instances
+        old_to_new = {}
+        for t in version.task_snapshot:
+            stage = None
+            if t.get('stage_id'):
+                stage = BuildStage.objects.filter(pk=t['stage_id'], project=project).first()
+            new_task = Task.objects.create(
+                project=project,
+                section=section_map[t['section']],
+                name=t['name'],
+                remark=t.get('remark', ''),
+                who=t.get('who', 'TBD'),
+                days=t.get('days', 1),
+                start=datetime.strptime(t['start'], '%Y-%m-%d').date(),
+                end=datetime.strptime(t['end'], '%Y-%m-%d').date(),
+                status=t.get('status', 'open'),
+                stage=stage,
+                sort_order=t.get('sort_order', 0),
+            )
+            old_to_new[t['id']] = new_task
+
+        # Restore depends_on relationships using the old→new mapping
+        for t in version.task_snapshot:
+            for dep_old_id in t.get('depends_on', []):
+                if dep_old_id in old_to_new:
+                    old_to_new[t['id']].depends_on.add(old_to_new[dep_old_id])
+
+    return HttpResponse(headers={'HX-Trigger-After-Settle': json.dumps({
+        'versionCommitted': True,
+        'show-toast': {'message': f'Restored to v{version.version_label} successfully', 'type': 'success'},
+    })})
 
 
 @login_required

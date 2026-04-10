@@ -62,6 +62,7 @@ urlpatterns = [
     # Version control
     path('project/<int:pk>/history/', views.project_history, name='project-history'),
     path('project/<int:pk>/history/<int:vid>/', views.project_version_detail, name='project-version-detail'),
+    path('project/<int:pk>/history/<int:vid>/restore/', views.project_version_restore, name='project-version-restore'),
     path('project/<int:pk>/commit/', views.project_commit, name='project-commit'),
     path('project/<int:pk>/commit/form/', views.project_commit_form, name='project-commit-form'),
 

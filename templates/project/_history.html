@@ -33,18 +33,17 @@
 
         {% else %}
         <!-- Version list -->
-        <div x-data="{ expanded: null }" class="space-y-2">
+        <div x-data="{ expanded: null, confirmRestore: null }" class="space-y-2">
             {% for item in versions_with_diff %}
             {% with v=item.version diff=item.diff %}
             <div class="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
 
-                <!-- Version row header -->
-                <button type="button"
-                        @click="expanded = expanded === {{ v.pk }} ? null : {{ v.pk }}"
-                        class="w-full flex items-start gap-3 px-4 py-3 hover:bg-[var(--surface2)] transition-colors text-left">
+                <!-- Version row header — div, not button, so we can have real buttons inside -->
+                <div @click="expanded = expanded === {{ v.pk }} ? null : {{ v.pk }}"
+                     class="flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface2)] transition-colors cursor-pointer select-none">
 
                     <!-- Expand chevron -->
-                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-[var(--text-muted)] transition-transform"
+                    <svg class="w-4 h-4 flex-shrink-0 text-[var(--text-muted)] transition-transform"
                          :class="expanded === {{ v.pk }} ? 'rotate-90' : ''"
                          fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -56,46 +55,72 @@
                         v{{ v.version_label }}
                     </span>
 
-                    <!-- View snapshot button (stop propagation so it doesn't toggle accordion) -->
-                    <a href="#"
-                       hx-get="{% url 'project-version-detail' project.pk v.pk %}"
-                       hx-target="#modal-container" hx-swap="innerHTML"
-                       @click.stop
-                       class="flex-shrink-0 text-xs text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded px-2 py-0.5 hover:bg-[var(--surface2)] transition-colors">
-                        View
-                    </a>
-
                     <!-- Meta -->
                     <div class="flex-1 min-w-0">
-                        <div class="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-                            <span class="text-[var(--text)] font-medium">{{ v.change_comment }}</span>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-[var(--text-muted)]">
+                        <div class="text-xs text-[var(--text)] font-medium truncate">{{ v.change_comment }}</div>
+                        <div class="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-[var(--text-muted)]">
                             <span>{{ v.committed_at|date:"d M Y, H:i" }}</span>
                             {% if v.committed_by %}<span>·</span><span>{{ v.committed_by.get_full_name|default:v.committed_by.username }}</span>{% endif %}
                             <span>·</span>
                             {% if v.change_type == 'major' %}
                             <span class="text-[var(--accent)] font-medium">Major</span>
                             {% else %}
-                            <span class="text-[var(--text-muted)]">Minor</span>
+                            <span>Minor</span>
                             {% endif %}
                             <span>·</span>
                             {% if diff.is_initial %}
-                            <span>{{ diff.added|length }} task{{ diff.added|length|pluralize }} (initial baseline)</span>
+                            <span>{{ diff.added|length }} task{{ diff.added|length|pluralize }} — initial baseline</span>
                             {% else %}
                             {% with na=diff.added|length nr=diff.removed|length nm=diff.modified|length %}
                             {% if na or nr or nm %}
-                            {% if na %}<span class="text-emerald-400">+{{ na }}</span>{% endif %}
-                            {% if nr %}<span class="text-red-400">-{{ nr }}</span>{% endif %}
-                            {% if nm %}<span class="text-amber-400">~{{ nm }}</span>{% endif %}
+                            {% if na %}<span class="text-emerald-400">+{{ na }} added</span>{% endif %}
+                            {% if nr %}<span class="text-red-400">-{{ nr }} removed</span>{% endif %}
+                            {% if nm %}<span class="text-amber-400">~{{ nm }} modified</span>{% endif %}
                             {% else %}
-                            <span class="text-[var(--text-muted)]">no task changes</span>
+                            <span>no task changes</span>
                             {% endif %}
                             {% endwith %}
                             {% endif %}
                         </div>
                     </div>
-                </button>
+
+                    <!-- Action buttons — @click.stop so they don't toggle accordion -->
+                    <div class="flex items-center gap-2 flex-shrink-0" @click.stop>
+                        <a hx-get="{% url 'project-version-detail' project.pk v.pk %}"
+                           hx-target="#modal-container" hx-swap="innerHTML"
+                           class="text-xs text-[var(--text-muted)] hover:text-[var(--text)] cursor-pointer transition-colors">
+                            View
+                        </a>
+                        <span class="text-[var(--border)]">|</span>
+                        <button type="button"
+                                @click="confirmRestore = confirmRestore === {{ v.pk }} ? null : {{ v.pk }}"
+                                class="text-xs text-[var(--text-muted)] hover:text-red-400 transition-colors">
+                            Restore
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Restore confirmation banner -->
+                <div x-show="confirmRestore === {{ v.pk }}" x-cloak
+                     class="border-t border-red-500/30 bg-red-500/5 px-4 py-3 flex items-center gap-3 text-sm">
+                    <svg class="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    </svg>
+                    <span class="flex-1 text-red-300 text-xs">
+                        This will <strong>replace all current tasks</strong> with the v{{ v.version_label }} snapshot. Current tasks will be deleted. This cannot be undone.
+                    </span>
+                    <button type="button" @click="confirmRestore = null"
+                            class="text-xs text-[var(--text-muted)] hover:text-[var(--text)] px-2 py-1 rounded transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button"
+                            hx-post="{% url 'project-version-restore' project.pk v.pk %}"
+                            hx-swap="none"
+                            @click="confirmRestore = null"
+                            class="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded transition-colors font-medium">
+                        Confirm Restore
+                    </button>
+                </div>
 
                 <!-- Expanded diff -->
                 <div x-show="expanded === {{ v.pk }}" x-cloak
