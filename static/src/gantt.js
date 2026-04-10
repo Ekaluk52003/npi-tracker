@@ -273,7 +273,14 @@ export function renderProjectGantt(containerId, dataId) {
       if (ghh) ghh.scrollLeft = gr.scrollLeft;
     });
   }
-  if (todayWkIdx > 0 && gr) {
+  if (window._ganttScrollRestore) {
+    const saved = window._ganttScrollRestore;
+    window._ganttScrollRestore = null;
+    setTimeout(() => {
+      if (gr) { gr.scrollLeft = saved.left; gr.scrollTop = saved.top; }
+      if (gl) gl.scrollTop = saved.top;
+    }, 60);
+  } else if (todayWkIdx > 0 && gr) {
     setTimeout(() => { gr.scrollLeft = Math.max(0, (todayWkIdx - 3) * WK_W); }, 50);
   }
 
@@ -1214,6 +1221,63 @@ export function renderProjectGantt(containerId, dataId) {
         .then(html => { modal.innerHTML = html; if (window.htmx) htmx.process(modal); });
     });
   }
+
+  // ── In-place task update (called after form save, no re-render) ────────────
+  function ganttUpdateTask(t) {
+    const bar = taskBarMap[String(t.id)];
+    if (bar) {
+      const startD = parseDate(t.start);
+      const endD = parseDate(t.end);
+      const newLeft = (startD - weeks[0]) / (7 * 86400000) * WK_W;
+      const newWidth = Math.max(16, (endD - startD) / (7 * 86400000) * WK_W);
+      bar.style.left = `${newLeft}px`;
+      bar.style.width = `${newWidth}px`;
+      bar.title = `${t.name}: ${t.start} → ${t.end}`;
+      bar.className = `gantt-bar ${t.status}`;
+      const barLabel = newWidth > 40 ? esc(t.name).substring(0, Math.floor(newWidth / 7)) : '';
+      const issueFlag = t.open_issues ? '<span class="issue-flag" title="Has open issues"></span>' : '';
+      const labelSpan = bar.querySelector('span[style*="z-index"]');
+      if (labelSpan) labelSpan.innerHTML = `${barLabel}${issueFlag}`;
+      bar.dataset.taskName = t.name;
+    }
+    const taskRow = gl?.querySelector(`.task-row[data-task-id="${t.id}"]`);
+    if (taskRow) {
+      taskRow.className = `task-row status-${t.status}`;
+      const nameCell = taskRow.querySelector('.tc-task');
+      if (nameCell) {
+        const nameDiv = nameCell.querySelector('div');
+        if (nameDiv) nameDiv.innerHTML = `${esc(t.name)}${stageTag(t.stage, t.stage_color)}`;
+        let remarkEl = nameCell.querySelector('.tc-remark');
+        if (t.remark && !remarkEl) {
+          remarkEl = document.createElement('div');
+          remarkEl.className = 'tc-remark';
+          nameCell.appendChild(remarkEl);
+        }
+        if (remarkEl) { if (t.remark) remarkEl.textContent = t.remark; else remarkEl.remove(); }
+      }
+      const sc = taskRow.querySelector('.tc-start');
+      const ec = taskRow.querySelector('.tc-end');
+      const dc = taskRow.querySelector('.tc-dur');
+      if (sc) { sc.textContent = formatDateDisplay(t.start); sc.dataset.date = t.start; }
+      if (ec) { ec.textContent = formatDateDisplay(t.end); ec.dataset.date = t.end; }
+      if (dc) dc.textContent = `${t.days}d`;
+      const whoCell = taskRow.querySelector('.who-pill');
+      if (whoCell) whoCell.textContent = t.who;
+      const statusSpan = taskRow.querySelector('.status-dot');
+      if (statusSpan) statusSpan.textContent = STATUS_LABELS[t.status] || t.status;
+    }
+    drawDependencyArrows();
+  }
+
+  function ganttRemoveTask(taskId) {
+    const bar = taskBarMap[String(taskId)];
+    if (bar) bar.closest('.timeline-row')?.remove();
+    gl?.querySelector(`.task-row[data-task-id="${taskId}"]`)?.remove();
+    delete taskBarMap[String(taskId)];
+    drawDependencyArrows();
+  }
+
+  window.ganttAPI = { update: ganttUpdateTask, remove: ganttRemoveTask };
 }
 
 // ── Portfolio Gantt ─────────────────────────────────────────────────

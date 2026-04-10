@@ -447,7 +447,7 @@ def task_create(request, pk):
             task.project = project
             task.save()
             if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
+                return HttpResponse(headers={'HX-Trigger-After-Settle': json.dumps({'taskSaved': True, 'taskCreated': True})})
             return redirect('project-gantt', pk=pk)
     else:
         form = TaskForm(project=project, initial={'start': date.today(), 'end': date.today() + timedelta(days=7)})
@@ -463,7 +463,21 @@ def task_edit(request, pk, tid):
         if form.is_valid():
             form.save()
             if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
+                task_data = {
+                    'id': task.pk,
+                    'name': task.name,
+                    'start': task.start.isoformat(),
+                    'end': task.end.isoformat(),
+                    'days': task.days,
+                    'status': task.status,
+                    'who': task.who,
+                    'remark': task.remark[:60] if task.remark else '',
+                    'stage': task.stage.name if task.stage else '',
+                    'stage_color': task.stage.color if task.stage else '',
+                    'open_issues': task.linked_issues.exclude(status='resolved').count(),
+                    'nre_count': task.linked_nre.count(),
+                }
+                return HttpResponse(headers={'HX-Trigger-After-Settle': json.dumps({'taskSaved': True, 'taskUpdated': task_data})})
             return redirect('project-gantt', pk=pk)
     else:
         form = TaskForm(instance=task, project=project)
@@ -476,7 +490,7 @@ def task_delete(request, pk, tid):
     task = get_object_or_404(Task, pk=tid, project=project)
     task.delete()
     if request.htmx:
-        return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
+        return HttpResponse(headers={'HX-Trigger-After-Settle': json.dumps({'taskSaved': True, 'taskDeleted': {'id': tid}})})
     return redirect('project-gantt', pk=pk)
 
 

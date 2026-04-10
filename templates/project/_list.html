@@ -1,3 +1,8 @@
+<div id="task-list-container"
+     hx-get="{% url 'project-list' project.pk %}{% if stage_filter %}?stage={{ stage_filter }}{% endif %}"
+     hx-trigger="taskSaved from:body"
+     hx-target="#task-list-container"
+     hx-swap="outerHTML">
 {% include "components/stage_filter.html" %}
 <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto">
     <table class="w-full text-sm">
@@ -50,4 +55,5 @@
             {% endfor %}
         </tbody>
     </table>
+</div>
 </div>
