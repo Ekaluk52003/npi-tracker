@@ -330,6 +330,28 @@ body {
   .tc-issues, .gh-issues { display: none; }
   .tc-start, .gh-start, .tc-end, .gh-end { width: 56px; font-size: 11px; }
 }
+@media (max-width: 560px) {
+  .gantt-container { height: calc(100vh - 220px); }
+  .gantt-mobile-toggle { display: flex !important; }
+  .gantt-body, .gantt-shared-header { flex-direction: row; }
+  /* Tasks-only mode: hide chart */
+  .gantt-container.mobile-tasks .gantt-header-right,
+  .gantt-container.mobile-tasks .gantt-right,
+  .gantt-container.mobile-tasks .gantt-resize-divider,
+  .gantt-container.mobile-tasks .gantt-header-spacer { display: none !important; }
+  .gantt-container.mobile-tasks .gantt-header-left,
+  .gantt-container.mobile-tasks .gantt-left { width: 100% !important; min-width: 0 !important; border-right: none !important; }
+  /* Chart-only mode: hide tasks panel */
+  .gantt-container.mobile-chart .gantt-header-left,
+  .gantt-container.mobile-chart .gantt-left,
+  .gantt-container.mobile-chart .gantt-resize-divider,
+  .gantt-container.mobile-chart .gantt-header-spacer { display: none !important; }
+  .gantt-container.mobile-chart .gantt-right { flex: 1; }
+  .gantt-container.mobile-chart .gantt-header-right { flex: 1; overflow-x: auto; }
+  /* Defaults on mobile */
+  .gantt-header-left, .gantt-left { width: 100% !important; min-width: 0 !important; }
+  .tc-start, .gh-start, .tc-end, .gh-end { display: none; }
+}
 
 /* ── Scrollbar ───────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }

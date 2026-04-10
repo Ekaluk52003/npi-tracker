@@ -106,6 +106,17 @@ function groupWeeksByMonth(weeks) {
   return groups;
 }
 
+window.ganttMobileTab = function(tab) {
+  const container = document.getElementById('gantt-main-container');
+  const tasksBtn = document.getElementById('gantt-mob-tasks');
+  const chartBtn = document.getElementById('gantt-mob-chart');
+  if (!container) return;
+  container.classList.remove('mobile-tasks', 'mobile-chart');
+  container.classList.add(tab === 'tasks' ? 'mobile-tasks' : 'mobile-chart');
+  if (tasksBtn) { tasksBtn.style.background = tab === 'tasks' ? 'var(--accent)' : 'var(--surface2)'; tasksBtn.style.color = tab === 'tasks' ? '#fff' : 'var(--text-muted)'; }
+  if (chartBtn) { chartBtn.style.background = tab === 'chart' ? 'var(--accent)' : 'var(--surface2)'; chartBtn.style.color = tab === 'chart' ? '#fff' : 'var(--text-muted)'; }
+};
+
 export function renderProjectGantt(containerId, dataId) {
   const el = document.getElementById(containerId);
   const dataEl = document.getElementById(dataId);
@@ -222,7 +233,11 @@ export function renderProjectGantt(containerId, dataId) {
 
   el.innerHTML = `
     <div class="gantt-wrap">
-      <div class="gantt-container">
+      <div class="gantt-mobile-toggle" style="display:none;gap:0;margin-bottom:8px;border:1px solid var(--border);border-radius:6px;overflow:hidden;width:fit-content">
+        <button id="gantt-mob-tasks" onclick="ganttMobileTab('tasks')" style="padding:6px 14px;font-size:12px;font-weight:600;border:none;background:var(--accent);color:#fff;cursor:pointer">Tasks</button>
+        <button id="gantt-mob-chart" onclick="ganttMobileTab('chart')" style="padding:6px 14px;font-size:12px;font-weight:600;border:none;background:var(--surface2);color:var(--text-muted);cursor:pointer">Chart</button>
+      </div>
+      <div class="gantt-container" id="gantt-main-container">
         <div class="gantt-shared-header">
           <div class="gantt-header-left">
             <div class="gh-cell gh-item">#</div>
@@ -235,7 +250,7 @@ export function renderProjectGantt(containerId, dataId) {
             <div class="gh-cell gh-issues">\u26A0</div>
             <div class="gh-cell gh-nre">NRE</div>
           </div>
-          <div style="width:6px;min-width:6px;flex-shrink:0"></div>
+          <div class="gantt-header-spacer" style="width:6px;min-width:6px;flex-shrink:0"></div>
           <div class="gantt-header-right" id="gh-header-scroll">
             <div style="display:flex;min-width:${weeks.length * WK_W}px;border-bottom:1px solid var(--border)">${monthHeader}</div>
             <div class="timeline-header" style="min-width:${weeks.length * WK_W}px">${wkHeader}</div>
@@ -261,6 +276,11 @@ export function renderProjectGantt(containerId, dataId) {
       <span style="color:var(--accent)">\u2502</span> Today line &nbsp;\u00b7&nbsp;
       <span style="color:#f87171">Red dot</span> on bar = open issue linked
     </div>`;
+
+  // Mobile: default to tasks view on small screens
+  if (window.innerWidth <= 560) {
+    window.ganttMobileTab('tasks');
+  }
 
   // 3-way synced scroll
   const gl = document.getElementById('gl-scroll');
