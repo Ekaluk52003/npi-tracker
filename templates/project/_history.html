@@ -1,0 +1,185 @@
+<div id="history-container"
+     hx-get="{% url 'project-history' project.pk %}"
+     hx-trigger="versionCommitted from:body"
+     hx-target="#history-container"
+     hx-swap="outerHTML">
+
+    <div class="p-4 md:p-6 max-w-3xl mx-auto space-y-4">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-2">
+            <div>
+                <h2 class="text-lg font-semibold text-[var(--text)]">Version History</h2>
+                <p class="text-xs text-[var(--text-muted)] mt-0.5">
+                    {% if latest_version %}
+                        Current committed version: <span class="font-semibold text-[var(--text)]">v{{ latest_version.version_label }}</span>
+                        {% if has_draft %} — <span class="text-amber-400">uncommitted changes exist</span>{% endif %}
+                    {% else %}
+                        No committed versions yet — the current task plan is in draft.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        {% if not versions_with_diff %}
+        <!-- Empty state -->
+        <div class="bg-[var(--surface)] border border-[var(--border)] border-dashed rounded-xl p-10 text-center">
+            <div class="text-3xl mb-3">📋</div>
+            <p class="text-[var(--text-muted)] text-sm mb-4">No committed versions yet.<br>Commit the current task plan to create the first baseline.</p>
+            <button hx-get="{% url 'project-commit-form' project.pk %}"
+                    hx-target="#modal-container" hx-swap="innerHTML"
+                    class="action-btn">Commit v1.0</button>
+        </div>
+
+        {% else %}
+        <!-- Version list -->
+        <div x-data="{ expanded: null }" class="space-y-2">
+            {% for item in versions_with_diff %}
+            {% with v=item.version diff=item.diff %}
+            <div class="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
+
+                <!-- Version row header -->
+                <button type="button"
+                        @click="expanded = expanded === {{ v.pk }} ? null : {{ v.pk }}"
+                        class="w-full flex items-start gap-3 px-4 py-3 hover:bg-[var(--surface2)] transition-colors text-left">
+
+                    <!-- Expand chevron -->
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-[var(--text-muted)] transition-transform"
+                         :class="expanded === {{ v.pk }} ? 'rotate-90' : ''"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+
+                    <!-- Version badge -->
+                    <span class="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full
+                        {% if v.change_type == 'major' %}bg-[var(--accent)]/20 text-[var(--accent)]{% else %}bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]{% endif %}">
+                        v{{ v.version_label }}
+                    </span>
+
+                    <!-- View snapshot button (stop propagation so it doesn't toggle accordion) -->
+                    <a href="#"
+                       hx-get="{% url 'project-version-detail' project.pk v.pk %}"
+                       hx-target="#modal-container" hx-swap="innerHTML"
+                       @click.stop
+                       class="flex-shrink-0 text-xs text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded px-2 py-0.5 hover:bg-[var(--surface2)] transition-colors">
+                        View
+                    </a>
+
+                    <!-- Meta -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+                            <span class="text-[var(--text)] font-medium">{{ v.change_comment }}</span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-[var(--text-muted)]">
+                            <span>{{ v.committed_at|date:"d M Y, H:i" }}</span>
+                            {% if v.committed_by %}<span>·</span><span>{{ v.committed_by.get_full_name|default:v.committed_by.username }}</span>{% endif %}
+                            <span>·</span>
+                            {% if v.change_type == 'major' %}
+                            <span class="text-[var(--accent)] font-medium">Major</span>
+                            {% else %}
+                            <span class="text-[var(--text-muted)]">Minor</span>
+                            {% endif %}
+                            <span>·</span>
+                            {% if diff.is_initial %}
+                            <span>{{ diff.added|length }} task{{ diff.added|length|pluralize }} (initial baseline)</span>
+                            {% else %}
+                            {% with na=diff.added|length nr=diff.removed|length nm=diff.modified|length %}
+                            {% if na or nr or nm %}
+                            {% if na %}<span class="text-emerald-400">+{{ na }}</span>{% endif %}
+                            {% if nr %}<span class="text-red-400">-{{ nr }}</span>{% endif %}
+                            {% if nm %}<span class="text-amber-400">~{{ nm }}</span>{% endif %}
+                            {% else %}
+                            <span class="text-[var(--text-muted)]">no task changes</span>
+                            {% endif %}
+                            {% endwith %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </button>
+
+                <!-- Expanded diff -->
+                <div x-show="expanded === {{ v.pk }}" x-cloak
+                     class="border-t border-[var(--border)] px-4 py-3 space-y-3 text-xs">
+
+                    {% if diff.is_initial %}
+                    <div class="text-[var(--text-muted)]">
+                        <span class="font-medium text-[var(--text)]">Initial baseline</span> — {{ diff.added|length }} task{{ diff.added|length|pluralize }} committed.
+                    </div>
+                    <div class="space-y-0.5 max-h-48 overflow-y-auto">
+                        {% for t in diff.added %}
+                        <div class="flex items-center gap-2 text-[var(--text-muted)]">
+                            <span class="text-emerald-400 font-mono">+</span>
+                            <span class="text-[var(--text)]">{{ t.name }}</span>
+                            <span class="text-[var(--text-muted)]">· {{ t.section }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% else %}
+
+                    {% if diff.added %}
+                    <div>
+                        <div class="font-medium text-emerald-400 mb-1">+ {{ diff.added|length }} task{{ diff.added|length|pluralize }} added</div>
+                        <div class="space-y-0.5 pl-3">
+                            {% for t in diff.added %}
+                            <div class="flex items-center gap-2 text-[var(--text-muted)]">
+                                <span class="text-[var(--text)]">{{ t.name }}</span>
+                                <span>· {{ t.section }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if diff.removed %}
+                    <div>
+                        <div class="font-medium text-red-400 mb-1">- {{ diff.removed|length }} task{{ diff.removed|length|pluralize }} removed</div>
+                        <div class="space-y-0.5 pl-3">
+                            {% for t in diff.removed %}
+                            <div class="flex items-center gap-2 text-[var(--text-muted)]">
+                                <span class="text-[var(--text)]">{{ t.name }}</span>
+                                <span>· {{ t.section }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if diff.modified %}
+                    <div>
+                        <div class="font-medium text-amber-400 mb-1">~ {{ diff.modified|length }} task{{ diff.modified|length|pluralize }} modified</div>
+                        <div class="space-y-1.5 pl-3">
+                            {% for m in diff.modified %}
+                            <div>
+                                <span class="font-medium text-[var(--text)]">{{ m.task.name }}</span>
+                                <div class="pl-2 space-y-0.5 mt-0.5">
+                                    {% for field, change in m.changes.items %}
+                                    <div class="flex items-center gap-1 text-[var(--text-muted)]">
+                                        <span class="font-mono text-[10px] bg-[var(--surface2)] px-1 rounded">{{ field }}</span>
+                                        <span class="line-through opacity-60">{{ change.from|default:"—" }}</span>
+                                        <span class="text-[var(--text-muted)]">→</span>
+                                        <span class="text-[var(--text)]">{{ change.to|default:"—" }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if not diff.added and not diff.removed and not diff.modified %}
+                    <div class="text-[var(--text-muted)]">No task changes in this version.</div>
+                    {% endif %}
+
+                    {% endif %}
+                </div>
+
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>
+</div>

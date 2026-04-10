@@ -2,7 +2,7 @@ from django.contrib import admin
 import nested_admin
 from .models import (
     Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem,
-    TaskTemplateSet, SectionTemplate, TaskTemplate,
+    TaskTemplateSet, SectionTemplate, TaskTemplate, ProjectPlanVersion,
 )
 
 
@@ -122,6 +122,13 @@ class SectionTemplateAdmin(admin.ModelAdmin):
     @admin.display(description='Tasks')
     def task_count(self, obj):
         return obj.tasks.count()
+
+
+@admin.register(ProjectPlanVersion)
+class ProjectPlanVersionAdmin(admin.ModelAdmin):
+    list_display = ['project', 'version_label', 'change_type', 'committed_by', 'committed_at']
+    list_filter = ['project', 'change_type']
+    readonly_fields = ['task_snapshot', 'committed_at']
 
 
 @admin.register(TaskTemplate)

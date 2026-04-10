@@ -126,6 +126,7 @@ export function renderProjectGantt(containerId, dataId) {
   try { data = JSON.parse(dataEl.textContent); } catch { return; }
 
   const { project_id, sections, stages, min_date, max_date, today } = data;
+  const readonly = data.readonly === true;
   if (!sections || sections.length === 0) {
     el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted)">No tasks to display. Add tasks to see the Gantt chart.</div>';
     return;
@@ -506,7 +507,7 @@ export function renderProjectGantt(containerId, dataId) {
       hit.dataset.from = fromId; hit.dataset.to = toId;
       hit.title = 'Click to remove dependency';
 
-      hit.addEventListener('click', (e) => {
+      if (!readonly) hit.addEventListener('click', (e) => {
         e.stopPropagation();
         if (pendingUnlink && pendingUnlink.fromId == fromId && pendingUnlink.toId == toId) {
           performUnlink(fromId, toId);
@@ -576,7 +577,7 @@ export function renderProjectGantt(containerId, dataId) {
         xLine2.setAttribute('opacity', isPending ? '1' : '0');
       });
 
-      btnGroup.addEventListener('click', (e) => {
+      if (!readonly) btnGroup.addEventListener('click', (e) => {
         e.stopPropagation();
         if (pendingUnlink && pendingUnlink.fromId == fromId && pendingUnlink.toId == toId) {
           performUnlink(fromId, toId);
@@ -692,7 +693,7 @@ export function renderProjectGantt(containerId, dataId) {
   }
 
   drawDependencyArrows();
-  setupDepConnectors();
+  if (!readonly) setupDepConnectors();
 
   // Left panel resize handler
   const leftPanel = document.getElementById('gantt-left-panel');
@@ -934,7 +935,7 @@ export function renderProjectGantt(containerId, dataId) {
     }
   }
 
-  if (gr) {
+  if (gr && !readonly) {
     gr.addEventListener('mousedown', (e) => {
       const bar = e.target.closest('.gantt-bar');
       if (!bar) return;
@@ -1219,7 +1220,7 @@ export function renderProjectGantt(containerId, dataId) {
   }
 
   // Click task row to open edit modal, or issue chip to open issue edit
-  if (gl) {
+  if (gl && !readonly) {
     gl.addEventListener('click', (e) => {
       const modal = document.getElementById('modal-container');
       if (!modal) return;

@@ -1,4 +1,39 @@
-{% include "components/stage_filter.html" %}
+{% if not viewing_version %}{% include "components/stage_filter.html" %}{% endif %}
+
+{% if plan_versions %}
+<div class="flex items-center gap-2 mb-4">
+    <label class="text-xs text-[var(--text-muted)] font-medium">Version:</label>
+    <select class="text-xs bg-[var(--surface2)] border border-[var(--border)] rounded-md px-2 py-1.5 text-[var(--text)]"
+            hx-get="{% url 'project-gantt' project.pk %}"
+            hx-target="#content" hx-swap="innerHTML" hx-push-url="true" name="version">
+        <option value="" {% if not viewing_version %}selected{% endif %}>Live (current)</option>
+        {% for v in plan_versions %}
+        <option value="{{ v.pk }}" {% if viewing_version.pk == v.pk %}selected{% endif %}>
+            v{{ v.version_label }} — {{ v.change_comment|truncatechars:50 }}
+        </option>
+        {% endfor %}
+    </select>
+</div>
+{% endif %}
+
+{% if viewing_version %}
+<div class="flex items-center gap-3 mb-4 px-4 py-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm">
+    <svg class="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <span class="text-amber-300">
+        Viewing snapshot <strong>v{{ viewing_version.version_label }}</strong>
+        — {{ viewing_version.change_comment }}
+        <span class="text-amber-400/70 ml-1">({{ viewing_version.committed_at|date:"d M Y" }})</span>
+    </span>
+    <a href="{% url 'project-gantt' project.pk %}"
+       hx-get="{% url 'project-gantt' project.pk %}" hx-target="#content" hx-swap="innerHTML" hx-push-url="true"
+       class="ml-auto text-xs text-amber-300 hover:text-white border border-amber-500/40 hover:border-amber-400 rounded px-2 py-0.5 transition-colors whitespace-nowrap">
+        ← Back to live
+    </a>
+</div>
+{% endif %}
+
 {{ gantt_data|json_script:"gantt-data" }}
 <div id="gantt-container" class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden min-h-[300px]">
     <div class="p-8 text-center text-[var(--text-muted)]">Loading Gantt chart...</div>

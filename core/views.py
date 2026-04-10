@@ -8,8 +8,8 @@ from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from .models import Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem, TaskTemplateSet
-from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ProjectSectionForm
+from .models import Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem, TaskTemplateSet, ProjectPlanVersion
+from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ProjectSectionForm, CommitForm
 from .scheduling import generate_tasks_from_template, SchedulingError
 
 
@@ -31,6 +31,7 @@ def _htmx_tab(request, full_tpl, partial_tpl, ctx):
 
 
 def _project_ctx(project, tab, extra=None):
+    latest_version = project.plan_versions.first()
     ctx = {
         'project': project,
         'active_tab': tab,
@@ -38,6 +39,8 @@ def _project_ctx(project, tab, extra=None):
         'nre_no_po_count': project.nre_items.filter(po_status='no-po').count(),
         'project_stages': list(project.stages.all()),
         'project_sections': list(project.sections.all()),
+        'latest_version': latest_version,
+        'has_draft': latest_version is None or project.tasks.count() != len(latest_version.task_snapshot),
     }
     if extra:
         ctx.update(extra)
@@ -91,6 +94,52 @@ def _cascade_dependents(task):
         dep.save()
         cascaded.append({'id': dep.id, 'start': dep.start.isoformat(), 'end': dep.end.isoformat(), 'days': dep.days})
     return cascaded
+
+
+def _gantt_data_from_snapshot(version, project):
+    stage_colors = {s.name: s.color for s in project.stages.all()}
+    sections_map = {}
+    for t in version.task_snapshot:
+        sec = t.get('section', 'Uncategorised')
+        sections_map.setdefault(sec, []).append(t)
+    sections = [
+        {
+            'section': sec_name,
+            'tasks': [{
+                'id': t['id'],
+                'name': t['name'],
+                'who': t.get('who', ''),
+                'days': t.get('days', 1),
+                'start': t['start'],
+                'end': t['end'],
+                'status': t.get('status', 'open'),
+                'stage': t.get('stage') or '',
+                'stage_color': stage_colors.get(t.get('stage') or '', ''),
+                'remark': (t.get('remark') or '')[:60],
+                'open_issues': 0,
+                'nre_count': 0,
+                'depends_on': t.get('depends_on', []),
+            } for t in tasks],
+        }
+        for sec_name, tasks in sections_map.items()
+    ]
+    starts = [t['start'] for t in version.task_snapshot]
+    ends = [t['end'] for t in version.task_snapshot]
+    stages_data = [{
+        'stage_id': s.pk, 'name': s.name, 'color': s.color, 'status': s.status,
+        'planned_date': s.planned_date.isoformat() if s.planned_date else None,
+        'actual_date': s.actual_date.isoformat() if s.actual_date else None,
+    } for s in project.stages.all()]
+    return {
+        'project_id': project.pk,
+        'sections': sections,
+        'stages': stages_data,
+        'min_date': min(starts) if starts else date.today().isoformat(),
+        'max_date': max(ends) if ends else date.today().isoformat(),
+        'today': date.today().isoformat(),
+        'readonly': True,
+        'version_label': version.version_label,
+    }
 
 
 def _gantt_data_for_project(project, stage_filter=''):
@@ -224,10 +273,18 @@ def project_detail(request, pk):
 def project_gantt(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__linked_nre', 'stages', 'issues'), pk=pk)
     stage_filter = request.GET.get('stage', '')
-    gantt_data = _gantt_data_for_project(project, stage_filter)
+    version_id = request.GET.get('version', '')
+    viewing_version = None
+    if version_id and version_id.isdigit():
+        viewing_version = get_object_or_404(ProjectPlanVersion, pk=int(version_id), project=project)
+        gantt_data = _gantt_data_from_snapshot(viewing_version, project)
+    else:
+        gantt_data = _gantt_data_for_project(project, stage_filter)
     ctx = _project_ctx(project, 'gantt', {
         'gantt_data': gantt_data,
         'stage_filter': stage_filter,
+        'viewing_version': viewing_version,
+        'plan_versions': list(project.plan_versions.all()),
     })
     return _htmx_tab(request, 'project/detail.html', 'project/_gantt.html', ctx)
 
@@ -1045,3 +1102,70 @@ def api_task_unlink(request, task_id):
 
     task.depends_on.remove(dep)
     return JsonResponse({'success': True})
+
+
+# ── Version control ────────────────────────────────────────────────────────
+
+@login_required
+def project_history(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    versions = list(project.plan_versions.select_related('committed_by').all())
+    versions_with_diff = [{'version': v, 'diff': v.diff_vs_previous} for v in versions]
+    ctx = _project_ctx(project, 'history', {'versions_with_diff': versions_with_diff})
+    return _htmx_tab(request, 'project/detail.html', 'project/_history.html', ctx)
+
+
+@login_required
+def project_commit_form(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    latest = project.plan_versions.first()
+    return render(request, 'forms/_commit_form.html', {
+        'form': CommitForm(),
+        'project': project,
+        'latest_version': latest,
+    })
+
+
+@login_required
+@require_POST
+def project_commit(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    form = CommitForm(request.POST)
+    if not form.is_valid():
+        latest = project.plan_versions.first()
+        return render(request, 'forms/_commit_form.html', {
+            'form': form,
+            'project': project,
+            'latest_version': latest,
+        })
+    change_type = form.cleaned_data['change_type']
+    comment = form.cleaned_data['change_comment']
+    with transaction.atomic():
+        major, minor = ProjectPlanVersion.next_version(project, change_type)
+        ProjectPlanVersion.objects.create(
+            project=project,
+            version_major=major,
+            version_minor=minor,
+            version_label=f"{major}.{minor}",
+            change_type=change_type,
+            change_comment=comment,
+            committed_by=request.user,
+            task_snapshot=ProjectPlanVersion.snapshot_project(project),
+        )
+    return HttpResponse(headers={'HX-Trigger-After-Settle': json.dumps({'versionCommitted': True})})
+
+
+@login_required
+def project_version_detail(request, pk, vid):
+    project = get_object_or_404(Project, pk=pk)
+    version = get_object_or_404(ProjectPlanVersion, pk=vid, project=project)
+    # Group snapshot tasks by section name
+    tasks_by_section = {}
+    for t in version.task_snapshot:
+        section = t.get('section', 'Uncategorised')
+        tasks_by_section.setdefault(section, []).append(t)
+    return render(request, 'forms/_version_detail.html', {
+        'project': project,
+        'version': version,
+        'tasks_by_section': tasks_by_section,
+    })

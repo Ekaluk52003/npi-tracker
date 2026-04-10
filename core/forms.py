@@ -163,3 +163,18 @@ class ProjectSectionForm(forms.ModelForm):
             'sort_order': forms.NumberInput(attrs={'class': input_cls, 'min': 0}),
         }
 
+
+class CommitForm(forms.Form):
+    change_type = forms.ChoiceField(
+        choices=[('minor', 'Minor'), ('major', 'Major')],
+        initial='minor',
+    )
+    change_comment = forms.CharField(
+        max_length=500,
+        widget=forms.Textarea(attrs={
+            'class': textarea_cls,
+            'placeholder': 'Describe what changed in this version…',
+            'rows': 3,
+        }),
+    )
+

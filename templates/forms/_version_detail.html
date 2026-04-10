@@ -1,0 +1,82 @@
+<div x-data="{ open: true }" x-show="open" x-cloak
+     class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+         @click="open = false; document.getElementById('modal-container').innerHTML=''"></div>
+
+    <div class="relative bg-[var(--surface)] rounded-xl border border-[var(--border)] w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl" @click.stop>
+
+        <!-- Header -->
+        <div class="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] px-5 py-4 flex items-center justify-between z-10 flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <span class="text-xs font-bold px-2 py-0.5 rounded-full
+                    {% if version.change_type == 'major' %}bg-[var(--accent)]/20 text-[var(--accent)]{% else %}bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]{% endif %}">
+                    v{{ version.version_label }}
+                </span>
+                <div>
+                    <h2 class="text-base font-semibold text-[var(--text)]">{{ version.change_comment }}</h2>
+                    <p class="text-xs text-[var(--text-muted)] mt-0.5">
+                        {{ version.committed_at|date:"d M Y, H:i" }}
+                        {% if version.committed_by %}· {{ version.committed_by.get_full_name|default:version.committed_by.username }}{% endif %}
+                        · {{ version.change_type|capfirst }}
+                    </p>
+                </div>
+            </div>
+            <button @click="open = false; document.getElementById('modal-container').innerHTML=''"
+                    class="text-[var(--text-muted)] hover:text-[var(--text)] text-xl flex-shrink-0">&times;</button>
+        </div>
+
+        <!-- Task table -->
+        <div class="overflow-y-auto flex-1">
+            {% for section_name, tasks in tasks_by_section.items %}
+            <!-- Section header -->
+            <div class="sticky top-0 bg-[var(--surface2)] border-b border-[var(--border)] px-5 py-2 z-[5]">
+                <span class="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{{ section_name }}</span>
+                <span class="ml-2 text-xs text-[var(--text-muted)]">{{ tasks|length }} task{{ tasks|length|pluralize }}</span>
+            </div>
+            <!-- Tasks -->
+            <table class="w-full text-xs">
+                <tbody>
+                    {% for t in tasks %}
+                    <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)]/50">
+                        <td class="px-5 py-2.5 text-[var(--text)] font-medium w-[35%]">{{ t.name }}</td>
+                        <td class="px-3 py-2.5 text-[var(--text-muted)] w-[15%]">{{ t.who }}</td>
+                        <td class="px-3 py-2.5 text-[var(--text-muted)] w-[12%]">{{ t.start }}</td>
+                        <td class="px-3 py-2.5 text-[var(--text-muted)] w-[12%]">{{ t.end }}</td>
+                        <td class="px-3 py-2.5 w-[10%]">
+                            {% if t.status == 'done' %}
+                            <span class="text-emerald-400">Done</span>
+                            {% elif t.status == 'inprogress' %}
+                            <span class="text-[var(--accent)]">In Progress</span>
+                            {% elif t.status == 'blocked' %}
+                            <span class="text-red-400">Blocked</span>
+                            {% else %}
+                            <span class="text-[var(--text-muted)]">Open</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2.5 text-[var(--text-muted)] w-[16%] truncate max-w-0">
+                            {% if t.stage %}<span class="text-[10px] bg-[var(--surface2)] border border-[var(--border)] rounded px-1.5 py-0.5">{{ t.stage }}</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% empty %}
+            <div class="px-5 py-10 text-center text-[var(--text-muted)] text-sm">No tasks in this version.</div>
+            {% endfor %}
+        </div>
+
+        <!-- Footer -->
+        <div class="border-t border-[var(--border)] px-5 py-3 flex items-center justify-between flex-shrink-0">
+            <span class="text-xs text-[var(--text-muted)]">
+                {% with total=0 %}
+                {% for tasks in tasks_by_section.values %}{{ tasks|length }}{% endfor %}
+                {% endwith %}
+                Snapshot of {{ project.name }} at v{{ version.version_label }}
+            </span>
+            <button @click="open = false; document.getElementById('modal-container').innerHTML=''"
+                    class="btn-secondary text-xs">Close</button>
+        </div>
+
+    </div>
+</div>

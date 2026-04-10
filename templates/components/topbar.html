@@ -54,6 +54,11 @@
            hx-get="{% url 'project-issues' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
             Issues{% if open_issue_count %}<span class="ml-1 text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5">{{ open_issue_count }}</span>{% endif %}
         </a>
+        <a href="{% url 'project-history' project.pk %}"
+           class="tab-btn {% if active_tab == 'history' %}active{% endif %}"
+           hx-get="{% url 'project-history' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            History{% if has_draft %}<span class="ml-1 text-[10px] bg-amber-500/20 text-amber-400 rounded-full px-1.5 py-0.5">Draft</span>{% endif %}
+        </a>
     </nav>
     {% endif %}
 
@@ -83,6 +88,9 @@
     {% elif active_tab == 'nre' %}
     <button hx-get="{% url 'nre-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
             class="action-btn">+ Add NRE Item</button>
+    {% elif active_tab == 'history' %}
+    <button hx-get="{% url 'project-commit-form' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+            class="action-btn">Commit Version</button>
     {% endif %}
     {% endif %}
 </header>

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from datetime import date
 
@@ -273,6 +274,89 @@ class Task(models.Model):
     @property
     def open_issues(self):
         return self.linked_issues.exclude(status='resolved')
+
+
+class ProjectPlanVersion(models.Model):
+    CHANGE_TYPE_CHOICES = [('major', 'Major'), ('minor', 'Minor')]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='plan_versions')
+    version_major = models.PositiveIntegerField()
+    version_minor = models.PositiveIntegerField()
+    version_label = models.CharField(max_length=20)
+    change_type = models.CharField(max_length=10, choices=CHANGE_TYPE_CHOICES, default='minor')
+    change_comment = models.TextField()
+    committed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='committed_versions',
+    )
+    committed_at = models.DateTimeField(auto_now_add=True)
+    task_snapshot = models.JSONField()
+
+    class Meta:
+        ordering = ['-version_major', '-version_minor']
+        unique_together = ['project', 'version_major', 'version_minor']
+
+    def __str__(self):
+        return f"{self.project.name} v{self.version_label}"
+
+    @classmethod
+    def next_version(cls, project, change_type):
+        latest = cls.objects.filter(project=project).first()
+        if not latest:
+            return 1, 0
+        if change_type == 'major':
+            return latest.version_major + 1, 0
+        return latest.version_major, latest.version_minor + 1
+
+    @classmethod
+    def snapshot_project(cls, project):
+        tasks = project.tasks.select_related('section', 'stage').prefetch_related('depends_on').all()
+        return [
+            {
+                'id': t.pk,
+                'name': t.name,
+                'section': t.section.name,
+                'section_id': t.section_id,
+                'remark': t.remark,
+                'who': t.who,
+                'days': t.days,
+                'start': str(t.start),
+                'end': str(t.end),
+                'status': t.status,
+                'stage': t.stage.name if t.stage else None,
+                'stage_id': t.stage_id,
+                'sort_order': t.sort_order,
+                'depends_on': list(t.depends_on.values_list('id', flat=True)),
+            }
+            for t in tasks
+        ]
+
+    @property
+    def diff_vs_previous(self):
+        prev = ProjectPlanVersion.objects.filter(project=self.project).filter(
+            models.Q(version_major__lt=self.version_major) |
+            models.Q(version_major=self.version_major, version_minor__lt=self.version_minor)
+        ).first()
+        if not prev:
+            return {'added': self.task_snapshot, 'removed': [], 'modified': [], 'is_initial': True}
+        prev_by_id = {t['id']: t for t in prev.task_snapshot}
+        curr_by_id = {t['id']: t for t in self.task_snapshot}
+        added = [t for tid, t in curr_by_id.items() if tid not in prev_by_id]
+        removed = [t for tid, t in prev_by_id.items() if tid not in curr_by_id]
+        modified = []
+        for tid, curr_t in curr_by_id.items():
+            if tid in prev_by_id:
+                prev_t = prev_by_id[tid]
+                changes = {
+                    k: {'from': prev_t.get(k), 'to': curr_t[k]}
+                    for k in curr_t
+                    if curr_t[k] != prev_t.get(k) and k != 'id'
+                }
+                if changes:
+                    modified.append({'task': curr_t, 'changes': changes})
+        return {'added': added, 'removed': removed, 'modified': modified, 'is_initial': False}
 
 
 class Issue(models.Model):

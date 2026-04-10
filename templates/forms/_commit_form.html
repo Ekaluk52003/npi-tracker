@@ -1,0 +1,97 @@
+<div x-data="{
+        open: true,
+        changeType: 'minor',
+        close() { this.open = false; document.getElementById('modal-container').innerHTML = ''; }
+     }"
+     x-show="open" x-cloak
+     class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="close()"></div>
+
+    <div class="relative bg-[var(--surface)] rounded-xl border border-[var(--border)] w-full max-w-md shadow-2xl" @click.stop>
+
+        <!-- Header -->
+        <div class="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] px-5 py-4 flex items-center justify-between z-10">
+            <h2 class="text-lg font-semibold">Commit Plan Version</h2>
+            <button type="button" @click="close()" class="text-[var(--text-muted)] hover:text-[var(--text)] text-xl">&times;</button>
+        </div>
+
+        <form hx-post="{% url 'project-commit' project.pk %}"
+              hx-target="#modal-container" hx-swap="innerHTML"
+              class="p-5 space-y-5">
+            {% csrf_token %}
+
+            <!-- Current version context -->
+            <div class="bg-[var(--surface2)] rounded-lg px-4 py-3 text-sm flex items-center justify-between">
+                {% if latest_version %}
+                <div>
+                    <span class="text-[var(--text-muted)] text-xs">Current version</span>
+                    <div class="font-semibold text-[var(--text)]">v{{ latest_version.version_label }}</div>
+                </div>
+                <svg class="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                <div class="text-right">
+                    <span class="text-[var(--text-muted)] text-xs">New version</span>
+                    <div class="font-semibold text-[var(--text)]">
+                        <span x-show="changeType === 'minor'">v{{ latest_version.version_major }}.{{ latest_version.version_minor|add:1 }}</span>
+                        <span x-show="changeType === 'major'">v{{ latest_version.version_major|add:1 }}.0</span>
+                    </div>
+                </div>
+                {% else %}
+                <div>
+                    <span class="text-[var(--text-muted)] text-xs">First commit</span>
+                    <div class="font-semibold text-[var(--text)]">v1.0 — Initial baseline</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Change type toggle (only when a prior version exists) -->
+            {% if latest_version %}
+            <div>
+                <label class="block text-xs font-medium text-[var(--text-muted)] mb-2">Change Type</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button"
+                            @click="changeType = 'minor'"
+                            :class="changeType === 'minor'
+                                ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
+                                : 'border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--text-muted)]'"
+                            class="border rounded-lg py-2.5 px-3 text-sm font-medium transition-colors text-center">
+                        <div>Minor</div>
+                        <div class="text-[10px] opacity-70 mt-0.5">small adjustments</div>
+                    </button>
+                    <button type="button"
+                            @click="changeType = 'major'"
+                            :class="changeType === 'major'
+                                ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
+                                : 'border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--text-muted)]'"
+                            class="border rounded-lg py-2.5 px-3 text-sm font-medium transition-colors text-center">
+                        <div>Major</div>
+                        <div class="text-[10px] opacity-70 mt-0.5">significant rework</div>
+                    </button>
+                </div>
+                <input type="hidden" name="change_type" :value="changeType">
+            </div>
+            {% else %}
+            <input type="hidden" name="change_type" value="minor">
+            {% endif %}
+
+            <!-- Change comment (required) -->
+            <div>
+                <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                    Change Comment <span class="text-red-400">*</span>
+                </label>
+                {{ form.change_comment }}
+                {% if form.change_comment.errors %}
+                <p class="text-red-400 text-xs mt-1">{{ form.change_comment.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
+                <button type="button" @click="close()" class="btn-secondary">Cancel</button>
+                <button type="submit" class="action-btn">Commit</button>
+            </div>
+        </form>
+    </div>
+</div>
