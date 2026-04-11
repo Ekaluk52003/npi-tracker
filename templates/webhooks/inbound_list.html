@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% block title %}Inbound Webhooks — NPI Tracker{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-[var(--text)]">Inbound Webhooks</h1>
+      <p class="text-sm text-[var(--text-muted)] mt-0.5">Receive events from Power Automate to create issues, update tasks, and more.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'webhook-list' %}" class="btn-secondary text-xs px-3 py-1.5">Outbound Webhooks</a>
+      <button hx-get="{% url 'inbound-webhook-create' %}" hx-target="#modal-container" hx-swap="innerHTML"
+              class="action-btn flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        New Inbound Webhook
+      </button>
+    </div>
+  </div>
+
+  <!-- How-to banner -->
+  <div class="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 space-y-3 text-sm">
+    <p class="font-semibold text-[var(--text)] flex items-center gap-2">
+      <svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      How to connect Power Automate
+    </p>
+    <ol class="list-decimal list-inside space-y-2 text-[var(--text-muted)]">
+      <li>Create an inbound webhook here — choose the <strong class="text-[var(--text)]">action</strong> Power Automate should trigger</li>
+      <li>Copy the <strong class="text-[var(--text)]">Endpoint URL</strong> shown on the webhook card</li>
+      <li>In Power Automate, add an <strong class="text-[var(--text)]">HTTP</strong> action (POST) pointing to <code class="bg-[var(--surface2)] px-1 rounded text-xs">https://your-domain/api/inbound/&lt;token&gt;/</code></li>
+      <li>Set the body to JSON matching the expected payload for the chosen action</li>
+      <li>Run the flow — NPI Tracker will process the event automatically</li>
+    </ol>
+  </div>
+
+  <!-- Supported actions reference -->
+  <div class="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+    <p class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">Supported Actions & Payloads</p>
+    <div class="space-y-3">
+
+      <details class="group">
+        <summary class="cursor-pointer text-sm font-medium text-[var(--text)] flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-red-400"></span>
+          Create Issue
+          <svg class="w-3.5 h-3.5 text-[var(--text-muted)] transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </summary>
+        <pre class="mt-2 text-xs bg-[var(--surface2)] rounded-lg p-3 text-[var(--text-muted)] overflow-x-auto">{
+  "title": "Component shortage",
+  "severity": "critical",
+  "owner": "John Doe",
+  "due": "2025-06-01",
+  "impact": "ETB delayed 2 weeks",
+  "desc": "Details here...",
+  "stage": "ETB",
+  "project_id": 1
+}</pre>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer text-sm font-medium text-[var(--text)] flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+          Update Task Status
+          <svg class="w-3.5 h-3.5 text-[var(--text-muted)] transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </summary>
+        <pre class="mt-2 text-xs bg-[var(--surface2)] rounded-lg p-3 text-[var(--text-muted)] overflow-x-auto">{
+  "task_id": 42,
+  "status": "done",
+  "project_id": 1
+}
+// or use "task_name" instead of "task_id"
+// status: open | inprogress | done | blocked</pre>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer text-sm font-medium text-[var(--text)] flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+          Update Build Stage Status
+          <svg class="w-3.5 h-3.5 text-[var(--text-muted)] transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </summary>
+        <pre class="mt-2 text-xs bg-[var(--surface2)] rounded-lg p-3 text-[var(--text-muted)] overflow-x-auto">{
+  "stage_id": 5,
+  "status": "in-progress",
+  "project_id": 1
+}
+// or use "stage_name" instead of "stage_id"
+// status: planned | ready | in-progress | completed | on-hold</pre>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer text-sm font-medium text-[var(--text)] flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-green-400"></span>
+          Create Task
+          <svg class="w-3.5 h-3.5 text-[var(--text-muted)] transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </summary>
+        <pre class="mt-2 text-xs bg-[var(--surface2)] rounded-lg p-3 text-[var(--text-muted)] overflow-x-auto">{
+  "name": "Order stencils",
+  "section": "Pre-req: Main PCBA",
+  "who": "SVI",
+  "start": "2025-05-01",
+  "end": "2025-05-07",
+  "status": "open",
+  "stage": "ETB",
+  "remark": "Rush order",
+  "project_id": 1
+}</pre>
+      </details>
+
+    </div>
+    <p class="text-[11px] text-[var(--text-muted)] mt-3">
+      <strong>Note:</strong> <code class="bg-[var(--surface2)] px-1 rounded">project_id</code> is only required if the webhook is not scoped to a specific project.
+    </p>
+  </div>
+
+  <!-- Webhook list -->
+  {% if webhooks %}
+  <div class="space-y-3">
+    {% for wh in webhooks %}
+    <div class="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div class="flex-1 min-w-0 space-y-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-sm font-semibold text-[var(--text)] truncate">{{ wh.name }}</span>
+            {% if wh.is_active %}
+            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400">Active</span>
+            {% else %}
+            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[var(--surface2)] text-[var(--text-muted)]">Paused</span>
+            {% endif %}
+          </div>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
+            <span class="flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              {{ wh.get_action_display }}
+            </span>
+            <span class="flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+              {% if wh.project %}{{ wh.project.name }}{% else %}Any project (via payload){% endif %}
+            </span>
+            {% if wh.call_count %}
+            <span class="flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
+              {{ wh.call_count }} call{{ wh.call_count|pluralize }}
+            </span>
+            {% endif %}
+            {% if wh.last_received_at %}
+            <span class="flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Last received {{ wh.last_received_at|date:"M j, H:i" }}
+            </span>
+            {% endif %}
+          </div>
+          {% if wh.last_error %}
+          <p class="text-xs text-red-400 truncate">Error: {{ wh.last_error }}</p>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button hx-post="{% url 'inbound-webhook-regenerate' wh.pk %}" hx-swap="none"
+                  hx-confirm="Regenerate token? The old URL will stop working."
+                  class="btn-secondary text-xs px-3 py-1.5" title="Regenerate token">Regenerate</button>
+          <button hx-get="{% url 'inbound-webhook-edit' wh.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                  class="btn-secondary text-xs px-3 py-1.5">Edit</button>
+        </div>
+      </div>
+      <!-- Endpoint URL -->
+      <div class="flex items-center gap-2 bg-[var(--surface2)] rounded-lg px-3 py-2">
+        <span class="text-[10px] font-semibold text-[var(--text-muted)] uppercase shrink-0">POST</span>
+        <code class="flex-1 text-xs text-[var(--text)] font-mono break-all select-all">{{ wh.endpoint_path }}</code>
+        <button type="button" onclick="navigator.clipboard.writeText(window.location.origin + '{{ wh.endpoint_path }}')"
+                class="text-[var(--text-muted)] hover:text-[var(--text)] transition shrink-0" title="Copy full URL">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-10 text-center text-[var(--text-muted)]">
+    <svg class="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+    <p class="text-sm font-medium">No inbound webhooks yet</p>
+    <p class="text-xs mt-1">Create one to start receiving events from Power Automate.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

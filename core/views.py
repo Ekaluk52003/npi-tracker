@@ -1,14 +1,16 @@
 import json
+import threading
 from datetime import date, timedelta, datetime
 from itertools import groupby
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.views.decorators.http import require_POST, require_http_methods
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import csrf_protect, csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from .models import Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem, TaskTemplateSet, ProjectPlanVersion
+from .models import Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem, TaskTemplateSet, ProjectPlanVersion, WebhookConfig, InboundWebhook
 from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ProjectSectionForm, CommitForm
 from .scheduling import generate_tasks_from_template, SchedulingError
 
@@ -1225,3 +1227,240 @@ def project_version_detail(request, pk, vid):
         'version': version,
         'tasks_by_section': tasks_by_section,
     })
+
+
+# ── Power Automate Webhooks ───────────────────────────────────────────────────
+
+@login_required
+def webhook_list(request):
+    webhooks = WebhookConfig.objects.select_related('project').all()
+    return render(request, 'webhooks/list.html', {
+        'webhooks': webhooks,
+        'event_choices': WebhookConfig.EVENT_CHOICES,
+    })
+
+
+@login_required
+def webhook_create(request):
+    from .forms import WebhookConfigForm
+    if request.method == 'POST':
+        form = WebhookConfigForm(request.POST)
+        if form.is_valid():
+            wh = form.save(commit=False)
+            wh.generate_token()
+            wh.save()
+            if request.htmx:
+                return HttpResponse(headers={'HX-Redirect': '/webhooks/'})
+            return redirect('webhook-list')
+    else:
+        form = WebhookConfigForm()
+    return render(request, 'forms/_webhook_form.html', {'form': form})
+
+
+@login_required
+def webhook_edit(request, wid):
+    from .forms import WebhookConfigForm
+    webhook = get_object_or_404(WebhookConfig, pk=wid)
+    if request.method == 'POST':
+        form = WebhookConfigForm(request.POST, instance=webhook)
+        if form.is_valid():
+            form.save()
+            if request.htmx:
+                return HttpResponse(headers={'HX-Redirect': '/webhooks/'})
+            return redirect('webhook-list')
+    else:
+        form = WebhookConfigForm(instance=webhook)
+    return render(request, 'forms/_webhook_form.html', {'form': form, 'webhook': webhook})
+
+
+@login_required
+@require_POST
+def webhook_delete(request, wid):
+    webhook = get_object_or_404(WebhookConfig, pk=wid)
+    webhook.delete()
+    if request.htmx:
+        return HttpResponse(headers={'HX-Redirect': '/webhooks/'})
+    return redirect('webhook-list')
+
+
+@csrf_exempt
+@require_POST
+def webhook_pa_subscribe(request, wid, token):
+    """
+    Called by Power Automate's HTTP Webhook trigger to register its callback URL.
+    PA sends: POST {"callbackUrl": "https://prod-xx.logic.azure.com/..."}
+    We store that callbackUrl so we can fire events to it later.
+    No login/CSRF — this is an external call from Power Automate.
+    """
+    webhook = get_object_or_404(WebhookConfig, pk=wid)
+    if webhook.pa_token != token or not token:
+        return JsonResponse({'error': 'Invalid token'}, status=403)
+    try:
+        body = json.loads(request.body)
+        callback_url = body.get('callbackUrl') or body.get('callback_url', '')
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
+    if not callback_url:
+        return JsonResponse({'error': 'callbackUrl missing from body'}, status=400)
+    webhook.url = callback_url
+    webhook.is_active = True
+    webhook.last_error = ''
+    webhook.save(update_fields=['url', 'is_active', 'last_error'])
+    return JsonResponse({'status': 'subscribed'}, status=201)
+
+
+@csrf_exempt
+@require_POST
+def webhook_pa_unsubscribe(request, wid, token):
+    """
+    Called by Power Automate when the flow is turned off or deleted.
+    We deactivate the webhook rather than delete it.
+    """
+    webhook = get_object_or_404(WebhookConfig, pk=wid)
+    if webhook.pa_token != token or not token:
+        return JsonResponse({'error': 'Invalid token'}, status=403)
+    webhook.is_active = False
+    webhook.save(update_fields=['is_active'])
+    return JsonResponse({'status': 'unsubscribed'})
+
+
+@login_required
+@require_POST
+def webhook_test(request, wid):
+    from .webhooks import _deliver
+    import threading
+    webhook = get_object_or_404(WebhookConfig, pk=wid)
+    payload = {
+        'event': webhook.event,
+        'test': True,
+        'timestamp': timezone.now().isoformat(),
+        'project': 'Test Project',
+        'customer': 'Test Customer',
+        'pgm': request.user.get_full_name() or request.user.username,
+        'message': f'This is a test event from NPI Tracker for webhook "{webhook.name}".',
+    }
+    t = threading.Thread(target=_deliver, args=(webhook.pk, payload), daemon=True)
+    t.start()
+    if request.htmx:
+        return HttpResponse(headers={
+            'HX-Trigger': json.dumps({'show-toast': {'message': 'Test card sent', 'type': 'success'}})
+        })
+    return redirect('webhook-list')
+
+
+@login_required
+@require_POST
+def webhook_test_chat(request, wid):
+    """Send a test card to a specific recipient (chat webhook with dynamic routing)."""
+    from .webhooks import _deliver
+    webhook = get_object_or_404(WebhookConfig, pk=wid)
+    recipient = request.POST.get('recipient', '').strip() or webhook.recipient
+    if not recipient:
+        if request.htmx:
+            return HttpResponse(headers={
+                'HX-Trigger': json.dumps({'show-toast': {'message': 'Enter a recipient email first', 'type': 'error'}})
+            })
+        return redirect('webhook-list')
+    # Temporarily set recipient so _deliver wraps the card
+    old_recipient = webhook.recipient
+    webhook.recipient = recipient
+    webhook.save(update_fields=['recipient'])
+    payload = {
+        'event': webhook.event,
+        'test': True,
+        'timestamp': timezone.now().isoformat(),
+        'project': 'Test Project',
+        'customer': 'Test Customer',
+        'pgm': request.user.get_full_name() or request.user.username,
+        'message': f'Chat test from NPI Tracker for webhook "{webhook.name}".',
+    }
+    t = threading.Thread(target=_deliver, args=(webhook.pk, payload), daemon=True)
+    t.start()
+    if request.htmx:
+        return HttpResponse(headers={
+            'HX-Trigger': json.dumps({'show-toast': {'message': f'Test card sent to {recipient}', 'type': 'success'}})
+        })
+    return redirect('webhook-list')
+
+
+@login_required
+@require_POST
+def webhook_test_text(request, wid):
+    """Send a plain text ping — use this first to verify the URL is reachable."""
+    from .webhooks import _deliver
+    webhook = get_object_or_404(WebhookConfig, pk=wid)
+    t = threading.Thread(target=_deliver, args=(webhook.pk, {}, True), daemon=True)
+    t.start()
+    if request.htmx:
+        return HttpResponse(headers={
+            'HX-Trigger': json.dumps({'show-toast': {'message': 'Plain text ping sent — check your Teams channel', 'type': 'success'}})
+        })
+    return redirect('webhook-list')
+
+
+# ── Inbound Webhooks (receive events from Power Automate) ────────────────
+
+@login_required
+def inbound_webhook_list(request):
+    webhooks = InboundWebhook.objects.select_related('project').all()
+    return render(request, 'webhooks/inbound_list.html', {
+        'webhooks': webhooks,
+        'action_choices': InboundWebhook.ACTION_CHOICES,
+    })
+
+
+@login_required
+def inbound_webhook_create(request):
+    from .forms import InboundWebhookForm
+    if request.method == 'POST':
+        form = InboundWebhookForm(request.POST)
+        if form.is_valid():
+            wh = form.save(commit=False)
+            wh.generate_token()
+            wh.save()
+            if request.htmx:
+                return HttpResponse(headers={'HX-Redirect': '/webhooks/inbound/'})
+            return redirect('inbound-webhook-list')
+    else:
+        form = InboundWebhookForm()
+    return render(request, 'forms/_inbound_webhook_form.html', {'form': form})
+
+
+@login_required
+def inbound_webhook_edit(request, wid):
+    from .forms import InboundWebhookForm
+    webhook = get_object_or_404(InboundWebhook, pk=wid)
+    if request.method == 'POST':
+        form = InboundWebhookForm(request.POST, instance=webhook)
+        if form.is_valid():
+            form.save()
+            if request.htmx:
+                return HttpResponse(headers={'HX-Redirect': '/webhooks/inbound/'})
+            return redirect('inbound-webhook-list')
+    else:
+        form = InboundWebhookForm(instance=webhook)
+    return render(request, 'forms/_inbound_webhook_form.html', {'form': form, 'webhook': webhook})
+
+
+@login_required
+@require_POST
+def inbound_webhook_delete(request, wid):
+    webhook = get_object_or_404(InboundWebhook, pk=wid)
+    webhook.delete()
+    if request.htmx:
+        return HttpResponse(headers={'HX-Redirect': '/webhooks/inbound/'})
+    return redirect('inbound-webhook-list')
+
+
+@login_required
+@require_POST
+def inbound_webhook_regenerate(request, wid):
+    """Regenerate the secret token for an inbound webhook."""
+    webhook = get_object_or_404(InboundWebhook, pk=wid)
+    webhook.generate_token()
+    webhook.save(update_fields=['token'])
+    if request.htmx:
+        return HttpResponse(headers={
+            'HX-Redirect': '/webhooks/inbound/',
+        })
+    return redirect('inbound-webhook-list')

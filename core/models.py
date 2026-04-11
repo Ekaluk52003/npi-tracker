@@ -474,6 +474,88 @@ class NREItem(models.Model):
         return self.stage.name if self.stage else ''
 
 
+class WebhookConfig(models.Model):
+    EVENT_CHOICES = [
+        ('issue_critical', 'Critical Issue Created'),
+        ('issue_created', 'Any Issue Created'),
+        ('issue_resolved', 'Issue Resolved'),
+        ('stage_changed', 'Build Stage Status Changed'),
+        ('task_blocked', 'Task Blocked'),
+    ]
+
+    name = models.CharField(max_length=200)
+    url = models.URLField(max_length=2000, blank=True)
+    event = models.CharField(max_length=50, choices=EVENT_CHOICES)
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='webhooks', help_text='Leave blank to receive events from all projects.'
+    )
+    recipient = models.EmailField(
+        max_length=320, blank=True,
+        help_text='Recipient email for chat webhooks. Leave blank for channel webhooks.',
+    )
+    is_active = models.BooleanField(default=True)
+    # PA HTTP Webhook: PA auto-registers its callback URL via subscribe endpoint
+    pa_token = models.CharField(
+        max_length=64, blank=True,
+        help_text='Secret token used in the subscribe URL to authenticate Power Automate.'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_triggered_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f'{self.name} ({self.get_event_display()})'
+
+    def generate_token(self):
+        import secrets
+        self.pa_token = secrets.token_urlsafe(32)
+
+    def subscribe_path(self):
+        return f'/webhooks/pa/subscribe/{self.pk}/{self.pa_token}/'
+
+
+class InboundWebhook(models.Model):
+    """Receives events FROM Power Automate (or any external system)."""
+    ACTION_CHOICES = [
+        ('create_issue', 'Create Issue'),
+        ('update_task_status', 'Update Task Status'),
+        ('update_stage_status', 'Update Build Stage Status'),
+        ('create_task', 'Create Task'),
+    ]
+
+    name = models.CharField(max_length=200)
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='inbound_webhooks',
+        help_text='Scope to a specific project. Leave blank to require project_id in the payload.',
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_received_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    call_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f'{self.name} ({self.get_action_display()})'
+
+    def generate_token(self):
+        import secrets
+        self.token = secrets.token_urlsafe(32)
+
+    @property
+    def endpoint_path(self):
+        return f'/api/inbound/{self.token}/'
+
+
 class TaskTemplateSet(models.Model):
     name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True)

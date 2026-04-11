@@ -2,7 +2,7 @@ from django.contrib import admin
 import nested_admin
 from .models import (
     Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem,
-    TaskTemplateSet, SectionTemplate, TaskTemplate, ProjectPlanVersion,
+    TaskTemplateSet, SectionTemplate, TaskTemplate, ProjectPlanVersion, InboundWebhook,
 )
 
 
@@ -139,3 +139,10 @@ class TaskTemplateAdmin(admin.ModelAdmin):
     filter_horizontal = ['depends_on']
     search_fields = ['name', 'section__name']
     ordering = ['section__template_set', 'section__sort_order', 'sort_order', 'id']
+
+
+@admin.register(InboundWebhook)
+class InboundWebhookAdmin(admin.ModelAdmin):
+    list_display = ['name', 'action', 'project', 'is_active', 'call_count', 'last_received_at']
+    list_filter = ['action', 'is_active']
+    readonly_fields = ['token', 'call_count', 'last_received_at', 'last_error']

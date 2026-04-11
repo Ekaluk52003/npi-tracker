@@ -5,3 +5,5 @@ whitenoise>=6.5.0
 django-nested-admin>=4.0.0
 psycopg2-binary>=2.9.9
 gunicorn>=21.2.0
+requests>=2.31.0
+pymsteams>=0.2.2

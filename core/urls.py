@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .inbound import inbound_webhook_receive
 
 urlpatterns = [
     # Portfolio
@@ -70,4 +71,25 @@ urlpatterns = [
     path('api/tasks/<int:task_id>/', views.api_task_update, name='api-task-update'),
     path('api/tasks/<int:task_id>/link/', views.api_task_link, name='api-task-link'),
     path('api/tasks/<int:task_id>/unlink/', views.api_task_unlink, name='api-task-unlink'),
+
+    # Power Automate Webhooks
+    path('webhooks/', views.webhook_list, name='webhook-list'),
+    path('webhooks/create/', views.webhook_create, name='webhook-create'),
+    path('webhooks/<int:wid>/edit/', views.webhook_edit, name='webhook-edit'),
+    path('webhooks/<int:wid>/delete/', views.webhook_delete, name='webhook-delete'),
+    path('webhooks/<int:wid>/test/', views.webhook_test, name='webhook-test'),
+    path('webhooks/<int:wid>/test-text/', views.webhook_test_text, name='webhook-test-text'),
+    path('webhooks/<int:wid>/test-chat/', views.webhook_test_chat, name='webhook-test-chat'),
+
+    # Called by Power Automate HTTP Webhook trigger (no login/CSRF)
+    path('webhooks/pa/subscribe/<int:wid>/<str:token>/', views.webhook_pa_subscribe, name='webhook-pa-subscribe'),
+    path('webhooks/pa/unsubscribe/<int:wid>/<str:token>/', views.webhook_pa_unsubscribe, name='webhook-pa-unsubscribe'),
+
+    # Inbound Webhooks (receive events from Power Automate)
+    path('api/inbound/<str:token>/', inbound_webhook_receive, name='inbound-webhook-receive'),
+    path('webhooks/inbound/', views.inbound_webhook_list, name='inbound-webhook-list'),
+    path('webhooks/inbound/create/', views.inbound_webhook_create, name='inbound-webhook-create'),
+    path('webhooks/inbound/<int:wid>/edit/', views.inbound_webhook_edit, name='inbound-webhook-edit'),
+    path('webhooks/inbound/<int:wid>/delete/', views.inbound_webhook_delete, name='inbound-webhook-delete'),
+    path('webhooks/inbound/<int:wid>/regenerate/', views.inbound_webhook_regenerate, name='inbound-webhook-regenerate'),
 ]

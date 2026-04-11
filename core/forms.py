@@ -1,5 +1,5 @@
 from django import forms
-from .models import Project, ProjectSection, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet
+from .models import Project, ProjectSection, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet, WebhookConfig, InboundWebhook
 
 
 input_cls = 'w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none'
@@ -164,6 +164,27 @@ class ProjectSectionForm(forms.ModelForm):
         }
 
 
+class WebhookConfigForm(forms.ModelForm):
+    class Meta:
+        model = WebhookConfig
+        fields = ['name', 'event', 'url', 'recipient', 'project', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Critical Issue → Teams'}),
+            'event': forms.Select(attrs={'class': select_cls}),
+            'url': forms.URLInput(attrs={'class': input_cls, 'placeholder': 'https://xxx.webhook.office.com/…'}),
+            'recipient': forms.EmailInput(attrs={'class': input_cls, 'placeholder': 'user@company.com (blank = channel)'}),
+            'project': forms.Select(attrs={'class': select_cls}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'rounded border-[var(--border)] bg-[var(--surface2)] text-[var(--accent)]'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['url'].required = False
+        self.fields['url'].label = 'Teams Incoming Webhook URL'
+        self.fields['project'].empty_label = '— All projects —'
+        self.fields['project'].required = False
+
+
 class CommitForm(forms.Form):
     change_type = forms.ChoiceField(
         choices=[('minor', 'Minor'), ('major', 'Major')],
@@ -177,4 +198,21 @@ class CommitForm(forms.Form):
             'rows': 3,
         }),
     )
+
+
+class InboundWebhookForm(forms.ModelForm):
+    class Meta:
+        model = InboundWebhook
+        fields = ['name', 'action', 'project', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. PA → Create Critical Issue'}),
+            'action': forms.Select(attrs={'class': select_cls}),
+            'project': forms.Select(attrs={'class': select_cls}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'rounded border-[var(--border)] bg-[var(--surface2)] text-[var(--accent)]'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['project'].empty_label = '— Require project_id in payload —'
+        self.fields['project'].required = False
 
