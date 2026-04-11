@@ -1,25 +1,32 @@
 """
 Inbound webhook handlers — processes JSON payloads from Power Automate
 and performs the configured action in NPI Tracker.
+
+Supports two methods:
+  POST /api/inbound/<token>/   — JSON body (requires Premium HTTP connector)
+  GET  /api/inbound/<token>/   — query-param payload (free via OneDrive "Create file from URL")
 """
 import json
 from datetime import date
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
 
 from .models import InboundWebhook, Project, Task, BuildStage, Issue, ProjectSection
 
 
 @csrf_exempt
-@require_POST
 def inbound_webhook_receive(request, token):
     """
-    Public endpoint: POST /api/inbound/<token>/
-    Accepts JSON from Power Automate, validates the token,
-    and dispatches to the appropriate action handler.
+    Public endpoint: POST or GET /api/inbound/<token>/
+
+    POST — Accepts JSON body from Power Automate HTTP action (Premium).
+    GET  — Reads query parameters; used by OneDrive "Create file from URL" trick (Free).
+           Example: /api/inbound/<token>/?title=Bug&severity=critical&project_id=1
     """
+    if request.method not in ('GET', 'POST'):
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
     try:
         webhook = InboundWebhook.objects.select_related('project').get(token=token)
     except InboundWebhook.DoesNotExist:
@@ -28,11 +35,16 @@ def inbound_webhook_receive(request, token):
     if not webhook.is_active:
         return JsonResponse({'error': 'Webhook is disabled'}, status=403)
 
-    try:
-        payload = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        _record_error(webhook, 'Invalid JSON body')
-        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
+    # Extract payload from body (POST) or query params (GET)
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            _record_error(webhook, 'Invalid JSON body')
+            return JsonResponse({'error': 'Invalid JSON body'}, status=400)
+    else:
+        # GET — build payload from query parameters
+        payload = {k: v for k, v in request.GET.items()}
 
     # Resolve project from webhook config or payload
     project = webhook.project

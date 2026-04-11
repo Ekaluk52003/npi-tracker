@@ -19,19 +19,63 @@
     </div>
   </div>
 
-  <!-- How-to banner -->
-  <div class="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 space-y-3 text-sm">
+  <!-- How-to: two methods -->
+  <div class="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 space-y-4 text-sm" x-data="{ method: 'onedrive' }">
     <p class="font-semibold text-[var(--text)] flex items-center gap-2">
       <svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       How to connect Power Automate
     </p>
-    <ol class="list-decimal list-inside space-y-2 text-[var(--text-muted)]">
-      <li>Create an inbound webhook here — choose the <strong class="text-[var(--text)]">action</strong> Power Automate should trigger</li>
-      <li>Copy the <strong class="text-[var(--text)]">Endpoint URL</strong> shown on the webhook card</li>
-      <li>In Power Automate, add an <strong class="text-[var(--text)]">HTTP</strong> action (POST) pointing to <code class="bg-[var(--surface2)] px-1 rounded text-xs">https://your-domain/api/inbound/&lt;token&gt;/</code></li>
-      <li>Set the body to JSON matching the expected payload for the chosen action</li>
-      <li>Run the flow — NPI Tracker will process the event automatically</li>
-    </ol>
+
+    <!-- Method selector -->
+    <div class="flex flex-wrap gap-2">
+      <button @click="method = 'onedrive'" :class="method === 'onedrive' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface2)] text-[var(--text-muted)]'"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium transition">
+        OneDrive Trick (Free — recommended)
+      </button>
+      <button @click="method = 'http'" :class="method === 'http' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface2)] text-[var(--text-muted)]'"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium transition">
+        Direct HTTP POST (requires Premium)
+      </button>
+    </div>
+
+    <!-- OneDrive "Create file from URL" guide -->
+    <div x-show="method === 'onedrive'" x-cloak>
+      <p class="text-xs text-green-400 bg-green-500/10 rounded-lg px-3 py-2 mb-3">
+        Works with free Power Automate — uses OneDrive "Create file" connector to fetch a URL. No Premium, no admin needed.
+      </p>
+      <ol class="list-decimal list-inside space-y-2 text-[var(--text-muted)]">
+        <li>Create an inbound webhook below — choose the <strong class="text-[var(--text)]">action</strong> and copy the <strong class="text-[var(--text)]">token</strong></li>
+        <li>In Power Automate, add a <strong class="text-[var(--text)]">"Create file"</strong> action (OneDrive for Business — free connector)</li>
+        <li>Set <strong class="text-[var(--text)]">Folder Path</strong>: <code class="bg-[var(--surface2)] px-1 rounded text-xs">/PA_Webhooks</code> (create this folder in your OneDrive)</li>
+        <li>Set <strong class="text-[var(--text)]">File Name</strong>: <code class="bg-[var(--surface2)] px-1 rounded text-xs">result_@{utcNow()}.json</code></li>
+        <li>Set <strong class="text-[var(--text)]">File Content</strong> to this URL (with your data as parameters):
+          <code class="bg-[var(--surface2)] px-1.5 py-0.5 rounded text-xs block mt-1 break-all select-all">https://your-domain/api/inbound/&lt;token&gt;/?title=My+Issue&amp;severity=critical&amp;project_id=1</code>
+          <span class="text-[11px] block mt-1">Use dynamic content from your trigger to fill in the values</span>
+        </li>
+        <li>When PA runs, OneDrive fetches the URL → Django processes the event → response is saved as a file</li>
+        <li>Optionally add a <strong class="text-[var(--text)]">"Delete file"</strong> action afterwards to clean up</li>
+      </ol>
+      <p class="text-[11px] text-[var(--text-muted)] mt-3 border-t border-[var(--border)] pt-3">
+        <strong>How it works:</strong> OneDrive's "Create file" action fetches the URL to get file content.
+        This effectively makes a GET request to your endpoint — triggering the webhook as a side effect.
+        The endpoint accepts data as query parameters (e.g. <code class="bg-[var(--surface2)] px-1 rounded">?title=...&severity=...</code>).
+      </p>
+    </div>
+
+    <!-- Direct HTTP guide -->
+    <div x-show="method === 'http'" x-cloak>
+      <p class="text-xs text-yellow-400 bg-yellow-500/10 rounded-lg px-3 py-2 mb-3">
+        Requires Power Automate Premium — the built-in HTTP action is a premium connector.
+      </p>
+      <ol class="list-decimal list-inside space-y-2 text-[var(--text-muted)]">
+        <li>Create an inbound webhook below — choose the <strong class="text-[var(--text)]">action</strong> Power Automate should trigger</li>
+        <li>Copy the <strong class="text-[var(--text)]">Endpoint URL</strong> shown on the webhook card</li>
+        <li>In Power Automate, add an <strong class="text-[var(--text)]">HTTP</strong> action (POST) pointing to <code class="bg-[var(--surface2)] px-1 rounded text-xs">https://your-domain/api/inbound/&lt;token&gt;/</code></li>
+        <li>Set <strong class="text-[var(--text)]">Content-Type</strong> header to <code class="bg-[var(--surface2)] px-1 rounded text-xs">application/json</code></li>
+        <li>Set the body to JSON matching the expected payload for the chosen action</li>
+        <li>Run the flow — NPI Tracker processes the event instantly</li>
+      </ol>
+    </div>
   </div>
 
   <!-- Supported actions reference -->
