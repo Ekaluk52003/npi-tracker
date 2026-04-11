@@ -9,7 +9,6 @@ Supports two methods:
 import json
 import logging
 from datetime import date
-from django.conf import settings
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -96,20 +95,10 @@ def _handle_create_issue(project, payload):
         "stage": "ETB"                 # optional, stage name
     }
 
-    If "raw_text" is provided (e.g. email body) and no "title", uses Gemini LLM
-    to parse the free-text into structured fields automatically.
     """
-    # If raw_text present and no title, parse with LLM
-    if payload.get('raw_text') and not payload.get('title', '').strip():
-        parsed = _parse_email_with_llm(payload['raw_text'], project)
-        # Merge parsed fields into payload (don't overwrite explicit values)
-        for key, val in parsed.items():
-            if key not in payload or not payload[key]:
-                payload[key] = val
-
     title = payload.get('title', '').strip()
     if not title:
-        raise ValueError('title is required (provide title directly or raw_text for LLM parsing)')
+        raise ValueError('title is required')
 
     severity = payload.get('severity', 'medium').lower()
     if severity not in ('critical', 'high', 'medium', 'low'):
@@ -312,80 +301,6 @@ def _parse_date(val):
         return date.fromisoformat(str(val).strip())
     except (ValueError, TypeError):
         return None
-
-
-def _parse_email_with_llm(raw_text, project):
-    """Use Google Gemini to parse free-text into structured issue fields.
-    Tries google-genai SDK first, falls back to REST API if not installed."""
-    api_key = settings.GOOGLE_API_KEY
-    if not api_key:
-        raise ValueError('GOOGLE_API_KEY not configured — cannot parse raw_text')
-
-    prompt = (
-        'You are a project management assistant for an NPI (New Product Introduction) tracker.\n'
-        'Parse the following email/message into a structured issue. Return ONLY valid JSON, no markdown.\n\n'
-        f'Project context: "{project.name}"\n\n'
-        'The JSON must have these fields:\n'
-        '- "title": short summary of the issue (required, max 120 chars)\n'
-        '- "severity": one of "critical", "high", "medium", "low" (infer from urgency/impact)\n'
-        '- "owner": person responsible if mentioned, otherwise empty string\n'
-        '- "due": deadline in ISO format (YYYY-MM-DD) if mentioned, otherwise null\n'
-        '- "impact": business impact summary if mentioned, otherwise empty string\n'
-        '- "desc": detailed description extracted from the text\n'
-        '- "stage": build stage if mentioned (e.g. EVT, DVT, ETB, PVT, MP), otherwise null\n\n'
-        'Email/message text:\n---\n'
-        f'{raw_text[:3000]}\n'
-        '---\n\nReturn ONLY the JSON object:'
-    )
-
-    raw_response = _call_gemini(api_key, prompt)
-    return _parse_llm_json(raw_response)
-
-
-def _call_gemini(api_key, prompt):
-    """Call Gemini API — uses google-genai SDK if available, otherwise REST API."""
-    try:
-        from google import genai
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt,
-        )
-        logger.info('Gemini called via google-genai SDK')
-        return response.text
-    except ImportError:
-        logger.info('google-genai not installed, using REST API fallback')
-    except Exception as exc:
-        logger.warning('google-genai SDK failed (%s), trying REST API fallback', exc)
-
-    # Fallback: direct REST API via requests
-    import requests as http
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}'
-    body = {'contents': [{'parts': [{'text': prompt}]}]}
-    resp = http.post(url, json=body, timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
-    return data['candidates'][0]['content']['parts'][0]['text']
-
-
-def _parse_llm_json(text):
-    """Strip markdown fences and parse JSON from LLM response."""
-    text = text.strip()
-    if text.startswith('```'):
-        text = text.split('\n', 1)[1] if '\n' in text else text[3:]
-    if text.endswith('```'):
-        text = text[:-3]
-    text = text.strip()
-    if text.startswith('json'):
-        text = text[4:].strip()
-
-    try:
-        parsed = json.loads(text)
-        logger.info('LLM parsed email into: %s', parsed)
-        return parsed
-    except json.JSONDecodeError as exc:
-        logger.warning('LLM returned invalid JSON: %s', exc)
-        raise ValueError(f'LLM returned invalid JSON: {exc}')
 
 
 def _record_error(webhook, msg):

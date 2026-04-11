@@ -128,5 +128,3 @@ DJANGO_VITE = {
     }
 }
 
-# Google Gemini API (for LLM-based email parsing in inbound webhooks)
-GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
