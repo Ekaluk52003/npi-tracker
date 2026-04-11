@@ -38,27 +38,27 @@
       </button>
     </div>
 
-    <!-- OneDrive "Create file from URL" guide -->
+    <!-- OneDrive "Upload file from URL" guide -->
     <div x-show="method === 'onedrive'" x-cloak>
       <p class="text-xs text-green-400 bg-green-500/10 rounded-lg px-3 py-2 mb-3">
-        Works with free Power Automate — uses OneDrive "Create file" connector to fetch a URL. No Premium, no admin needed.
+        Works with free Power Automate — uses the OneDrive for Business <strong>"Upload file from URL"</strong> action. No Premium, no admin needed.
       </p>
       <ol class="list-decimal list-inside space-y-2 text-[var(--text-muted)]">
-        <li>Create an inbound webhook below — choose the <strong class="text-[var(--text)]">action</strong> and copy the <strong class="text-[var(--text)]">token</strong></li>
-        <li>In Power Automate, add a <strong class="text-[var(--text)]">"Create file"</strong> action (OneDrive for Business — free connector)</li>
-        <li>Set <strong class="text-[var(--text)]">Folder Path</strong>: <code class="bg-[var(--surface2)] px-1 rounded text-xs">/PA_Webhooks</code> (create this folder in your OneDrive)</li>
-        <li>Set <strong class="text-[var(--text)]">File Name</strong>: <code class="bg-[var(--surface2)] px-1 rounded text-xs">result_@{utcNow()}.json</code></li>
-        <li>Set <strong class="text-[var(--text)]">File Content</strong> to this URL (with your data as parameters):
+        <li>Create an inbound webhook below — choose the <strong class="text-[var(--text)]">action</strong> and copy the <strong class="text-[var(--text)]">Endpoint URL</strong></li>
+        <li>Create a folder in OneDrive called <code class="bg-[var(--surface2)] px-1 rounded text-xs">/PA_Webhooks</code></li>
+        <li>In Power Automate, add the <strong class="text-[var(--text)]">"Upload file from URL"</strong> action (OneDrive for Business — free connector)</li>
+        <li>Set <strong class="text-[var(--text)]">Source URL</strong> to the endpoint with your data as query parameters:
           <code class="bg-[var(--surface2)] px-1.5 py-0.5 rounded text-xs block mt-1 break-all select-all">https://your-domain/api/inbound/&lt;token&gt;/?title=My+Issue&amp;severity=critical&amp;project_id=1</code>
           <span class="text-[11px] block mt-1">Use dynamic content from your trigger to fill in the values</span>
         </li>
-        <li>When PA runs, OneDrive fetches the URL → Django processes the event → response is saved as a file</li>
-        <li>Optionally add a <strong class="text-[var(--text)]">"Delete file"</strong> action afterwards to clean up</li>
+        <li>Set <strong class="text-[var(--text)]">Destination File Path</strong>: <code class="bg-[var(--surface2)] px-1 rounded text-xs">/PA_Webhooks/result.json</code></li>
+        <li>Set <strong class="text-[var(--text)]">Overwrite</strong>: <code class="bg-[var(--surface2)] px-1 rounded text-xs">Yes</code></li>
+        <li>Run the flow — OneDrive fetches your URL, Django processes the event, the response is saved as a file</li>
       </ol>
       <p class="text-[11px] text-[var(--text-muted)] mt-3 border-t border-[var(--border)] pt-3">
-        <strong>How it works:</strong> OneDrive's "Create file" action fetches the URL to get file content.
-        This effectively makes a GET request to your endpoint — triggering the webhook as a side effect.
-        The endpoint accepts data as query parameters (e.g. <code class="bg-[var(--surface2)] px-1 rounded">?title=...&severity=...</code>).
+        <strong>How it works:</strong> The "Upload file from URL" action tells OneDrive to download content from the Source URL.
+        OneDrive makes a GET request to your endpoint — Django processes the webhook and returns a JSON response.
+        The response gets saved as a file in OneDrive (you can ignore or delete it).
       </p>
     </div>
 
@@ -206,13 +206,21 @@
         </div>
       </div>
       <!-- Endpoint URL -->
-      <div class="flex items-center gap-2 bg-[var(--surface2)] rounded-lg px-3 py-2">
-        <span class="text-[10px] font-semibold text-[var(--text-muted)] uppercase shrink-0">POST</span>
-        <code class="flex-1 text-xs text-[var(--text)] font-mono break-all select-all">{{ wh.endpoint_path }}</code>
-        <button type="button" onclick="navigator.clipboard.writeText(window.location.origin + '{{ wh.endpoint_path }}')"
-                class="text-[var(--text-muted)] hover:text-[var(--text)] transition shrink-0" title="Copy full URL">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-        </button>
+      <div class="space-y-1.5">
+        <div class="flex items-center gap-2 bg-[var(--surface2)] rounded-lg px-3 py-2">
+          <span class="text-[10px] font-semibold text-green-400 uppercase shrink-0">GET / POST</span>
+          <code class="flex-1 text-xs text-[var(--text)] font-mono break-all select-all">{{ wh.endpoint_path }}</code>
+          <button type="button" onclick="navigator.clipboard.writeText(window.location.origin + '{{ wh.endpoint_path }}')"
+                  class="text-[var(--text-muted)] hover:text-[var(--text)] transition shrink-0" title="Copy endpoint URL">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          </button>
+        </div>
+        <p class="text-[10px] text-[var(--text-muted)] px-1">
+          <strong>Source URL for PA:</strong>
+          <code class="bg-[var(--surface2)] px-1 rounded break-all select-all cursor-pointer"
+                onclick="navigator.clipboard.writeText(window.location.origin + '{{ wh.endpoint_path }}?title=...&severity=...{% if not wh.project %}&project_id=1{% endif %}')"
+                title="Click to copy example URL">{{ wh.endpoint_path }}?title=...&amp;severity=...{% if not wh.project %}&amp;project_id=...{% endif %}</code>
+        </p>
       </div>
     </div>
     {% endfor %}
