@@ -30,11 +30,15 @@
     <div class="flex flex-wrap gap-2">
       <button @click="method = 'onedrive'" :class="method === 'onedrive' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface2)] text-[var(--text-muted)]'"
               class="px-3 py-1.5 rounded-lg text-xs font-medium transition">
-        OneDrive Trick (Free — recommended)
+        OneDrive Trick (Free)
+      </button>
+      <button @click="method = 'email'" :class="method === 'email' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface2)] text-[var(--text-muted)]'"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium transition">
+        Email + AI Parsing (Free)
       </button>
       <button @click="method = 'http'" :class="method === 'http' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface2)] text-[var(--text-muted)]'"
               class="px-3 py-1.5 rounded-lg text-xs font-medium transition">
-        Direct HTTP POST (requires Premium)
+        Direct HTTP POST (Premium)
       </button>
     </div>
 
@@ -48,7 +52,7 @@
         <li>Create a folder in OneDrive called <code class="bg-[var(--surface2)] px-1 rounded text-xs">/PA_Webhooks</code></li>
         <li>In Power Automate, add the <strong class="text-[var(--text)]">"Upload file from URL"</strong> action (OneDrive for Business — free connector)</li>
         <li>Set <strong class="text-[var(--text)]">Source URL</strong> to the endpoint with your data as query parameters:
-          <code class="bg-[var(--surface2)] px-1.5 py-0.5 rounded text-xs block mt-1 break-all select-all">https://your-domain/api/inbound/&lt;token&gt;/?title=My+Issue&amp;severity=critical&amp;project_id=1</code>
+          <code class="bg-[var(--surface2)] px-1.5 py-0.5 rounded text-xs block mt-1 break-all select-all">https://your-domain/api/inbound/&lt;token&gt;/?title=My+Issue&amp;severity=critical&amp;project_name=Project+Alpha</code>
           <span class="text-[11px] block mt-1">Use dynamic content from your trigger to fill in the values</span>
         </li>
         <li>Set <strong class="text-[var(--text)]">Destination File Path</strong>: <code class="bg-[var(--surface2)] px-1 rounded text-xs">/PA_Webhooks/result.json</code></li>
@@ -59,6 +63,32 @@
         <strong>How it works:</strong> The "Upload file from URL" action tells OneDrive to download content from the Source URL.
         OneDrive makes a GET request to your endpoint — Django processes the webhook and returns a JSON response.
         The response gets saved as a file in OneDrive (you can ignore or delete it).
+      </p>
+    </div>
+
+    <!-- Email + AI Parsing guide -->
+    <div x-show="method === 'email'" x-cloak>
+      <p class="text-xs text-blue-400 bg-blue-500/10 rounded-lg px-3 py-2 mb-3">
+        Free — email triggers the flow, AI (Google Gemini) parses the email body into a structured issue. No strict format required.
+      </p>
+      <ol class="list-decimal list-inside space-y-2 text-[var(--text-muted)]">
+        <li>Create a <strong class="text-[var(--text)]">Create Issue</strong> inbound webhook below and copy the <strong class="text-[var(--text)]">Endpoint URL</strong></li>
+        <li>In Power Automate, add trigger: <strong class="text-[var(--text)]">"When a new email arrives (V3)"</strong> (Outlook)</li>
+        <li>Set <strong class="text-[var(--text)]">Subject Filter</strong> to <code class="bg-[var(--surface2)] px-1 rounded text-xs">NPI:</code> to only process relevant emails</li>
+        <li>Add a <strong class="text-[var(--text)]">Compose</strong> action named <code class="bg-[var(--surface2)] px-1 rounded text-xs">LatestReply</code> with expression:
+          <code class="bg-[var(--surface2)] px-1.5 py-0.5 rounded text-xs block mt-1 break-all select-all">first(split(triggerOutputs()?['body/bodyPreview'], 'From:'))</code>
+          <span class="text-[11px] block mt-1">This extracts only the latest reply, stripping the thread history</span>
+        </li>
+        <li>Add <strong class="text-[var(--text)]">"Upload file from URL"</strong> (OneDrive for Business) with <strong class="text-[var(--text)]">Source URL</strong> expression:
+          <code class="bg-[var(--surface2)] px-1.5 py-0.5 rounded text-xs block mt-1 break-all select-all">concat('https://your-domain/api/inbound/&lt;token&gt;/?raw_text=', encodeUriComponent(outputs('LatestReply')), '&amp;project_name=', encodeUriComponent('Your Project'))</code>
+        </li>
+        <li>Set <strong class="text-[var(--text)]">Destination File Path</strong>: <code class="bg-[var(--surface2)] px-1 rounded text-xs">/PA_Webhooks/result.json</code>, <strong class="text-[var(--text)]">Overwrite</strong>: Yes</li>
+        <li>Django receives the email text → Gemini AI extracts title, severity, impact, etc. → issue is created automatically</li>
+      </ol>
+      <p class="text-[11px] text-[var(--text-muted)] mt-3 border-t border-[var(--border)] pt-3">
+        <strong>How it works:</strong> When <code class="bg-[var(--surface2)] px-1 rounded">raw_text</code> is passed without a <code class="bg-[var(--surface2)] px-1 rounded">title</code>,
+        the server uses Google Gemini to parse the free-text into structured issue fields.
+        Users can write emails in plain language — no special format needed. Requires <code class="bg-[var(--surface2)] px-1 rounded">GOOGLE_API_KEY</code> env variable.
       </p>
     </div>
 
@@ -97,8 +127,9 @@
   "impact": "ETB delayed 2 weeks",
   "desc": "Details here...",
   "stage": "ETB",
-  "project_id": 1
-}</pre>
+  "project_name": "Project Alpha"
+}
+// or use "project_id": 1 instead of "project_name"</pre>
       </details>
 
       <details class="group">
@@ -110,9 +141,10 @@
         <pre class="mt-2 text-xs bg-[var(--surface2)] rounded-lg p-3 text-[var(--text-muted)] overflow-x-auto">{
   "task_id": 42,
   "status": "done",
-  "project_id": 1
+  "project_name": "Project Alpha"
 }
 // or use "task_name" instead of "task_id"
+// or use "project_id" instead of "project_name"
 // status: open | inprogress | done | blocked</pre>
       </details>
 
@@ -125,9 +157,10 @@
         <pre class="mt-2 text-xs bg-[var(--surface2)] rounded-lg p-3 text-[var(--text-muted)] overflow-x-auto">{
   "stage_id": 5,
   "status": "in-progress",
-  "project_id": 1
+  "project_name": "Project Alpha"
 }
 // or use "stage_name" instead of "stage_id"
+// or use "project_id" instead of "project_name"
 // status: planned | ready | in-progress | completed | on-hold</pre>
       </details>
 
@@ -146,13 +179,14 @@
   "status": "open",
   "stage": "ETB",
   "remark": "Rush order",
-  "project_id": 1
-}</pre>
+  "project_name": "Project Alpha"
+}
+// or use "project_id" instead of "project_name"</pre>
       </details>
 
     </div>
     <p class="text-[11px] text-[var(--text-muted)] mt-3">
-      <strong>Note:</strong> <code class="bg-[var(--surface2)] px-1 rounded">project_id</code> is only required if the webhook is not scoped to a specific project.
+      <strong>Note:</strong> <code class="bg-[var(--surface2)] px-1 rounded">project_name</code> or <code class="bg-[var(--surface2)] px-1 rounded">project_id</code> is only required if the webhook is not scoped to a specific project. Name matching is case-insensitive.
     </p>
   </div>
 
@@ -218,8 +252,8 @@
         <p class="text-[10px] text-[var(--text-muted)] px-1">
           <strong>Source URL for PA:</strong>
           <code class="bg-[var(--surface2)] px-1 rounded break-all select-all cursor-pointer"
-                onclick="navigator.clipboard.writeText(window.location.origin + '{{ wh.endpoint_path }}?title=...&severity=...{% if not wh.project %}&project_id=1{% endif %}')"
-                title="Click to copy example URL">{{ wh.endpoint_path }}?title=...&amp;severity=...{% if not wh.project %}&amp;project_id=...{% endif %}</code>
+                onclick="navigator.clipboard.writeText(window.location.origin + '{{ wh.endpoint_path }}?title=...&severity=...{% if not wh.project %}&project_name=...{% endif %}')"
+                title="Click to copy example URL">{{ wh.endpoint_path }}?title=...&amp;severity=...{% if not wh.project %}&amp;project_name=...{% endif %}</code>
         </p>
       </div>
     </div>
