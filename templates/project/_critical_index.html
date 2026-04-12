@@ -129,7 +129,10 @@
                         <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
                         <span class="text-[10px] text-[var(--text-muted)] capitalize">{{ issue.status_label }}</span>
                     </div>
-                    <div class="text-xs font-medium leading-snug mb-1.5">{{ issue.title }}</div>
+                    <div class="text-xs font-medium leading-snug mb-1.5 cursor-pointer hover:text-[var(--accent)]"
+                         hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                        {{ issue.title }}
+                    </div>
                     <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
                         <span>{{ issue.owner|default:"TBD" }}</span>
                         <span {% if issue.due and issue.due < today %}class="text-red-500"{% endif %}>
