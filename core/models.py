@@ -3,12 +3,28 @@ from django.db import models
 from datetime import date
 
 
+class Customer(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Project(models.Model):
     CURRENCY_CHOICES = [('THB', 'THB'), ('USD', 'USD'), ('EUR', 'EUR')]
 
     name = models.CharField(max_length=200)
     pgm = models.CharField(max_length=100, verbose_name='Program Manager')
-    customer = models.CharField(max_length=200)
+    customer = models.ForeignKey(
+        'Customer',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='projects'
+    )
     start_date = models.DateField()
     end_date = models.DateField()
     color = models.CharField(max_length=7, default='#34B27B')
@@ -627,3 +643,37 @@ class TaskTemplate(models.Model):
 
     def __str__(self):
         return f'{self.section.name} / {self.name}'
+
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('pm', 'Project Manager'),
+        ('engineer', 'Engineer'),
+        ('customer', 'Customer'),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='profile'
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='engineer'
+    )
+    customer = models.ForeignKey(
+        'Customer',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='users',
+        help_text='Set only for customer role users.'
+    )
+
+    class Meta:
+        verbose_name = 'user profile'
+        verbose_name_plural = 'user profiles'
+
+    def __str__(self):
+        return f'{self.user.username} ({self.role})'

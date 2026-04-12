@@ -1,7 +1,9 @@
 <div class="flex items-center justify-between mb-4">
     <div></div>
+    {% if user_is_pm %}
     <button hx-get="{% url 'stage-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
             class="action-btn text-xs">+ Add Stage</button>
+    {% endif %}
 </div>
 <div class="flex flex-col lg:flex-row gap-4 items-start">
     {% for stage in stages %}
@@ -20,11 +22,13 @@
             </div>
             <div class="flex items-center gap-2">
                 <span class="stage-pill stage-{{ stage.status }}">{{ stage.status_label }}</span>
+                {% if user_is_pm %}
                 <button hx-get="{% url 'stage-edit' project.pk stage.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
                         class="text-xs text-[var(--accent)] hover:underline">Edit</button>
                 <button hx-post="{% url 'stage-delete' project.pk stage.pk %}" hx-confirm="Delete stage '{{ stage.name }}'? Tasks, issues, and NRE items linked to this stage will be unlinked."
                         hx-target="#content" hx-swap="innerHTML"
                         class="text-xs text-red-400 hover:underline">Del</button>
+                {% endif %}
             </div>
         </div>
 
@@ -56,10 +60,10 @@
             {% endfor %}
             <!-- Manual checklist -->
             {% for item in stage.gate.manual_items %}
-            <div class="flex items-center gap-2 text-[11px] py-0.5 cursor-pointer hover:bg-[var(--surface2)] rounded px-1 -mx-1"
-                 hx-post="{% url 'gate-toggle' project.pk stage.pk item.pk %}"
-                 hx-target="#content" hx-swap="innerHTML">
-                {% csrf_token %}
+            <div class="flex items-center gap-2 text-[11px] py-0.5 {% if user_is_pm %}cursor-pointer hover:bg-[var(--surface2)]{% endif %} rounded px-1 -mx-1"
+                 {% if user_is_pm %}hx-post="{% url 'gate-toggle' project.pk stage.pk item.pk %}"
+                 hx-target="#content" hx-swap="innerHTML"{% endif %}>
+                {% if user_is_pm %}{% csrf_token %}{% endif %}
                 <span class="{% if item.checked %}text-emerald-400{% else %}text-[var(--text-muted)]{% endif %}">{% if item.checked %}&#10003;{% else %}&#9633;{% endif %}</span>
                 <span>{{ item.label }}</span>
             </div>

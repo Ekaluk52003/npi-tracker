@@ -59,11 +59,13 @@
                     {% else %}—{% endif %}
                 </td>
                 <td class="px-3 py-2 text-center">
+                    {% if user_is_pm %}
                     <button hx-get="{% url 'nre-edit' project.pk nre.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
                             class="text-xs text-[var(--accent)] hover:underline mr-1">Edit</button>
                     <button hx-post="{% url 'nre-delete' project.pk nre.pk %}" hx-confirm="Delete this NRE item?"
                             hx-target="#content" hx-swap="innerHTML"
                             class="text-xs text-red-400 hover:underline">Del</button>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

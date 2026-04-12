@@ -100,9 +100,13 @@
                 {% empty %}
                 <tr>
                     <td colspan="9" class="px-4 py-12 text-center text-[var(--text-muted)]">
+                        {% if user_is_pm %}
                         <p class="text-lg mb-2">No projects yet</p>
                         <button hx-get="{% url 'project-create' %}" hx-target="#modal-container" hx-swap="innerHTML"
                                 class="action-btn">+ Create Your First Project</button>
+                        {% else %}
+                        <p class="text-lg">No projects available yet</p>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

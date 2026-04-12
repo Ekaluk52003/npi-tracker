@@ -67,6 +67,7 @@
     <!-- Footer actions -->
     <div class="border-t border-[var(--border)] shrink-0"
          :class="sidebarCollapsed ? 'p-1.5 space-y-1' : 'p-3 space-y-2'">
+        {% if user_is_pm %}
         <a href="{% url 'webhook-list' %}"
            class="w-full flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition px-1"
            :class="sidebarCollapsed ? 'justify-center py-1.5' : 'px-3 py-2'"
@@ -81,6 +82,7 @@
             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             <span x-show="!sidebarCollapsed" x-transition.opacity class="whitespace-nowrap">New Project</span>
         </button>
+        {% endif %}
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit"

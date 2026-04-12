@@ -3,6 +3,7 @@ import nested_admin
 from .models import (
     Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem,
     TaskTemplateSet, SectionTemplate, TaskTemplate, ProjectPlanVersion, InboundWebhook,
+    Customer, UserProfile,
 )
 
 
@@ -146,3 +147,17 @@ class InboundWebhookAdmin(admin.ModelAdmin):
     list_display = ['name', 'action', 'project', 'is_active', 'call_count', 'last_received_at']
     list_filter = ['action', 'is_active']
     readonly_fields = ['token', 'call_count', 'last_received_at', 'last_error']
+
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'role', 'customer']
+    list_filter = ['role']
+    raw_id_fields = ['user', 'customer']
+    search_fields = ['user__username', 'user__email']

@@ -1,7 +1,10 @@
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Issue, BuildStage, Task
+from django.contrib.auth import get_user_model
+from .models import Issue, BuildStage, Task, UserProfile
+
+User = get_user_model()
 
 
 @receiver(pre_save, sender=Issue)
@@ -124,3 +127,10 @@ def _task_post_save(sender, instance, created, **kwargs):
             'task_section': instance.section_name,
         }
         fire_event('task_blocked', payload, project=instance.project)
+
+
+@receiver(post_save, sender=User)
+def _user_post_save(sender, instance, created, **kwargs):
+    """Auto-create UserProfile when a new User is created."""
+    if created:
+        UserProfile.objects.get_or_create(user=instance)
