@@ -7,9 +7,9 @@
      hx-swap="outerHTML">
 
 <!-- Toolbar -->
-<div class="flex items-center gap-3 px-4 py-2 border-b border-[var(--border)] bg-[var(--surface)] flex-wrap">
+<div class="flex items-center gap-2 px-4 py-2 border-b border-[var(--border)] bg-[var(--surface)] flex-wrap">
     <!-- Severity filters -->
-    <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Filter:</span>
+    <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Sev:</span>
     <button class="cis-filter-btn" :class="{ 'cis-filter-active': filters.critical }" @click="filters.critical = !filters.critical">
         <span class="inline-block w-2 h-2 rounded-sm bg-red-500"></span> Critical
     </button>
@@ -23,7 +23,40 @@
         <span class="inline-block w-2 h-2 rounded-sm bg-gray-500"></span> Low
     </button>
 
+    <!-- Stage filters -->
+    <span class="w-px h-4 bg-[var(--border)]"></span>
+    <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Stage:</span>
+    <template x-for="sg in stageGroups" :key="sg.stage">
+        <button class="cis-filter-btn"
+                :class="{ 'cis-filter-active': stageFilter === sg.stage }"
+                :style="stageFilter === sg.stage ? 'border-color:' + sg.color + ';color:' + sg.color + ';' : ''"
+                @click="stageFilter = stageFilter === sg.stage ? '' : sg.stage">
+            <span class="inline-block w-2 h-2 rounded-sm" :style="'background:' + sg.color"></span>
+            <span x-text="sg.stage"></span>
+        </button>
+    </template>
+
     <div class="flex-1"></div>
+
+    <!-- View toggle -->
+    <div class="flex items-center gap-0.5 bg-[var(--surface2)] rounded-md p-0.5 border border-[var(--border)]">
+        <button @click="viewMode = 'column'"
+                :class="viewMode === 'column' ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+                class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-all">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 4H5a1 1 0 00-1 1v14a1 1 0 001 1h4a1 1 0 001-1V5a1 1 0 00-1-1zm10 0h-4a1 1 0 00-1 1v14a1 1 0 001 1h4a1 1 0 001-1V5a1 1 0 00-1-1z"/>
+            </svg>
+            Columns
+        </button>
+        <button @click="viewMode = 'table'"
+                :class="viewMode === 'table' ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+                class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-all">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18M3 10h18M3 15h18M3 20h18M8 3v18M16 3v18M3 3h18v18H3z"/>
+            </svg>
+            Table
+        </button>
+    </div>
 
     <!-- Legend -->
     <div class="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
@@ -42,8 +75,8 @@
     </div>
 </div>
 
-<!-- Board -->
-<div class="overflow-x-auto">
+<!-- ── Column View ─────────────────────────────────────────────── -->
+<div class="overflow-x-auto" x-show="viewMode === 'column'">
     <!-- Stage header band -->
     <div class="flex sticky top-0 z-10">
         <!-- Unlinked header -->
@@ -51,8 +84,7 @@
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
             Unlinked
         </div>
-        {% for sg in stage_groups_json|safe %}<!-- rendered by Alpine -->{% endfor %}
-        <template x-for="sg in stageGroups" :key="sg.stage">
+        <template x-for="sg in filteredStageGroups" :key="sg.stage">
             <div class="flex items-center justify-center gap-2 py-2 text-[11px] font-bold uppercase tracking-wider bg-[var(--surface)] border-r border-[var(--border)]"
                  :style="'flex: 0 0 ' + (sg.count * 280) + 'px; min-width: ' + (sg.count * 280) + 'px; border-bottom: 2px solid ' + sg.color + '; color: ' + sg.color + ';'">
                 <span x-text="sg.stage"></span>
@@ -106,7 +138,9 @@
 
         <!-- Task columns -->
         {% for item in scored_tasks %}
-        <div class="flex-none flex flex-col border-r border-[var(--border)]" style="width:280px;min-width:280px;">
+        <div class="flex-none flex flex-col border-r border-[var(--border)]"
+             style="width:280px;min-width:280px;"
+             x-show="isStageVisible('{{ item.task.stage.name|default:'' }}')">
             <!-- Column header -->
             <div class="p-2.5 border-b border-[var(--border)] bg-[var(--surface)]">
                 <!-- CIS dots + issue count -->
@@ -196,6 +230,84 @@
     </div>
 </div>
 
+<!-- ── Table View ──────────────────────────────────────────────── -->
+<div x-show="viewMode === 'table'" class="overflow-x-auto">
+    <table class="w-full text-xs border-collapse">
+        <thead>
+            <tr class="sticky top-0 z-10 bg-[var(--surface)] border-b-2 border-[var(--border)] text-[var(--text-muted)] text-[10px] uppercase tracking-wider">
+                <th class="px-3 py-2 text-left font-semibold">Severity</th>
+                <th class="px-3 py-2 text-left font-semibold">Title</th>
+                <th class="px-3 py-2 text-left font-semibold">Status</th>
+                <th class="px-3 py-2 text-left font-semibold">Owner</th>
+                <th class="px-3 py-2 text-left font-semibold">Due</th>
+                <th class="px-3 py-2 text-left font-semibold">Task</th>
+                <th class="px-3 py-2 text-left font-semibold">Stage</th>
+                <th class="px-3 py-2 text-center font-semibold">CIS</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Unlinked issues (no stage) -->
+            {% for issue in unlinked_issues %}
+            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
+                x-show="isVisible('{{ issue.severity }}') && isStageVisible('')">
+                <td class="px-3 py-2">
+                    <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
+                </td>
+                <td class="px-3 py-2 font-medium text-[var(--text)]">{{ issue.title }}</td>
+                <td class="px-3 py-2">
+                    <div class="flex items-center gap-1.5">
+                        <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
+                        <span class="capitalize text-[var(--text-muted)]">{{ issue.status_label }}</span>
+                    </div>
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)]">{{ issue.owner|default:"TBD" }}</td>
+                <td class="px-3 py-2 {% if issue.due and issue.due < today %}text-red-500{% else %}text-[var(--text-muted)]{% endif %}">
+                    {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}-{% endif %}
+                </td>
+                <td class="px-3 py-2 text-amber-500 italic text-[11px]">Unlinked</td>
+                <td class="px-3 py-2 text-[var(--text-muted)]">—</td>
+                <td class="px-3 py-2 text-center text-[var(--text-muted)]">—</td>
+            </tr>
+            {% endfor %}
+
+            <!-- Linked issues -->
+            {% for item in scored_tasks %}
+            {% for issue in item.open_issues %}
+            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
+                x-show="isVisible('{{ issue.severity }}') && isStageVisible('{{ item.task.stage.name|default:'' }}')">
+                <td class="px-3 py-2">
+                    <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
+                </td>
+                <td class="px-3 py-2 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
+                    hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                    {{ issue.title }}
+                </td>
+                <td class="px-3 py-2">
+                    <div class="flex items-center gap-1.5">
+                        <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
+                        <span class="capitalize text-[var(--text-muted)]">{{ issue.status_label }}</span>
+                    </div>
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)]">{{ issue.owner|default:"TBD" }}</td>
+                <td class="px-3 py-2 {% if issue.due and issue.due < today %}text-red-500{% else %}text-[var(--text-muted)]{% endif %}">
+                    {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}-{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[var(--text)] text-[11px]">{{ item.task.name }}</td>
+                <td class="px-3 py-2">
+                    {% if item.task.stage %}
+                    <span class="font-semibold px-1.5 py-0.5 rounded" style="background:{{ item.task.stage.color }}22;color:{{ item.task.stage.color }};font-size:0.6rem;">{{ item.task.stage.name }}</span>
+                    {% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 text-center">
+                    <span class="text-[11px] font-bold cis-score-text-{{ item.cis }}">{{ item.cis }}/5</span>
+                </td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
 <!-- Toast -->
 <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--surface)] border border-[var(--accent)] rounded-lg px-4 py-2.5 text-sm text-[var(--accent)] shadow-2xl flex items-center gap-2"
      x-show="toast" x-cloak x-transition>
@@ -212,6 +324,8 @@ function cisBoard() {
         dragSourceTaskId: null,
         toast: '',
         filters: { critical: false, high: false, medium: false, low: false },
+        stageFilter: '',
+        viewMode: 'column',
         stageGroups: {{ stage_groups_json|safe }},
 
         init() {},
@@ -220,9 +334,19 @@ function cisBoard() {
             return this.filters.critical || this.filters.high || this.filters.medium || this.filters.low;
         },
 
+        get filteredStageGroups() {
+            if (!this.stageFilter) return this.stageGroups;
+            return this.stageGroups.filter(sg => sg.stage === this.stageFilter);
+        },
+
         isVisible(severity) {
             if (!this.anyFilter) return true;
             return !!this.filters[severity];
+        },
+
+        isStageVisible(stageName) {
+            if (!this.stageFilter) return true;
+            return stageName === this.stageFilter;
         },
 
         startDrag(issueId, taskId, event) {
@@ -263,7 +387,6 @@ function cisBoard() {
             .then(data => {
                 if (data.success) {
                     this.showToast(targetTaskId ? 'Issue linked to task' : 'Issue unlinked');
-                    // Trigger HTMX refresh of the board
                     document.getElementById('cis-container')?.dispatchEvent(
                         new CustomEvent('issueSaved', { bubbles: true })
                     );
