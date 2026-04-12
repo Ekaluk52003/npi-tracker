@@ -11,7 +11,10 @@ Alpine.start();
 // ── Gantt rendering on page load and after HTMX swaps ───────────────
 
 function initGantt() {
-  renderProjectGantt('gantt-container', 'gantt-data');
+  // Check if comparison data exists and pass it to the renderer
+  const compareDataEl = document.getElementById('gantt-compare-data');
+  const compareDataId = compareDataEl ? 'gantt-compare-data' : null;
+  renderProjectGantt('gantt-container', 'gantt-data', compareDataId);
   renderPortfolioGantt('portfolio-gantt-container', 'portfolio-gantt-data');
 }
 

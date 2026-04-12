@@ -117,13 +117,22 @@ window.ganttMobileTab = function(tab) {
   if (chartBtn) { chartBtn.style.background = tab === 'chart' ? 'var(--accent)' : 'var(--surface2)'; chartBtn.style.color = tab === 'chart' ? '#fff' : 'var(--text-muted)'; }
 };
 
-export function renderProjectGantt(containerId, dataId) {
+export function renderProjectGantt(containerId, dataId, compareDataId = null) {
   const el = document.getElementById(containerId);
   const dataEl = document.getElementById(dataId);
   if (!el || !dataEl) return;
 
   let data;
   try { data = JSON.parse(dataEl.textContent); } catch { return; }
+
+  // Load comparison data if provided
+  let compareData = null;
+  if (compareDataId) {
+    const compareEl = document.getElementById(compareDataId);
+    if (compareEl) {
+      try { compareData = JSON.parse(compareEl.textContent); } catch { }
+    }
+  }
 
   const { project_id, sections, stages, min_date, max_date, today } = data;
   const readonly = data.readonly === true;
@@ -211,6 +220,16 @@ export function renderProjectGantt(containerId, dataId) {
     </div>`;
   }).join('');
 
+  // Build a lookup map for overlay tasks if compareData exists
+  const overlayTaskMap = {};
+  if (compareData && compareData.sections) {
+    for (const sec of compareData.sections) {
+      for (const t of sec.tasks) {
+        overlayTaskMap[t.id] = t;
+      }
+    }
+  }
+
   // Right panel: timeline rows
   const timelineRows = rows.map(row => {
     if (row.type === 'section') {
@@ -222,9 +241,20 @@ export function renderProjectGantt(containerId, dataId) {
     const cells = weeks.map((w, i) => `<div class="wk-cell ${i === todayWkIdx ? 'current-wk' : ''}"></div>`).join('');
     const barLabel = barWidth > 40 ? esc(t.name).substring(0, Math.floor(barWidth / 7)) : '';
     const issueFlag = t.open_issues ? '<span class="issue-flag" title="Has open issues"></span>' : '';
+
+    // Build overlay bar if comparison data has this task
+    let overlayBar = '';
+    const overlayTask = overlayTaskMap[t.id];
+    if (overlayTask) {
+      const overlayLeft = (parseDate(overlayTask.start) - weeks[0]) / (7 * 86400000) * WK_W;
+      const overlayWidth = Math.max(16, (parseDate(overlayTask.end) - parseDate(overlayTask.start)) / (7 * 86400000) * WK_W);
+      overlayBar = `<div class="gantt-bar ${overlayTask.status} compare-overlay" data-overlay-task-id="${t.id}" data-overlay-start="${overlayTask.start}" data-overlay-end="${overlayTask.end}" style="left:${overlayLeft}px;width:${overlayWidth}px;opacity:0.25;z-index:1;border:2px dashed rgba(255,255,255,0.4);background-clip:padding-box;cursor:pointer;" title="Click to restore to: ${esc(overlayTask.name)} ${overlayTask.start} → ${overlayTask.end}"></div>`;
+    }
+
     return `<div class="timeline-row" style="min-width:${weeks.length * WK_W}px;position:relative" data-section-idx="${row.secIdx}">
       ${cells}
-      <div class="gantt-bar ${t.status}" style="left:${barLeft}px;width:${barWidth}px" title="${esc(t.name)}: ${t.start} → ${t.end}" data-task-id="${t.id}" data-task-name="${esc(t.name)}">
+      ${overlayBar}
+      <div class="gantt-bar ${t.status}" style="left:${barLeft}px;width:${barWidth}px;z-index:2;" title="${esc(t.name)}: ${t.start} → ${t.end}" data-task-id="${t.id}" data-task-name="${esc(t.name)}">
         <div style="position:absolute;left:0;top:0;width:100%;height:100%;cursor:move;user-select:none"></div>
         <span style="position:relative;z-index:1">${barLabel}${issueFlag}</span>
         <div class="gantt-resize-handle" style="position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:e-resize;background:transparent;z-index:12"></div>
@@ -694,6 +724,70 @@ export function renderProjectGantt(containerId, dataId) {
 
   drawDependencyArrows();
   if (!readonly) setupDepConnectors();
+
+  // Setup overlay bar click handlers for restoring to previous position
+  if (compareData && !readonly) {
+    const overlayBars = timelineContent?.querySelectorAll('.compare-overlay');
+    overlayBars?.forEach(overlayBar => {
+      overlayBar.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const taskId = overlayBar.dataset.overlayTaskId;
+        const newStart = overlayBar.dataset.overlayStart;
+        const newEnd = overlayBar.dataset.overlayEnd;
+        const taskName = overlayBar.getAttribute('title')?.replace('Click to restore to: ', '').split(' ')[0] || '';
+
+        const mainBar = taskBarMap[taskId];
+        if (!mainBar) return;
+
+        // Update visual position immediately
+        const newStartD = parseDate(newStart);
+        const newEndD = parseDate(newEnd);
+        const newLeft = (newStartD - weeks[0]) / (7 * 86400000) * WK_W;
+        const newWidth = Math.max(16, (newEndD - newStartD) / (7 * 86400000) * WK_W);
+        mainBar.style.left = `${newLeft}px`;
+        mainBar.style.width = `${newWidth}px`;
+
+        // Update left panel
+        const taskRow = gl?.querySelector(`[data-task-id="${taskId}"]`);
+        if (taskRow) {
+          const startCell = taskRow.querySelector('.tc-start');
+          const endCell = taskRow.querySelector('.tc-end');
+          const durCell = taskRow.querySelector('.tc-dur');
+          const days = Math.round((newEndD - newStartD) / 86400000) + 1;
+          if (startCell) { startCell.textContent = formatDateDisplay(newStart); startCell.dataset.date = newStart; }
+          if (endCell) { endCell.textContent = formatDateDisplay(newEnd); endCell.dataset.date = newEnd; }
+          if (durCell) durCell.textContent = `${days}d`;
+        }
+
+        // Save to server
+        try {
+          const csrftoken = getCookie('csrftoken');
+          const response = await fetch(`/api/tasks/${taskId}/`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrftoken || ''
+            },
+            body: JSON.stringify({ start: newStart, end: newEnd })
+          });
+          if (response.ok) {
+            const result = await response.json();
+            // Snap to exact position from server
+            const snapStart = parseDate(result.start);
+            const snapEnd = parseDate(result.end);
+            const snapLeft = (snapStart - weeks[0]) / (7 * 86400000) * WK_W;
+            const snapWidth = Math.max(16, (snapEnd - snapStart) / (7 * 86400000) * WK_W);
+            mainBar.style.left = `${snapLeft}px`;
+            mainBar.style.width = `${snapWidth}px`;
+            if (result.cascaded?.length) updateCascadedBars(result.cascaded);
+            drawDependencyArrows();
+          }
+        } catch (err) {
+          console.error('Failed to restore task position:', err);
+        }
+      });
+    });
+  }
 
   // Left panel resize handler
   const leftPanel = document.getElementById('gantt-left-panel');

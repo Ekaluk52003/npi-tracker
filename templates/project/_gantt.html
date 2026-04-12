@@ -1,19 +1,84 @@
 {% if not viewing_version %}{% include "components/stage_filter.html" %}{% endif %}
 
 {% if plan_versions %}
-<div class="flex items-center gap-2 mb-4">
-    <label class="text-xs text-[var(--text-muted)] font-medium">Version:</label>
-    <select class="text-xs bg-[var(--surface2)] border border-[var(--border)] rounded-md px-2 py-1.5 text-[var(--text)]"
-            hx-get="{% url 'project-gantt' project.pk %}"
-            hx-target="#content" hx-swap="innerHTML" hx-push-url="true" name="version">
-        <option value="" {% if not viewing_version %}selected{% endif %}>Live (current)</option>
-        {% for v in plan_versions %}
-        <option value="{{ v.pk }}" {% if viewing_version.pk == v.pk %}selected{% endif %}>
-            v{{ v.version_label }} — {{ v.change_comment|truncatechars:50 }}
-        </option>
-        {% endfor %}
-    </select>
+<div class="flex items-start gap-4 mb-4">
+    <div class="flex flex-col gap-2">
+        <label class="text-xs text-[var(--text-muted)] font-medium">Select up to 2 versions to compare:</label>
+        <div class="flex flex-wrap items-center gap-3" id="version-selector">
+            <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-[var(--accent)] transition-colors">
+                <input type="checkbox" name="version" value=""
+                       {% if not viewing_version %}checked{% endif %}
+                       hx-get="{% url 'project-gantt' project.pk %}"
+                       hx-target="#content" hx-swap="innerHTML" hx-push-url="true"
+                       hx-vals='js:{"version": getSelectedVersions()[0] || "", "compare_version": getSelectedVersions()[1] || ""}'
+                       class="version-checkbox accent-[var(--accent)]">
+                <span>Live (current)</span>
+            </label>
+            {% for v in plan_versions %}
+            <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-[var(--accent)] transition-colors"
+                   title="v{{ v.version_label }} — {{ v.change_comment }}">
+                <input type="checkbox" name="version" value="{{ v.pk }}"
+                       {% if viewing_version.pk == v.pk or compare_version.pk == v.pk %}checked{% endif %}
+                       hx-get="{% url 'project-gantt' project.pk %}"
+                       hx-target="#content" hx-swap="innerHTML" hx-push-url="true"
+                       hx-vals='js:{"version": getSelectedVersions()[0] || "", "compare_version": getSelectedVersions()[1] || ""}'
+                       class="version-checkbox accent-[var(--accent)]">
+                <span>v{{ v.version_label }}</span>
+                <span class="text-[var(--text-muted)]">({{ v.committed_at|date:"d M Y" }})</span>
+            </label>
+            {% endfor %}
+        </div>
+        <p class="text-[10px] text-[var(--text-muted)] italic" id="version-hint">
+            First selection = main view, Second = semi-transparent overlay
+        </p>
+    </div>
 </div>
+<script>
+    function getSelectedVersions() {
+        const checkboxes = document.querySelectorAll('.version-checkbox:checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    }
+
+    function showVersionLimitModal() {
+        const modalHtml = `
+        <div x-data="{ open: true }" x-show="open" x-cloak
+             class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="open = false; document.getElementById('modal-container').innerHTML=''"></div>
+            <div class="relative bg-[var(--surface)] rounded-xl border border-[var(--border)] w-full max-w-sm shadow-2xl" @click.stop>
+                <div class="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] px-5 py-4 flex items-center justify-between z-10">
+                    <h2 class="text-lg font-semibold flex items-center gap-2">
+                        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        Selection Limit
+                    </h2>
+                    <button @click="open = false; document.getElementById('modal-container').innerHTML=''" class="text-[var(--text-muted)] hover:text-[var(--text)] text-xl">&times;</button>
+                </div>
+                <div class="p-5">
+                    <p class="text-[var(--text)] mb-4">You can only select up to 2 versions for comparison.</p>
+                    <p class="text-sm text-[var(--text-muted)] mb-6">First selection = main view<br>Second selection = semi-transparent overlay</p>
+                    <button @click="open = false; document.getElementById('modal-container').innerHTML=''"
+                            class="w-full py-2.5 bg-[var(--accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity">
+                        Got it
+                    </button>
+                </div>
+            </div>
+        </div>`;
+        document.getElementById('modal-container').innerHTML = modalHtml;
+    }
+
+    // Limit to 2 selections
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('version-checkbox')) {
+            const checkboxes = document.querySelectorAll('.version-checkbox');
+            const checked = document.querySelectorAll('.version-checkbox:checked');
+            if (checked.length > 2) {
+                e.target.checked = false;
+                showVersionLimitModal();
+            }
+        }
+    });
+</script>
 {% endif %}
 
 {% if viewing_version %}
@@ -22,8 +87,11 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
     <span class="text-amber-300">
-        Viewing snapshot <strong>v{{ viewing_version.version_label }}</strong>
-        — {{ viewing_version.change_comment }}
+        Primary view: <strong>v{{ viewing_version.version_label }}</strong>
+        {% if compare_version %}
+        <span class="mx-2 text-amber-400/50">|</span>
+        <span class="text-amber-400/80">Overlay: v{{ compare_version.version_label }}</span>
+        {% endif %}
         <span class="text-amber-400/70 ml-1">({{ viewing_version.committed_at|date:"d M Y" }})</span>
     </span>
     <a href="{% url 'project-gantt' project.pk %}"
@@ -34,7 +102,21 @@
 </div>
 {% endif %}
 
+{% if not viewing_version and compare_version %}
+<div class="flex items-center gap-3 mb-4 px-4 py-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm">
+    <svg class="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <span class="text-amber-300">
+        Primary view: <strong>Live (current)</strong>
+        <span class="mx-2 text-amber-400/50">|</span>
+        <span class="text-amber-400/80">Overlay: v{{ compare_version.version_label }}</span>
+    </span>
+</div>
+{% endif %}
+
 {{ gantt_data|json_script:"gantt-data" }}
+{% if compare_data %}{{ compare_data|json_script:"gantt-compare-data" }}{% endif %}
 <div id="gantt-container" class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden min-h-[300px]">
     <div class="p-8 text-center text-[var(--text-muted)]">Loading Gantt chart...</div>
 </div>

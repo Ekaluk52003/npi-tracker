@@ -324,16 +324,28 @@ def project_gantt(request, pk):
         return HttpResponseForbidden("You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
     version_id = request.GET.get('version', '')
+    compare_version_id = request.GET.get('compare_version', '')
     viewing_version = None
+    compare_version = None
+    compare_data = None
+
     if version_id and version_id.isdigit():
         viewing_version = get_object_or_404(ProjectPlanVersion, pk=int(version_id), project=project)
         gantt_data = _gantt_data_from_snapshot(viewing_version, project)
     else:
         gantt_data = _gantt_data_for_project(project, stage_filter)
+
+    # Handle comparison version for overlay display
+    if compare_version_id and compare_version_id.isdigit():
+        compare_version = get_object_or_404(ProjectPlanVersion, pk=int(compare_version_id), project=project)
+        compare_data = _gantt_data_from_snapshot(compare_version, project)
+
     ctx = _project_ctx(project, 'gantt', {
         'gantt_data': gantt_data,
         'stage_filter': stage_filter,
         'viewing_version': viewing_version,
+        'compare_version': compare_version,
+        'compare_data': compare_data,
         'plan_versions': list(project.plan_versions.all()),
     })
     return _htmx_tab(request, 'project/detail.html', 'project/_gantt.html', ctx)
