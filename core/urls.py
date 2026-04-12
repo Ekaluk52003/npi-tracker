@@ -6,6 +6,9 @@ urlpatterns = [
     # Portfolio
     path('', views.portfolio, name='portfolio'),
 
+    # My Tasks
+    path('my-tasks/', views.my_tasks, name='my-tasks'),
+
     # Project detail tabs
     path('project/<int:pk>/', views.project_detail, name='project-detail'),
     path('project/<int:pk>/gantt/', views.project_gantt, name='project-gantt'),

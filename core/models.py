@@ -232,6 +232,12 @@ class Task(models.Model):
     section = models.ForeignKey(ProjectSection, on_delete=models.CASCADE, related_name='tasks')
     remark = models.TextField(blank=True)
     who = models.CharField(max_length=200, default='TBD')
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='assigned_tasks',
+    )
     days = models.IntegerField(default=1)
     start = models.DateField()
     end = models.DateField()
@@ -376,6 +382,12 @@ class Issue(models.Model):
     severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='medium')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     owner = models.CharField(max_length=200, blank=True)
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='assigned_issues',
+    )
     due = models.DateField(null=True, blank=True)
     impact = models.CharField(max_length=500, blank=True)
     stage = models.ForeignKey(BuildStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='issues')

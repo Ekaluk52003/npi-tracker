@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+{% block title %}My Tasks — NPI Tracker{% endblock %}
+
+{% block content %}
+<div x-data="myTasksBoard()" class="-m-4 lg:-m-6">
+
+<!-- ── Toolbar ─────────────────────────────────────────────────────── -->
+<div class="flex items-center gap-2 px-4 py-2 border-b border-[var(--border)] bg-[var(--surface)] flex-wrap">
+
+    <!-- Project filters (built from embedded JS data) -->
+    <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Project:</span>
+    <template x-for="proj in allProjects" :key="proj.id">
+        <button class="cis-filter-btn"
+                :class="{ 'cis-filter-active': projectFilter === proj.id }"
+                @click="projectFilter = (projectFilter === proj.id) ? '' : proj.id"
+                x-text="proj.name">
+        </button>
+    </template>
+
+    <div class="flex-1"></div>
+
+    <!-- Summary counts -->
+    <div class="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
+        <span><strong class="text-emerald-400">{{ ready|length }}</strong> ready</span>
+        <span><strong class="text-blue-400">{{ in_progress|length }}</strong> active</span>
+        <span><strong class="text-red-400">{{ blocked|length }}</strong> blocked</span>
+        <span><strong class="text-amber-400">{{ waiting|length }}</strong> waiting</span>
+        <span class="w-px h-4 bg-[var(--border)]"></span>
+        <span><strong class="text-orange-400">{{ my_issues|length }}</strong> issues</span>
+    </div>
+
+    <span class="w-px h-4 bg-[var(--border)]"></span>
+
+    <!-- View toggle -->
+    <div class="flex items-center gap-0.5 bg-[var(--surface2)] rounded-md p-0.5 border border-[var(--border)]">
+        <button @click="viewMode = 'column'"
+                :class="viewMode === 'column' ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+                class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-all">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 4H5a1 1 0 00-1 1v14a1 1 0 001 1h4a1 1 0 001-1V5a1 1 0 00-1-1zm10 0h-4a1 1 0 00-1 1v14a1 1 0 001 1h4a1 1 0 001-1V5a1 1 0 00-1-1z"/>
+            </svg>
+            Columns
+        </button>
+        <button @click="viewMode = 'table'"
+                :class="viewMode === 'table' ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+                class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-all">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18M3 10h18M3 15h18M3 20h18M8 3v18M16 3v18M3 3h18v18H3z"/>
+            </svg>
+            Table
+        </button>
+    </div>
+</div>
+
+<!-- ── Column View ─────────────────────────────────────────────────── -->
+<div x-show="viewMode === 'column'" class="overflow-x-auto">
+
+    <!-- Sticky column header band -->
+    <div class="flex sticky top-0 z-10">
+
+        <div class="flex-none w-72 min-w-[288px] flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-[var(--surface)] border-b-2 border-emerald-500 border-r border-[var(--border)]">
+            <div class="flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Ready to Start
+            </div>
+            <span class="text-[10px] font-medium bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full">{{ ready|length }}</span>
+        </div>
+
+        <div class="flex-none w-72 min-w-[288px] flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-blue-400 bg-[var(--surface)] border-b-2 border-blue-500 border-r border-[var(--border)]">
+            <div class="flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                In Progress
+            </div>
+            <span class="text-[10px] font-medium bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">{{ in_progress|length }}</span>
+        </div>
+
+        <div class="flex-none w-72 min-w-[288px] flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-red-400 bg-[var(--surface)] border-b-2 border-red-500 border-r border-[var(--border)]">
+            <div class="flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                Blocked
+            </div>
+            <span class="text-[10px] font-medium bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full">{{ blocked|length }}</span>
+        </div>
+
+        <div class="flex-none w-72 min-w-[288px] flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-amber-400 bg-[var(--surface)] border-b-2 border-amber-500 border-r border-[var(--border)]">
+            <div class="flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Waiting on Deps
+            </div>
+            <span class="text-[10px] font-medium bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full">{{ waiting|length }}</span>
+        </div>
+
+        <div class="flex-none w-72 min-w-[288px] flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-orange-400 bg-[var(--surface)] border-b-2 border-orange-500 border-r border-[var(--border)]">
+            <div class="flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
+                My Issues
+            </div>
+            <span class="text-[10px] font-medium bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full">{{ my_issues|length }}</span>
+        </div>
+
+    </div>
+
+    <!-- Column body grid -->
+    <div class="flex items-stretch" style="min-height: calc(100vh - 120px);">
+
+        <!-- ── Ready to Start ── -->
+        <div class="flex-none w-72 min-w-[288px] flex flex-col border-r border-[var(--border)]" style="background:rgba(52,178,123,0.015)">
+            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
+                {% for task in ready %}
+                <div class="bg-[var(--surface)] border border-[var(--border)] rounded-md p-2.5 mb-1.5 transition-all hover:border-[var(--text-muted)] hover:shadow-md hover:-translate-y-px"
+                     style="border-left:3px solid #34B27B"
+                     x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
+                    <div class="flex items-start justify-between gap-1.5 mb-1.5">
+                        <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
+                        {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
+                    </div>
+                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5">{{ task.name }}</div>
+                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+                        <span class="truncate mr-2">{{ task.section.name }}</span>
+                        <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="m-1.5 p-4 text-center text-[11px] text-emerald-500/40 border border-dashed border-emerald-500/20 rounded-md">All clear</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ── In Progress ── -->
+        <div class="flex-none w-72 min-w-[288px] flex flex-col border-r border-[var(--border)]" style="background:rgba(59,130,246,0.015)">
+            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
+                {% for task in in_progress %}
+                <div class="bg-[var(--surface)] border border-[var(--border)] rounded-md p-2.5 mb-1.5 transition-all hover:border-[var(--text-muted)] hover:shadow-md hover:-translate-y-px"
+                     style="border-left:3px solid #3b82f6"
+                     x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
+                    <div class="flex items-start justify-between gap-1.5 mb-1.5">
+                        <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
+                        {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
+                    </div>
+                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5">{{ task.name }}</div>
+                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+                        <span class="truncate mr-2">{{ task.section.name }}</span>
+                        <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="m-1.5 p-4 text-center text-[11px] text-blue-500/40 border border-dashed border-blue-500/20 rounded-md">Nothing active</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ── Blocked ── -->
+        <div class="flex-none w-72 min-w-[288px] flex flex-col border-r border-[var(--border)]" style="background:rgba(239,68,68,0.015)">
+            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
+                {% for task in blocked %}
+                <div class="bg-[var(--surface)] border border-[var(--border)] rounded-md p-2.5 mb-1.5 transition-all hover:border-[var(--text-muted)] hover:shadow-md hover:-translate-y-px"
+                     style="border-left:3px solid #ef4444"
+                     x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
+                    <div class="flex items-start justify-between gap-1.5 mb-1.5">
+                        <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
+                        {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
+                    </div>
+                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5">{{ task.name }}</div>
+                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+                        <span class="truncate mr-2">{{ task.section.name }}</span>
+                        <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="m-1.5 p-4 text-center text-[11px] text-red-500/40 border border-dashed border-red-500/20 rounded-md">Nothing blocked</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ── Waiting on Dependencies ── -->
+        <div class="flex-none w-72 min-w-[288px] flex flex-col border-r border-[var(--border)]" style="background:rgba(245,158,11,0.015)">
+            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
+                {% for task in waiting %}
+                <div class="bg-[var(--surface)] border border-[var(--border)] rounded-md p-2.5 mb-1.5 transition-all hover:border-[var(--text-muted)] hover:shadow-md"
+                     style="border-left:3px solid #f59e0b"
+                     x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
+                    <div class="flex items-start justify-between gap-1.5 mb-1.5">
+                        <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
+                        {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
+                    </div>
+                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5">{{ task.name }}</div>
+                    {% for dep in task.depends_on.all %}{% if dep.status != 'done' %}
+                    <div class="flex items-center gap-1 text-[10px] text-amber-400/70 mb-0.5">
+                        <svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span class="truncate">{{ dep.name|truncatechars:30 }}</span>
+                    </div>
+                    {% endif %}{% endfor %}
+                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)] mt-1">
+                        <span class="truncate mr-2">{{ task.section.name }}</span>
+                        <span class="shrink-0">{{ task.end|date:"d M y" }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="m-1.5 p-4 text-center text-[11px] text-amber-500/40 border border-dashed border-amber-500/20 rounded-md">No waiting tasks</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ── My Issues ── -->
+        <div class="flex-none w-72 min-w-[288px] flex flex-col border-r border-[var(--border)]" style="background:rgba(251,146,60,0.015)">
+            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
+                {% for issue in my_issues %}
+                <div class="cis-card cis-sev-{{ issue.severity }}"
+                     x-show="projectFilter === '' || projectFilter === {{ issue.project.pk }}"
+                     hx-get="{% url 'issue-edit' issue.project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                    <div class="flex items-center gap-1.5 mb-1">
+                        <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
+                        <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
+                        <span class="text-[10px] text-[var(--text-muted)] capitalize">{{ issue.status_label }}</span>
+                    </div>
+                    <div class="text-xs font-medium leading-snug mb-1.5 cursor-pointer hover:text-[var(--accent)]">{{ issue.title }}</div>
+                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+                        <a href="{% url 'project-detail' issue.project.pk %}" class="text-[var(--accent)] hover:underline font-medium" @click.stop>{{ issue.project.name }}</a>
+                        <span {% if issue.due and issue.due < today %}class="text-red-500"{% endif %}>
+                            {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}—{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="m-1.5 p-4 text-center text-[11px] text-orange-500/40 border border-dashed border-orange-500/20 rounded-md">No open issues</div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ── Table View ──────────────────────────────────────────────────── -->
+<div x-show="viewMode === 'table'" class="overflow-x-auto">
+    <table class="w-full text-xs border-collapse">
+        <thead>
+            <tr class="sticky top-0 z-10 bg-[var(--surface)] border-b-2 border-[var(--border)] text-[var(--text-muted)] text-[10px] uppercase tracking-wider">
+                <th class="px-3 py-2.5 text-left font-semibold w-28">Status</th>
+                <th class="px-3 py-2.5 text-left font-semibold">Task / Issue</th>
+                <th class="px-3 py-2.5 text-left font-semibold">Project</th>
+                <th class="px-3 py-2.5 text-left font-semibold">Section</th>
+                <th class="px-3 py-2.5 text-left font-semibold">Stage</th>
+                <th class="px-3 py-2.5 text-left font-semibold">End Date</th>
+            </tr>
+        </thead>
+        <tbody>
+
+            {% for task in ready %}
+            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
+                x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
+                <td class="px-3 py-2.5">
+                    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>Ready
+                    </span>
+                </td>
+                <td class="px-3 py-2.5 font-medium text-[var(--text)]">{{ task.name }}</td>
+                <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
+                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
+                <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
+                <td class="px-3 py-2.5 {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M y" }}</td>
+            </tr>
+            {% endfor %}
+
+            {% for task in in_progress %}
+            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
+                x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
+                <td class="px-3 py-2.5">
+                    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>In Progress
+                    </span>
+                </td>
+                <td class="px-3 py-2.5 font-medium text-[var(--text)]">{{ task.name }}</td>
+                <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
+                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
+                <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
+                <td class="px-3 py-2.5 {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M y" }}</td>
+            </tr>
+            {% endfor %}
+
+            {% for task in blocked %}
+            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
+                x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
+                <td class="px-3 py-2.5">
+                    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-red-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>Blocked
+                    </span>
+                </td>
+                <td class="px-3 py-2.5 font-medium text-[var(--text)]">{{ task.name }}</td>
+                <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
+                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
+                <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
+                <td class="px-3 py-2.5 {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M y" }}</td>
+            </tr>
+            {% endfor %}
+
+            {% for task in waiting %}
+            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
+                x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
+                <td class="px-3 py-2.5">
+                    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-amber-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>Waiting
+                    </span>
+                </td>
+                <td class="px-3 py-2.5 font-medium text-[var(--text)]">{{ task.name }}</td>
+                <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
+                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
+                <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
+                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.end|date:"d M y" }}</td>
+            </tr>
+            {% endfor %}
+
+            {% if my_issues %}
+            <tr class="bg-[var(--surface2)]">
+                <td colspan="6" class="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-orange-400">Issues</td>
+            </tr>
+            {% for issue in my_issues %}
+            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors cursor-pointer"
+                x-show="projectFilter === '' || projectFilter === {{ issue.project.pk }}"
+                hx-get="{% url 'issue-edit' issue.project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                <td class="px-3 py-2.5">
+                    <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
+                </td>
+                <td class="px-3 py-2.5 font-medium text-[var(--text)] hover:text-[var(--accent)]">{{ issue.title }}</td>
+                <td class="px-3 py-2.5"><a href="{% url 'project-detail' issue.project.pk %}" class="text-[var(--accent)] hover:underline" @click.stop>{{ issue.project.name }}</a></td>
+                <td class="px-3 py-2.5">
+                    <div class="flex items-center gap-1.5">
+                        <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
+                        <span class="text-[var(--text-muted)] capitalize">{{ issue.status_label }}</span>
+                    </div>
+                </td>
+                <td class="px-3 py-2.5">{% if issue.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ issue.stage.color }}22;color:{{ issue.stage.color }}">{{ issue.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
+                <td class="px-3 py-2.5 {% if issue.due and issue.due < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">
+                    {% if issue.due %}{{ issue.due|date:"d M y" }}{% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+
+        </tbody>
+    </table>
+</div>
+
+</div>
+
+<script>
+(function () {
+    const raw = [
+        {% for task in ready %}{ id: {{ task.project.pk }}, name: '{{ task.project.name|escapejs }}' },{% endfor %}
+        {% for task in in_progress %}{ id: {{ task.project.pk }}, name: '{{ task.project.name|escapejs }}' },{% endfor %}
+        {% for task in blocked %}{ id: {{ task.project.pk }}, name: '{{ task.project.name|escapejs }}' },{% endfor %}
+        {% for task in waiting %}{ id: {{ task.project.pk }}, name: '{{ task.project.name|escapejs }}' },{% endfor %}
+        {% for issue in my_issues %}{ id: {{ issue.project.pk }}, name: '{{ issue.project.name|escapejs }}' },{% endfor %}
+    ];
+    const map = {};
+    raw.forEach(p => { map[p.id] = p; });
+    window._myTasksProjects = Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
+})();
+
+function myTasksBoard() {
+    return {
+        viewMode: 'column',
+        projectFilter: '',
+        allProjects: window._myTasksProjects,
+    };
+}
+</script>
+
+{% endblock %}

@@ -36,6 +36,13 @@
         </button>
     </template>
 
+    <!-- My Tasks toggle -->
+    <span class="w-px h-4 bg-[var(--border)]"></span>
+    <button class="cis-filter-btn" :class="{ 'cis-filter-active': myTasksOnly }" @click="myTasksOnly = !myTasksOnly">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        My Tasks
+    </button>
+
     <div class="flex-1"></div>
 
     <!-- View toggle -->
@@ -114,7 +121,7 @@
                      draggable="true"
                      data-issue-id="{{ issue.pk }}"
                      data-task-id=""
-                     x-show="isVisible('{{ issue.severity }}')"
+                     x-show="isVisible('{{ issue.severity }}') && isMyTask({{ issue.assigned_to_id|default:0 }})"
                      @dragstart="startDrag({{ issue.pk }}, null, $event)"
                      @dragend="endDrag($event)">
                     <div class="flex items-center gap-1.5 mb-1">
@@ -140,7 +147,7 @@
         {% for item in scored_tasks %}
         <div class="flex-none flex flex-col border-r border-[var(--border)]"
              style="width:280px;min-width:280px;"
-             x-show="isStageVisible('{{ item.task.stage.name|default:'' }}')">
+             x-show="isStageVisible('{{ item.task.stage.name|default:'' }}') && isMyTask({{ item.task.assigned_to_id|default:0 }})">
             <!-- Column header -->
             <div class="p-2.5 border-b border-[var(--border)] bg-[var(--surface)]">
                 <!-- CIS dots + issue count -->
@@ -194,7 +201,7 @@
                      draggable="true"
                      data-issue-id="{{ issue.pk }}"
                      data-task-id="{{ item.task.pk }}"
-                     x-show="isVisible('{{ issue.severity }}')"
+                     x-show="isVisible('{{ issue.severity }}') && isMyTask({{ issue.assigned_to_id|default:0 }})"
                      @dragstart="startDrag({{ issue.pk }}, {{ item.task.pk }}, $event)"
                      @dragend="endDrag($event)">
                     <div class="flex items-center gap-1.5 mb-1">
@@ -254,7 +261,7 @@
             <!-- Unlinked issues (no stage) -->
             {% for issue in unlinked_issues %}
             <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
-                x-show="isVisible('{{ issue.severity }}') && isStageVisible('')">
+                x-show="isVisible('{{ issue.severity }}') && isStageVisible('') && isMyTask({{ issue.assigned_to_id|default:0 }})"
                 <td class="px-3 py-2">
                     <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
                 </td>
@@ -279,7 +286,7 @@
             {% for item in scored_tasks %}
             {% for issue in item.open_issues %}
             <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
-                x-show="isVisible('{{ issue.severity }}') && isStageVisible('{{ item.task.stage.name|default:'' }}')">
+                x-show="isVisible('{{ issue.severity }}') && isStageVisible('{{ item.task.stage.name|default:'' }}') && isMyTask({{ issue.assigned_to_id|default:0 }})">
                 <td class="px-3 py-2">
                     <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
                 </td>
@@ -331,6 +338,8 @@ function cisBoard() {
         filters: { critical: false, high: false, medium: false, low: false },
         stageFilter: '',
         viewMode: 'column',
+        myTasksOnly: false,
+        currentUserId: {{ request.user.pk }},
         stageGroups: {{ stage_groups_json|safe }},
 
         init() {},
@@ -352,6 +361,11 @@ function cisBoard() {
         isStageVisible(stageName) {
             if (!this.stageFilter) return true;
             return stageName === this.stageFilter;
+        },
+
+        isMyTask(assignedToId) {
+            if (!this.myTasksOnly) return true;
+            return assignedToId === this.currentUserId;
         },
 
         startDrag(issueId, taskId, event) {

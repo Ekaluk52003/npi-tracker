@@ -1,5 +1,8 @@
 from django import forms
+from django.contrib.auth import get_user_model
 from .models import Project, ProjectSection, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet, WebhookConfig, InboundWebhook
+
+User = get_user_model()
 
 
 input_cls = 'w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none'
@@ -21,9 +24,15 @@ class ProjectForm(forms.ModelForm):
 
 
 class TaskForm(forms.ModelForm):
+    assigned_to = forms.ModelChoiceField(
+        queryset=User.objects.all().order_by('first_name', 'last_name', 'username'),
+        required=False,
+        empty_label='— Unassigned —',
+    )
+
     class Meta:
         model = Task
-        fields = ['name', 'section', 'remark', 'who', 'start', 'end', 'status', 'stage']
+        fields = ['name', 'section', 'remark', 'who', 'assigned_to', 'start', 'end', 'status', 'stage']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. PCB Production'}),
             'section': forms.Select(attrs={'class': select_cls}),
@@ -47,9 +56,15 @@ class TaskForm(forms.ModelForm):
 
 
 class IssueForm(forms.ModelForm):
+    assigned_to = forms.ModelChoiceField(
+        queryset=User.objects.all().order_by('first_name', 'last_name', 'username'),
+        required=False,
+        empty_label='— Unassigned —',
+    )
+
     class Meta:
         model = Issue
-        fields = ['title', 'desc', 'severity', 'status', 'owner', 'due', 'impact', 'stage', 'linked_tasks']
+        fields = ['title', 'desc', 'severity', 'status', 'owner', 'assigned_to', 'due', 'impact', 'stage', 'linked_tasks']
         widgets = {
             'title': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'Short description'}),
             'desc': forms.Textarea(attrs={'class': textarea_cls, 'placeholder': 'What happened? Impact?', 'rows': 3}),

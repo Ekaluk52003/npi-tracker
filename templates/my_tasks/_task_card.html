@@ -1,0 +1,47 @@
+<div class="bg-[var(--surface)] rounded-xl border {% if highlight %}border-emerald-500/30{% else %}border-[var(--border)]{% endif %} px-4 py-3 flex items-start gap-4 hover:bg-[var(--surface2)] transition group">
+    <!-- Status indicator -->
+    <div class="mt-0.5 shrink-0">
+        {% if task.status == 'inprogress' %}
+        <span class="w-2.5 h-2.5 rounded-full bg-blue-400 block"></span>
+        {% elif task.status == 'blocked' %}
+        <span class="w-2.5 h-2.5 rounded-full bg-red-400 block"></span>
+        {% else %}
+        <span class="w-2.5 h-2.5 rounded-full {% if highlight %}bg-emerald-400{% else %}bg-amber-400{% endif %} block"></span>
+        {% endif %}
+    </div>
+
+    <!-- Task info -->
+    <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-medium text-sm">{{ task.name }}</span>
+            {% if task.stage %}
+            <span class="text-[10px] px-1.5 py-0.5 rounded font-medium" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-3 mt-1 text-xs text-[var(--text-muted)] flex-wrap">
+            <a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline font-medium">{{ task.project.name }}</a>
+            <span>{{ task.section.name }}</span>
+            <span>{{ task.start|date:"d M y" }} → {{ task.end|date:"d M y" }}</span>
+            {% if task.remark %}
+            <span class="truncate max-w-[240px]">{{ task.remark|truncatewords:8 }}</span>
+            {% endif %}
+        </div>
+        {% if task.status == 'open' and task.depends_on.exists and not highlight %}
+        <div class="mt-1.5 flex flex-wrap gap-1">
+            {% for dep in task.depends_on.all %}
+            {% if dep.status != 'done' %}
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                waiting: {{ dep.name|truncatechars:30 }}
+            </span>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- End date badge -->
+    <div class="shrink-0 text-right">
+        <div class="text-xs text-[var(--text-muted)]">Due</div>
+        <div class="text-sm font-medium {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</div>
+    </div>
+</div>

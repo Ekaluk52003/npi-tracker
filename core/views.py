@@ -266,6 +266,45 @@ def project_issues_modal(request, pk):
     return render(request, 'portfolio/_issues_modal.html', {'project': project, 'issues': issues})
 
 
+# ── My Tasks ────────────────────────────────────────────────────────────
+
+@login_required
+def my_tasks(request):
+    user = request.user
+
+    # Tasks assigned to the current user that are not done
+    base_qs = Task.objects.filter(
+        assigned_to=user,
+    ).exclude(status='done').select_related('project', 'section', 'stage').prefetch_related('depends_on')
+
+    # "Ready to start": open, with no incomplete dependencies
+    has_pending_dep_ids = Task.objects.filter(
+        assigned_to=user,
+        status='open',
+        depends_on__status__in=['open', 'inprogress', 'blocked'],
+    ).values_list('id', flat=True).distinct()
+
+    ready = base_qs.filter(status='open').exclude(id__in=has_pending_dep_ids)
+    in_progress = base_qs.filter(status='inprogress')
+    blocked = base_qs.filter(status='blocked')
+    waiting = base_qs.filter(status='open').filter(id__in=has_pending_dep_ids)
+
+    # Issues assigned to the current user (not resolved)
+    my_issues = Issue.objects.filter(
+        assigned_to=user,
+    ).exclude(status='resolved').select_related('project', 'stage').order_by('severity', 'status')
+
+    return render(request, 'my_tasks.html', {
+        'ready': ready,
+        'in_progress': in_progress,
+        'blocked': blocked,
+        'waiting': waiting,
+        'my_issues': my_issues,
+        'today': date.today(),
+        'active_my_tasks': True,
+    })
+
+
 # ── Project Detail Tabs ──────────────────────────────────────────────────
 
 @login_required
