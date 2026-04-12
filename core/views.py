@@ -1,5 +1,7 @@
 import json
+import math
 import threading
+from collections import defaultdict, deque
 from datetime import date, timedelta, datetime
 from itertools import groupby
 from django.shortcuts import render, get_object_or_404, redirect
@@ -386,30 +388,114 @@ def project_nre(request, pk):
     return _htmx_tab(request, 'project/detail.html', 'project/_nre.html', ctx)
 
 
+W_DIRECT = 2
+W_DOWNSTREAM = 3
+W_DURATION = 1
+
+
 @login_required
-def project_issues(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('issues__linked_tasks', 'issues__stage', 'stages'), pk=pk)
-    open_issues = project.issues.select_related('stage').exclude(status='resolved')
-    resolved_issues = project.issues.select_related('stage').filter(status='resolved')
+def project_critical_index(request, pk):
+    project = get_object_or_404(
+        Project.objects.prefetch_related(
+            'tasks__stage', 'tasks__section', 'tasks__linked_issues', 'stages',
+        ),
+        pk=pk,
+    )
+    tasks = list(project.tasks.exclude(status='done').select_related('stage', 'section'))
+    task_ids = {t.pk for t in tasks}
+
+    # Build adjacency from M2M through table in one query
+    through = Task.depends_on.through
+    edges = through.objects.filter(
+        from_task_id__in=task_ids, to_task_id__in=task_ids,
+    ).values_list('from_task_id', 'to_task_id')
+
+    # from_task depends_on to_task  =>  to_task's dependents include from_task
+    dependents_map = defaultdict(set)
+    for from_id, to_id in edges:
+        dependents_map[to_id].add(from_id)
+
+    def _total_downstream(tid):
+        visited = set()
+        queue = deque(dependents_map.get(tid, set()))
+        while queue:
+            curr = queue.popleft()
+            if curr in visited:
+                continue
+            visited.add(curr)
+            queue.extend(dependents_map.get(curr, set()) - visited)
+        return len(visited)
+
+    # Compute raw scores
+    scored = []
+    for t in tasks:
+        d = len(dependents_map.get(t.pk, set()))
+        p = _total_downstream(t.pk)
+        dur = t.days
+        score = (d * W_DIRECT) + (p * W_DOWNSTREAM) + (dur * W_DURATION)
+        scored.append({
+            'task': t,
+            'd': d, 'p': p, 't': dur, 'score': score, 'cis': 0,
+        })
+
+    # Normalize CIS 1-5 per build stage
+    by_stage = defaultdict(list)
+    for s in scored:
+        stage_name = s['task'].stage.name if s['task'].stage else '__none__'
+        by_stage[stage_name].append(s)
+
+    stage_order_map = {}
+    for idx, stage in enumerate(project.stages.all()):
+        stage_order_map[stage.name] = idx
+
+    for stage_name, group in by_stage.items():
+        raw_scores = [g['score'] for g in group]
+        mn, mx = min(raw_scores), max(raw_scores)
+        for g in group:
+            if mx == mn:
+                g['cis'] = 3
+            else:
+                g['cis'] = round(1 + ((g['score'] - mn) / (mx - mn)) * 4)
+
+    # Sort: by stage order, then CIS desc within stage
+    scored.sort(key=lambda s: (
+        stage_order_map.get(s['task'].stage.name if s['task'].stage else '', 999),
+        -s['cis'],
+        -s['score'],
+    ))
+
+    # Build stage groups for the header band
+    stage_groups = []
+    prev_stage = None
+    for s in scored:
+        sname = s['task'].stage.name if s['task'].stage else 'No Stage'
+        scolor = s['task'].stage.color if s['task'].stage else '#666'
+        if sname != prev_stage:
+            stage_groups.append({'stage': sname, 'color': scolor, 'count': 1})
+            prev_stage = sname
+        else:
+            stage_groups[-1]['count'] += 1
+
+    # Attach open issues per task
+    for s in scored:
+        s['open_issues'] = list(s['task'].linked_issues.exclude(status='resolved'))
+        s['issue_count'] = len(s['open_issues'])
+
+    # Unlinked issues (not linked to any active task)
+    all_issues = list(project.issues.exclude(status='resolved').prefetch_related('linked_tasks'))
+    unlinked = [i for i in all_issues if not i.linked_tasks.exclude(status='done').exists()]
+
     today = date.today()
-    overdue_count = sum(1 for i in open_issues if i.due and i.due < today)
-    no_owner_count = sum(1 for i in open_issues if not i.owner)
-    critical_issues = [i for i in open_issues if i.severity == 'critical']
-    high_issues = [i for i in open_issues if i.severity == 'high']
-    medium_issues = [i for i in open_issues if i.severity == 'medium']
-    low_issues = [i for i in open_issues if i.severity == 'low']
-    ctx = _project_ctx(project, 'issues', {
-        'open_issues': open_issues,
-        'resolved_issues': resolved_issues,
-        'critical_issues': critical_issues,
-        'high_issues': high_issues,
-        'medium_issues': medium_issues,
-        'low_issues': low_issues,
-        'overdue_count': overdue_count,
-        'no_owner_count': no_owner_count,
+
+    ctx = _project_ctx(project, 'critical-index', {
+        'scored_tasks': scored,
+        'stage_groups_json': json.dumps(stage_groups),
+        'unlinked_issues': unlinked,
+        'total_issue_count': len(all_issues),
+        'unlinked_count': len(unlinked),
         'today': today,
     })
-    return _htmx_tab(request, 'project/detail.html', 'project/_issues.html', ctx)
+    return _htmx_tab(request, 'project/detail.html', 'project/_critical_index.html', ctx)
 
 
 # ── Project CRUD ─────────────────────────────────────────────────────────
@@ -574,8 +660,8 @@ def issue_create(request, pk):
             issue.save()
             form.save_m2m()
             if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/issues/')})
-            return redirect('project-issues', pk=pk)
+                return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/critical-index/')})
+            return redirect('project-critical-index', pk=pk)
     else:
         form = IssueForm(project=project, initial=initial)
     return render(request, 'forms/_issue_form.html', {'form': form, 'project': project})
@@ -590,8 +676,8 @@ def issue_edit(request, pk, iid):
         if form.is_valid():
             form.save()
             if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/issues/'})
-            return redirect('project-issues', pk=pk)
+                return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/critical-index/'})
+            return redirect('project-critical-index', pk=pk)
     else:
         form = IssueForm(instance=issue, project=project)
     return render(request, 'forms/_issue_form.html', {'form': form, 'project': project, 'issue': issue})
@@ -603,8 +689,8 @@ def issue_delete(request, pk, iid):
     issue = get_object_or_404(Issue, pk=iid, project=project)
     issue.delete()
     if request.htmx:
-        return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/issues/'})
-    return redirect('project-issues', pk=pk)
+        return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/critical-index/'})
+    return redirect('project-critical-index', pk=pk)
 
 
 # ── Team CRUD ────────────────────────────────────────────────────────────
@@ -1104,6 +1190,33 @@ def api_task_unlink(request, task_id):
 
     task.depends_on.remove(dep)
     return JsonResponse({'success': True})
+
+
+@login_required
+@csrf_protect
+@require_http_methods(['POST'])
+def api_issue_relink(request, issue_id):
+    """Move an issue to a different task (or unlink it)."""
+    try:
+        issue = Issue.objects.get(pk=issue_id)
+    except Issue.DoesNotExist:
+        return JsonResponse({'error': 'Issue not found'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        task_id = data.get('task_id')  # None or int to unlink / link
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid data'}, status=400)
+
+    issue.linked_tasks.clear()
+    if task_id:
+        try:
+            task = Task.objects.get(pk=int(task_id))
+            issue.linked_tasks.add(task)
+        except Task.DoesNotExist:
+            return JsonResponse({'error': 'Task not found'}, status=404)
+
+    return JsonResponse({'success': True, 'issue_id': issue.pk, 'task_id': task_id})
 
 
 # ── Version control ────────────────────────────────────────────────────────

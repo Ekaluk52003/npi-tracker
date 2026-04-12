@@ -37,7 +37,7 @@
         <!-- Footer -->
         <div class="sticky bottom-0 bg-[var(--surface)] border-t border-[var(--border)] px-5 py-3 flex justify-end gap-2">
             <button @click="open = false; document.getElementById('modal-container').innerHTML=''" class="btn-secondary">Close</button>
-            <a href="{% url 'project-issues' project.pk %}" class="action-btn">Open Project &rarr;</a>
+            <a href="{% url 'project-critical-index' project.pk %}" class="action-btn">Open Project &rarr;</a>
         </div>
     </div>
 </div>

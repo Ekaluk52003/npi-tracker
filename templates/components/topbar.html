@@ -49,10 +49,10 @@
            hx-get="{% url 'project-nre' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
             NRE{% if nre_no_po_count %}<span class="ml-1 text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5">{{ nre_no_po_count }}</span>{% endif %}
         </a>
-        <a href="{% url 'project-issues' project.pk %}"
-           class="tab-btn {% if active_tab == 'issues' %}active{% endif %}"
-           hx-get="{% url 'project-issues' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
-            Issues{% if open_issue_count %}<span class="ml-1 text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5">{{ open_issue_count }}</span>{% endif %}
+        <a href="{% url 'project-critical-index' project.pk %}"
+           class="tab-btn {% if active_tab == 'critical-index' %}active{% endif %}"
+           hx-get="{% url 'project-critical-index' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            Critical Index{% if open_issue_count %}<span class="ml-1 text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5">{{ open_issue_count }}</span>{% endif %}
         </a>
         <a href="{% url 'project-history' project.pk %}"
            class="tab-btn {% if active_tab == 'history' %}active{% endif %}"
@@ -82,7 +82,7 @@
     {% elif active_tab == 'team' %}
     <button hx-get="{% url 'member-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
             class="action-btn">+ Add Member</button>
-    {% elif active_tab == 'issues' %}
+    {% elif active_tab == 'critical-index' %}
     <button hx-get="{% url 'issue-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
             class="action-btn">+ Add Issue</button>
     {% elif active_tab == 'nre' %}

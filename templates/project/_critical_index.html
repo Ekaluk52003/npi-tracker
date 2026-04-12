@@ -1,0 +1,283 @@
+<div id="cis-container"
+     x-data="cisBoard()"
+     x-init="init()"
+     hx-get="{% url 'project-critical-index' project.pk %}"
+     hx-trigger="issueSaved from:body"
+     hx-target="#cis-container"
+     hx-swap="outerHTML">
+
+<!-- Toolbar -->
+<div class="flex items-center gap-3 px-4 py-2 border-b border-[var(--border)] bg-[var(--surface)] flex-wrap">
+    <!-- Severity filters -->
+    <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Filter:</span>
+    <button class="cis-filter-btn" :class="{ 'cis-filter-active': filters.critical }" @click="filters.critical = !filters.critical">
+        <span class="inline-block w-2 h-2 rounded-sm bg-red-500"></span> Critical
+    </button>
+    <button class="cis-filter-btn" :class="{ 'cis-filter-active': filters.high }" @click="filters.high = !filters.high">
+        <span class="inline-block w-2 h-2 rounded-sm bg-amber-500"></span> High
+    </button>
+    <button class="cis-filter-btn" :class="{ 'cis-filter-active': filters.medium }" @click="filters.medium = !filters.medium">
+        <span class="inline-block w-2 h-2 rounded-sm bg-emerald-500"></span> Medium
+    </button>
+    <button class="cis-filter-btn" :class="{ 'cis-filter-active': filters.low }" @click="filters.low = !filters.low">
+        <span class="inline-block w-2 h-2 rounded-sm bg-gray-500"></span> Low
+    </button>
+
+    <div class="flex-1"></div>
+
+    <!-- Legend -->
+    <div class="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
+        <span>CIS 1-5 per stage:</span>
+        <span class="flex gap-0.5">
+            <span class="w-2 h-2 rounded-sm bg-emerald-500"></span>
+            <span class="w-2 h-2 rounded-sm bg-lime-400"></span>
+            <span class="w-2 h-2 rounded-sm bg-yellow-500"></span>
+            <span class="w-2 h-2 rounded-sm bg-amber-500"></span>
+            <span class="w-2 h-2 rounded-sm bg-red-500"></span>
+        </span>
+        <span>Low &rarr; High</span>
+        <span class="w-px h-4 bg-[var(--border)]"></span>
+        <span><strong class="text-[var(--text)]">{{ total_issue_count }}</strong> issues</span>
+        <span><strong class="text-amber-500">{{ unlinked_count }}</strong> unlinked</span>
+    </div>
+</div>
+
+<!-- Board -->
+<div class="overflow-x-auto">
+    <!-- Stage header band -->
+    <div class="flex sticky top-0 z-10">
+        <!-- Unlinked header -->
+        <div class="flex-none w-60 min-w-[240px] flex items-center justify-center gap-2 py-2 text-[11px] font-bold uppercase tracking-wider text-amber-500 bg-[var(--surface)] border-b-2 border-amber-500 border-r border-[var(--border)]">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
+            Unlinked
+        </div>
+        {% for sg in stage_groups_json|safe %}<!-- rendered by Alpine -->{% endfor %}
+        <template x-for="sg in stageGroups" :key="sg.stage">
+            <div class="flex items-center justify-center gap-2 py-2 text-[11px] font-bold uppercase tracking-wider bg-[var(--surface)] border-r border-[var(--border)]"
+                 :style="'flex: 0 0 ' + (sg.count * 280) + 'px; min-width: ' + (sg.count * 280) + 'px; border-bottom: 2px solid ' + sg.color + '; color: ' + sg.color + ';'">
+                <span x-text="sg.stage"></span>
+                <span class="text-[10px] font-medium opacity-60" x-text="sg.count + ' tasks'"></span>
+            </div>
+        </template>
+    </div>
+
+    <!-- Column grid -->
+    <div class="flex items-stretch" style="min-height: calc(100vh - 180px);">
+
+        <!-- Unlinked column -->
+        <div class="flex-none w-60 min-w-[240px] flex flex-col border-r border-[var(--border)]" style="background: rgba(245,158,11,0.02);">
+            <div class="p-2.5 border-b border-[var(--border)] bg-[var(--surface)]">
+                <div class="flex items-center justify-between">
+                    <span class="text-[13px] font-semibold text-amber-500">Inbox</span>
+                    <span class="text-[11px] text-[var(--text-muted)] bg-amber-500/10 px-2 py-0.5 rounded-full">{{ unlinked_count }}</span>
+                </div>
+                <div class="text-[11px] text-[var(--text-muted)] mt-0.5">Drag to a task to link</div>
+            </div>
+            <div class="flex-1 p-1 overflow-y-auto cis-col-body"
+                 @dragover.prevent="$el.classList.add('cis-drop-active')"
+                 @dragleave="$el.classList.remove('cis-drop-active')"
+                 @drop.prevent="dropIssue(null, $event); $el.classList.remove('cis-drop-active')">
+                {% for issue in unlinked_issues %}
+                <div class="cis-card cis-sev-{{ issue.severity }}"
+                     draggable="true"
+                     data-issue-id="{{ issue.pk }}"
+                     data-task-id=""
+                     x-show="isVisible('{{ issue.severity }}')"
+                     @dragstart="startDrag({{ issue.pk }}, null, $event)"
+                     @dragend="endDrag($event)">
+                    <div class="flex items-center gap-1.5 mb-1">
+                        <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
+                        <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
+                        <span class="text-[10px] text-[var(--text-muted)] capitalize">{{ issue.status_label }}</span>
+                    </div>
+                    <div class="text-xs font-medium leading-snug mb-1.5">{{ issue.title }}</div>
+                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+                        <span>{{ issue.owner|default:"TBD" }}</span>
+                        <span {% if issue.due and issue.due < today %}class="text-red-500"{% endif %}>
+                            {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}-{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-4 text-center text-[11px] text-[var(--text-muted)]">No unlinked issues</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Task columns -->
+        {% for item in scored_tasks %}
+        <div class="flex-none flex flex-col border-r border-[var(--border)]" style="width:280px;min-width:280px;">
+            <!-- Column header -->
+            <div class="p-2.5 border-b border-[var(--border)] bg-[var(--surface)]">
+                <!-- CIS dots + issue count -->
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        <div class="flex gap-0.5" title="CIS {{ item.cis }}/5 (raw: {{ item.score }})">
+                            {% for i in "12345" %}
+                            {% if forloop.counter <= item.cis %}
+                            <span class="w-2 h-2 rounded-sm cis-dot-filled-{{ item.cis }}"></span>
+                            {% else %}
+                            <span class="w-2 h-2 rounded-sm bg-[var(--border)]"></span>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        <span class="text-[11px] font-bold cis-score-text-{{ item.cis }}">{{ item.cis }}/5</span>
+                    </div>
+                    <span class="text-[10px] text-[var(--text-muted)] bg-[var(--surface2)] px-1.5 py-0.5 rounded-full">{{ item.issue_count }}</span>
+                </div>
+                <!-- Task name -->
+                <div class="text-[13px] font-semibold leading-tight mb-1">{{ item.task.name }}</div>
+                <!-- Meta -->
+                <div class="flex items-center gap-1.5 text-[10px] flex-wrap">
+                    <span class="text-[var(--text-muted)]">{{ item.task.section.name }}</span>
+                    {% if item.task.stage %}
+                    <span class="font-semibold px-1.5 py-0.5 rounded" style="background:{{ item.task.stage.color }}22;color:{{ item.task.stage.color }};font-size:0.6rem;">{{ item.task.stage.name }}</span>
+                    {% endif %}
+                    <span class="ml-auto status-dot status-dot-{{ item.task.status }}" style="font-size:0.65rem;">{{ item.task.status_label }}</span>
+                </div>
+                <!-- Score breakdown -->
+                <div class="flex gap-2 mt-1.5 pt-1.5 border-t border-[var(--border)] text-[10px] text-[var(--text-muted)]">
+                    <span>d=<strong class="text-[var(--text)]">{{ item.d }}</strong></span>
+                    <span>p=<strong class="text-[var(--text)]">{{ item.p }}</strong></span>
+                    <span>t=<strong class="text-[var(--text)]">{{ item.t }}d</strong></span>
+                    <span class="ml-auto">{{ item.task.who }}</span>
+                </div>
+            </div>
+
+            <!-- Droppable body -->
+            <div class="flex-1 p-1 overflow-y-auto cis-col-body"
+                 data-task-id="{{ item.task.pk }}"
+                 @dragover.prevent="$el.classList.add('cis-drop-active')"
+                 @dragleave="$el.classList.remove('cis-drop-active')"
+                 @drop.prevent="dropIssue({{ item.task.pk }}, $event); $el.classList.remove('cis-drop-active')">
+                {% for issue in item.open_issues %}
+                <div class="cis-card cis-sev-{{ issue.severity }}"
+                     draggable="true"
+                     data-issue-id="{{ issue.pk }}"
+                     data-task-id="{{ item.task.pk }}"
+                     x-show="isVisible('{{ issue.severity }}')"
+                     @dragstart="startDrag({{ issue.pk }}, {{ item.task.pk }}, $event)"
+                     @dragend="endDrag($event)">
+                    <div class="flex items-center gap-1.5 mb-1">
+                        <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
+                        <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
+                        <span class="text-[10px] text-[var(--text-muted)] capitalize">{{ issue.status_label }}</span>
+                    </div>
+                    <div class="text-xs font-medium leading-snug mb-1.5 cursor-pointer hover:text-[var(--accent)]"
+                         hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                        {{ issue.title }}
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+                        <span>{{ issue.owner|default:"TBD" }}</span>
+                        <span {% if issue.due and issue.due < today %}class="text-red-500"{% endif %}>
+                            {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}-{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-3 text-center text-[10px] text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded m-1">
+                    Drop issues here
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Footer: add issue pre-linked to this task -->
+            <div class="p-1 border-t border-[var(--border)] bg-[var(--surface)]">
+                <button class="cis-add-btn"
+                        hx-get="{% url 'issue-create' project.pk %}?task_id={{ item.task.pk }}"
+                        hx-target="#modal-container" hx-swap="innerHTML">
+                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    Issue
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--surface)] border border-[var(--accent)] rounded-lg px-4 py-2.5 text-sm text-[var(--accent)] shadow-2xl flex items-center gap-2"
+     x-show="toast" x-cloak x-transition>
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+    <span x-text="toast"></span>
+</div>
+
+</div>
+
+<script>
+function cisBoard() {
+    return {
+        dragIssueId: null,
+        dragSourceTaskId: null,
+        toast: '',
+        filters: { critical: false, high: false, medium: false, low: false },
+        stageGroups: {{ stage_groups_json|safe }},
+
+        init() {},
+
+        get anyFilter() {
+            return this.filters.critical || this.filters.high || this.filters.medium || this.filters.low;
+        },
+
+        isVisible(severity) {
+            if (!this.anyFilter) return true;
+            return !!this.filters[severity];
+        },
+
+        startDrag(issueId, taskId, event) {
+            this.dragIssueId = issueId;
+            this.dragSourceTaskId = taskId;
+            event.target.closest('.cis-card').classList.add('cis-dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', issueId);
+        },
+
+        endDrag(event) {
+            event.target.closest('.cis-card')?.classList.remove('cis-dragging');
+        },
+
+        dropIssue(targetTaskId, event) {
+            if (this.dragIssueId === null) return;
+            if (this.dragSourceTaskId === targetTaskId) {
+                this.dragIssueId = null;
+                return;
+            }
+
+            const issueId = this.dragIssueId;
+            this.dragIssueId = null;
+            this.dragSourceTaskId = null;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                           || document.cookie.split('; ').find(c => c.startsWith('csrftoken='))?.split('=')[1];
+
+            fetch(`/api/issues/${issueId}/relink/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ task_id: targetTaskId }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    this.showToast(targetTaskId ? 'Issue linked to task' : 'Issue unlinked');
+                    // Trigger HTMX refresh of the board
+                    document.getElementById('cis-container')?.dispatchEvent(
+                        new CustomEvent('issueSaved', { bubbles: true })
+                    );
+                } else {
+                    this.showToast('Error: ' + (data.error || 'Failed'));
+                }
+            })
+            .catch(() => this.showToast('Network error'));
+        },
+
+        showToast(msg) {
+            this.toast = msg;
+            setTimeout(() => { this.toast = ''; }, 2500);
+        }
+    }
+}
+</script>

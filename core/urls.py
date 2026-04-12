@@ -14,7 +14,7 @@ urlpatterns = [
     path('project/<int:pk>/team/', views.project_team, name='project-team'),
     path('project/<int:pk>/stages/', views.project_stages, name='project-stages'),
     path('project/<int:pk>/nre/', views.project_nre, name='project-nre'),
-    path('project/<int:pk>/issues/', views.project_issues, name='project-issues'),
+    path('project/<int:pk>/critical-index/', views.project_critical_index, name='project-critical-index'),
 
     # Project CRUD
     path('project/create/', views.project_create, name='project-create'),
@@ -71,6 +71,7 @@ urlpatterns = [
     path('api/tasks/<int:task_id>/', views.api_task_update, name='api-task-update'),
     path('api/tasks/<int:task_id>/link/', views.api_task_link, name='api-task-link'),
     path('api/tasks/<int:task_id>/unlink/', views.api_task_unlink, name='api-task-unlink'),
+    path('api/issues/<int:issue_id>/relink/', views.api_issue_relink, name='api-issue-relink'),
 
     # Power Automate Webhooks
     path('webhooks/', views.webhook_list, name='webhook-list'),
