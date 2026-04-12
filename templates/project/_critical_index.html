@@ -159,6 +159,11 @@
                     </div>
                     <span class="text-[10px] text-[var(--text-muted)] bg-[var(--surface2)] px-1.5 py-0.5 rounded-full">{{ item.issue_count }}</span>
                 </div>
+                <!-- Raw CIS score row -->
+                <div class="flex items-center justify-between text-[10px] mt-0.5">
+                    <span class="text-[var(--text-muted)]">CIS Score</span>
+                    <span class="font-bold cis-score-text-{{ item.cis }}">{{ item.score }}</span>
+                </div>
                 <!-- Task name -->
                 <div class="text-[13px] font-semibold leading-tight mb-1">{{ item.task.name }}</div>
                 <!-- Meta -->
