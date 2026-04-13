@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from datetime import date
 
@@ -292,9 +293,40 @@ class Task(models.Model):
         default=VisibilityChoices.ALL,
         help_text='Controls who can see this task'
     )
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='subtasks',
+        help_text='Parent task for work breakdown structure (max 2 levels recommended)'
+    )
+    is_summary = models.BooleanField(
+        default=False,
+        help_text='If true, this task aggregates progress from subtasks'
+    )
 
     class Meta:
         ordering = ['milestone__sort_order', 'start']
+
+    def clean(self):
+        super().clean()
+        # Prevent circular parent references
+        if self.parent:
+            if self.parent_id == self.pk:
+                raise ValidationError({'parent': 'A task cannot be its own parent.'})
+            # Check if parent is a descendant of this task (would create cycle)
+            current = self.parent
+            depth = 0
+            max_depth = 10  # Safety limit
+            while current and depth < max_depth:
+                if current.pk == self.pk:
+                    raise ValidationError({'parent': 'Cannot set parent: would create circular reference.'})
+                current = current.parent
+                depth += 1
+            # Enforce max 2 levels (parent -> child, no grandchildren)
+            if self.parent.parent_id is not None:
+                raise ValidationError({'parent': 'Maximum nesting depth is 2 levels. Cannot set a subtask as parent.'})
 
     def save(self, *args, **kwargs):
         if self.start and self.end:
@@ -302,6 +334,9 @@ class Task(models.Model):
             update_fields = kwargs.get('update_fields')
             if update_fields is not None and 'days' not in update_fields:
                 kwargs['update_fields'] = list(update_fields) + ['days']
+        # Auto-set is_summary if task has subtasks (only for saved instances)
+        if not kwargs.get('force_is_summary') and self.pk:
+            self.is_summary = self.subtasks.exists()
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -322,6 +357,55 @@ class Task(models.Model):
     @property
     def open_issues(self):
         return self.linked_issues.exclude(status='resolved')
+
+    @property
+    def is_leaf_node(self):
+        """True if this task has no subtasks (actual work unit)."""
+        return not self.subtasks.exists()
+
+    @property
+    def progress_pct(self):
+        """Progress percentage: 100 if done, roll-up from subtasks if summary."""
+        if self.status == 'done':
+            return 100
+        if self.is_leaf_node:
+            return 100 if self.status == 'done' else 0
+        # Summary task: average of subtask progress
+        subtasks = self.subtasks.all()
+        if not subtasks:
+            return 0
+        total = sum(t.progress_pct for t in subtasks)
+        return round(total / len(subtasks))
+
+    @property
+    def hierarchy_level(self):
+        """Returns 0 (root), 1 (child), or 2+ (beyond limit)."""
+        level = 0
+        current = self.parent
+        while current:
+            level += 1
+            current = current.parent
+        return level
+
+    @property
+    def rollup_start(self):
+        """For summary tasks, earliest subtask start. Own start if leaf."""
+        if self.is_leaf_node:
+            return self.start
+        subtasks = self.subtasks.all()
+        if not subtasks:
+            return self.start
+        return min(t.rollup_start for t in subtasks)
+
+    @property
+    def rollup_end(self):
+        """For summary tasks, latest subtask end. Own end if leaf."""
+        if self.is_leaf_node:
+            return self.end
+        subtasks = self.subtasks.all()
+        if not subtasks:
+            return self.end
+        return max(t.rollup_end for t in subtasks)
 
 
 class ProjectPlanVersion(models.Model):
@@ -360,7 +444,7 @@ class ProjectPlanVersion(models.Model):
 
     @classmethod
     def snapshot_project(cls, project):
-        tasks = project.tasks.select_related('milestone', 'stage').prefetch_related('depends_on').all()
+        tasks = project.tasks.select_related('milestone', 'stage').prefetch_related('depends_on', 'subtasks').all()
         return [
             {
                 'id': t.pk,
@@ -377,6 +461,11 @@ class ProjectPlanVersion(models.Model):
                 'stage_id': t.stage_id,
                 'sort_order': t.sort_order,
                 'depends_on': list(t.depends_on.values_list('id', flat=True)),
+                'parent_id': t.parent_id,
+                'is_summary': t.is_summary,
+                'progress_pct': t.progress_pct,
+                'rollup_start': t.rollup_start.isoformat() if t.rollup_start else None,
+                'rollup_end': t.rollup_end.isoformat() if t.rollup_end else None,
             }
             for t in tasks
         ]

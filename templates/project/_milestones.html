@@ -21,12 +21,35 @@
             <div class="h-full rounded-full transition-all {% if sec.pct == 100 %}bg-emerald-500{% elif sec.pct > 0 %}bg-[var(--accent)]{% else %}bg-[var(--surface2)]{% endif %}"
                  style="width:{{ sec.pct }}%"></div>
         </div>
-        <div class="flex flex-wrap gap-1.5">
+        <div class="space-y-1">
             {% for task in sec.tasks %}
-            <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-[var(--surface2)]">
-                <span class="status-dot status-dot-{{ task.status }}"></span>
-                {{ task.name|truncatewords:4 }}
-            </span>
+                {% if task.parent_id is None %}
+                <!-- Parent task or standalone task -->
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-2 text-[11px] px-2 py-1 rounded bg-[var(--surface2)] {% if task.is_summary %}font-semibold border-l-2 border-[var(--accent)]{% endif %}">
+                        {% if task.is_summary %}
+                        <svg class="w-3 h-3 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        {% else %}
+                        <span class="status-dot status-dot-{{ task.status }}"></span>
+                        {% endif %}
+                        <span>{{ task.name|truncatewords:4 }}</span>
+                        {% if task.is_summary %}
+                        <span class="ml-auto text-[10px] text-[var(--text-muted)]">{{ task.progress_pct }}%</span>
+                        {% endif %}
+                    </div>
+                    {% if task.is_summary %}
+                    <!-- Subtasks -->
+                    <div class="ml-4 mt-1 space-y-1">
+                        {% for subtask in task.subtasks.all %}
+                        <div class="flex items-center gap-2 text-[11px] px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)]">
+                            <span class="status-dot status-dot-{{ subtask.status }}"></span>
+                            <span class="text-[var(--text-muted)]">{{ subtask.name|truncatewords:4 }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
             {% endfor %}
         </div>
     </div>

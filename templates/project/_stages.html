@@ -17,7 +17,7 @@
                 </div>
                 <div>
                     <span class="text-xs text-[var(--text-muted)] block">Program Manager</span>
-                    <span>{{ project.pgm.get_full_name|default:project.pgm.username|default:"—" }}</span>
+                    <span>{% if project.pgm %}{{ project.pgm.get_full_name|default:project.pgm.username }}{% else %}—{% endif %}</span>
                 </div>
                 <div>
                     <span class="text-xs text-[var(--text-muted)] block">Customer</span>

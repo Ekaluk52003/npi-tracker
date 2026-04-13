@@ -5,7 +5,7 @@
      hx-swap="outerHTML">
 {% include "components/stage_filter.html" %}
 <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-x-auto">
-    <table class="w-full text-sm">
+    <table class="w-full text-sm" id="task-list-table">
         <thead>
             <tr class="border-b border-[var(--border)] text-[var(--text-muted)] text-xs uppercase tracking-wider">
                 <th class="px-3 py-2.5 text-left font-medium w-8">#</th>
@@ -24,14 +24,27 @@
             <tr class="bg-[var(--surface2)]">
                 <td colspan="9" class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{{ sec.milestone }}</td>
             </tr>
-            {% for task in sec.tasks %}
-            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] {% if user_is_pm %}cursor-pointer{% endif %} transition"
+            {% for task_wrapper in sec.tasks %}
+            {% with task=task_wrapper.task level=task_wrapper.level is_summary=task_wrapper.is_summary is_parent=task_wrapper.is_parent %}
+            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] {% if user_is_pm %}cursor-pointer{% endif %} transition {% if is_parent %}task-parent{% endif %} {% if level > 0 %}task-child hidden{% endif %}"
+                data-parent-id="{{ task_wrapper.parent_id|default:'' }}"
+                data-task-id="{{ task.pk }}"
                 {% if user_is_pm %}hx-get="{% url 'task-edit' project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
                 hx-trigger="dblclick"{% endif %}>
-                <td class="px-3 py-2 text-[var(--text-muted)]">{{ task.pk }}</td>
+                <td class="px-3 py-2 text-[var(--text-muted)]">{{ task_wrapper.num }}</td>
                 <td class="px-3 py-2">
-                    <span class="font-medium">{{ task.name }}</span>
-                    {% if task.stage %}<span class="ml-1 stage-pill-sm" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
+                    <div style="padding-left: {{ level|add:level }}0px;">
+                        {% if is_parent %}
+                        <span class="task-expander mr-1 cursor-pointer text-[var(--text-muted)] hover:text-[var(--accent)]" data-parent-id="{{ task.pk }}" onclick="toggleTaskChildren({{ task.pk }})">▼</span>
+                        {% elif level > 0 %}
+                        <span class="inline-block w-4 mr-1"></span>
+                        {% endif %}
+                        <span class="font-medium {% if is_summary %}text-[var(--accent)]{% endif %}">{{ task.name }}</span>
+                        {% if is_summary and task_wrapper.subtasks_done_count > 0 %}
+                        <span class="ml-2 text-xs text-[var(--text-muted)]">{{ task_wrapper.subtasks_done_count }}/{{ task_wrapper.subtasks_total }}</span>
+                        {% endif %}
+                        {% if task.stage %}<span class="ml-1 stage-pill-sm" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
+                    </div>
                 </td>
                 <td class="px-3 py-2 text-[var(--text-muted)] text-xs max-w-[200px] truncate">{{ task.remark|truncatewords:10 }}</td>
                 <td class="px-3 py-2"><span class="text-xs px-2 py-0.5 rounded-full bg-[var(--surface2)] text-[var(--text-muted)]">{{ task.who }}</span></td>
@@ -49,6 +62,7 @@
                     {% endwith %}
                 </td>
             </tr>
+            {% endwith %}
             {% endfor %}
             {% empty %}
             <tr><td colspan="9" class="px-4 py-8 text-center text-[var(--text-muted)]">No tasks yet. Click "+ Add Task" to create one.</td></tr>
@@ -57,3 +71,29 @@
     </table>
 </div>
 </div>
+
+<script>
+function toggleTaskChildren(parentId) {
+    const table = document.getElementById('task-list-table');
+    if (!table) return;
+    
+    // Find all child rows
+    const childRows = table.querySelectorAll('tr[data-parent-id="' + parentId + '"]');
+    const parentRow = table.querySelector('tr[data-task-id="' + parentId + '"][data-parent-id=""]');
+    const expander = parentRow?.querySelector('.task-expander');
+    
+    // Toggle visibility
+    childRows.forEach(row => {
+        if (row.classList.contains('hidden')) {
+            row.classList.remove('hidden');
+        } else {
+            row.classList.add('hidden');
+        }
+    });
+    
+    // Toggle expander icon
+    if (expander) {
+        expander.textContent = expander.textContent === '▼' ? '▶' : '▼';
+    }
+}
+</script>

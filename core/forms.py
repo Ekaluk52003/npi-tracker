@@ -64,10 +64,17 @@ class TaskForm(forms.ModelForm):
         required=False,
         empty_label='— Unassigned —',
     )
+    parent = forms.ModelChoiceField(
+        queryset=Task.objects.none(),
+        required=False,
+        empty_label='— No parent (root task) —',
+        widget=forms.Select(attrs={'class': select_cls}),
+        help_text='Max 2 levels: parent → child. Cannot select subtask as parent.'
+    )
 
     class Meta:
         model = Task
-        fields = ['name', 'milestone', 'remark', 'who', 'assigned_to', 'start', 'end', 'status', 'stage', 'visibility']
+        fields = ['name', 'milestone', 'parent', 'remark', 'who', 'assigned_to', 'start', 'end', 'status', 'stage', 'visibility']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. PCB Production'}),
             'milestone': forms.Select(attrs={'class': select_cls}),
@@ -82,6 +89,7 @@ class TaskForm(forms.ModelForm):
 
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self._project = project
         if project:
             self.fields['milestone'].queryset = project.milestones.all()
             self.fields['stage'].queryset = project.stages.all()
@@ -91,6 +99,11 @@ class TaskForm(forms.ModelForm):
             self.fields['assigned_to'].queryset = User.objects.filter(
                 pk__in=internal_members.values_list('user', flat=True)
             ).order_by('first_name', 'last_name', 'username')
+            # Filter parent to project's root tasks only (no grandparents)
+            self.fields['parent'].queryset = Task.objects.filter(
+                project=project,
+                parent__isnull=True
+            ).order_by('milestone__sort_order', 'sort_order', 'name')
         elif self.instance and self.instance.pk:
             self.fields['milestone'].queryset = self.instance.project.milestones.all()
             self.fields['stage'].queryset = self.instance.project.stages.all()
@@ -100,7 +113,21 @@ class TaskForm(forms.ModelForm):
             self.fields['assigned_to'].queryset = User.objects.filter(
                 pk__in=internal_members.values_list('user', flat=True)
             ).order_by('first_name', 'last_name', 'username')
+            # Filter parent: same project, root tasks only, exclude self
+            self.fields['parent'].queryset = Task.objects.filter(
+                project=self.instance.project,
+                parent__isnull=True
+            ).exclude(pk=self.instance.pk).order_by('milestone__sort_order', 'sort_order', 'name')
         self.fields['stage'].empty_label = '— None —'
+
+    def clean_parent(self):
+        parent = self.cleaned_data.get('parent')
+        if not parent:
+            return parent
+        # Validate max depth (parent must be root, i.e., have no parent)
+        if parent.parent_id is not None:
+            raise forms.ValidationError('Cannot select a subtask as parent. Maximum depth is 2 levels.')
+        return parent
 
 
 class IssueForm(forms.ModelForm):

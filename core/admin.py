@@ -53,8 +53,21 @@ class MilestoneAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['name', 'project', 'milestone', 'status', 'stage', 'start', 'end']
-    list_filter = ['status']
+    list_display = ['hierarchy_name', 'project', 'milestone', 'status', 'progress_pct', 'stage', 'start', 'end', 'is_summary']
+    list_filter = ['status', 'milestone', 'is_summary', 'stage']
+    search_fields = ['name', 'project__name', 'milestone__name']
+    autocomplete_fields = ['parent', 'assigned_to', 'depends_on']
+    raw_id_fields = ['project', 'milestone']
+
+    @admin.display(description='Task Name', ordering='name')
+    def hierarchy_name(self, obj):
+        indent = '    ' * obj.hierarchy_level
+        summary_icon = '▶ ' if obj.is_summary else ''
+        return f'{indent}{summary_icon}{obj.name}'
+
+    @admin.display(description='Progress %')
+    def progress_pct(self, obj):
+        return f"{obj.progress_pct}%"
 
 
 @admin.register(Issue)

@@ -162,15 +162,61 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
   const todayOffInWk = todayWkIdx >= 0 ? (todayD - weeks[todayWkIdx]) / (7 * 86400000) : -1;
   const todayPx = todayWkIdx >= 0 ? todayWkIdx * WK_W + todayOffInWk * WK_W + WK_W / 14 : -999;
 
-  // Build flat row list
+  // Build hierarchical row list with parent-child support
   const rows = [];
   let itemNum = 0;
   let secIdx = 0;
+  const taskCollapseKey = `gantt-task-collapsed-${project_id}`;
+  const collapsedParents = new Set(JSON.parse(localStorage.getItem(taskCollapseKey) || '[]'));
+
+  // Helper: Calculate dynamic progress from subtasks
+  function calcProgress(parentId, children) {
+    if (!children || children.length === 0) return { done: 0, total: 0, pct: 0 };
+    const done = children.filter(c => c.status === 'done').length;
+    const total = children.length;
+    const pct = Math.round((done / total) * 100);
+    return { done, total, pct };
+  }
+
+  // Helper: Render progress bar (thin CSS-styled)
+  function renderProgressBar(done, total, pct) {
+    if (total === 0) return '';
+    const width = 40; // px
+    const fillWidth = Math.round((pct / 100) * width);
+    return `<span style="margin-left:6px;font-size:10px;color:var(--text-muted);">${done}/${total}</span><span style="margin-left:4px;display:inline-block;width:${width}px;height:4px;background:var(--surface2);border-radius:2px;vertical-align:middle;overflow:hidden;"><span style="display:block;width:${fillWidth}px;height:100%;background:var(--accent);border-radius:2px;"></span></span><span style="margin-left:4px;font-size:10px;color:var(--text-muted);">${pct}%</span>`;
+  }
+
   for (const sec of sections) {
     rows.push({ type: 'section', label: sec.milestone, secIdx });
+
+    // Group tasks by parent
+    const rootTasks = [];
+    const childMap = {};
     for (const t of sec.tasks) {
+      if (t.parent_id) {
+        if (!childMap[t.parent_id]) childMap[t.parent_id] = [];
+        childMap[t.parent_id].push(t);
+      } else {
+        rootTasks.push(t);
+      }
+    }
+
+    // Add root tasks and their children
+    for (const t of rootTasks) {
       itemNum++;
-      rows.push({ type: 'task', task: t, num: itemNum, secIdx });
+      const isSummary = t.is_summary || (childMap[t.id] && childMap[t.id].length > 0);
+      // Calculate dynamic progress
+      const progress = calcProgress(t.id, childMap[t.id]);
+      t._progress = progress; // Store for display
+      rows.push({ type: 'task', task: t, num: itemNum, secIdx, isSummary, isParent: !!childMap[t.id], level: 0 });
+
+      // Add subtasks if parent is not collapsed
+      if (childMap[t.id] && !collapsedParents.has(t.id)) {
+        for (const child of childMap[t.id]) {
+          itemNum++;
+          rows.push({ type: 'task', task: child, num: itemNum, secIdx, isSummary: false, isParent: false, level: 1, parentId: t.id });
+        }
+      }
     }
     secIdx++;
   }
@@ -209,18 +255,33 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
       ? `<a class="nre-chip" href="/project/${project_id}/nre/" title="${t.nre_count} linked NRE item${t.nre_count !== 1 ? 's' : ''}">${t.nre_count}</a>`
       : '';
     const editUrl = `/project/${project_id}/tasks/${t.id}/edit/`;
-    const startDateObj = parseDate(t.start);
-    const endDateObj = parseDate(t.end);
+    // Use rollup dates for summary tasks if available
+    const displayStart = row.isSummary && t.rollup_start ? t.rollup_start : t.start;
+    const displayEnd = row.isSummary && t.rollup_end ? t.rollup_end : t.end;
+    const startDateObj = parseDate(displayStart);
+    const endDateObj = parseDate(displayEnd);
     const startDisp = startDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
     const endDisp = endDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-    return `<div class="task-row status-${t.status}" style="cursor:pointer" data-edit-url="${editUrl}" data-task-id="${t.id}" data-section-idx="${row.secIdx}">
+
+    // Hierarchy styling
+    const indent = row.level > 0 ? 'padding-left:' + (row.level * 20 + 8) + 'px;' : '';
+    const summaryClass = row.isSummary ? 'task-summary' : '';
+    const expander = row.isParent ? `<span class="task-expander" data-task-id="${t.id}" style="cursor:pointer;display:inline-block;width:14px;text-align:center;margin-right:4px;font-size:10px;">${collapsedParents.has(t.id) ? '▶' : '▼'}</span>` : (row.level > 0 ? '<span style="display:inline-block;width:14px;margin-right:4px;"></span>' : '');
+    const summaryStyle = row.isSummary ? 'font-weight:600;background:var(--surface2);' : '';
+
+    // Dynamic progress display for summary tasks
+    const progressDisplay = row.isSummary && t._progress && t._progress.total > 0
+      ? renderProgressBar(t._progress.done, t._progress.total, t._progress.pct)
+      : '';
+
+    return `<div class="task-row status-${t.status} ${summaryClass}" style="${summaryStyle}" data-edit-url="${editUrl}" data-task-id="${t.id}" data-section-idx="${row.secIdx}" data-is-parent="${row.isParent}" data-parent-id="${row.parentId || ''}">
       <div class="tc-cell tc-item">${row.num}</div>
-      <div class="tc-cell tc-task">
-        <div>${esc(t.name)}${stageTag(t.stage, t.stage_color)}${visibilityTag(t.visibility)}</div>
+      <div class="tc-cell tc-task" style="${indent}">
+        <div>${expander}${esc(t.name)}${progressDisplay}${stageTag(t.stage, t.stage_color)}${visibilityTag(t.visibility)}</div>
         ${t.remark ? `<div class="tc-remark">${esc(t.remark)}</div>` : ''}
       </div>
-      <div class="tc-cell tc-start tc-date" data-date="${t.start}">${startDisp}</div>
-      <div class="tc-cell tc-end tc-date" data-date="${t.end}">${endDisp}</div>
+      <div class="tc-cell tc-start tc-date" data-date="${displayStart}">${startDisp}</div>
+      <div class="tc-cell tc-end tc-date" data-date="${displayEnd}">${endDisp}</div>
       <div class="tc-cell tc-who"><span class="who-pill" title="${esc(t.who)}">${esc(t.who)}</span></div>
       <div class="tc-cell tc-assigned"><span class="assigned-pill" title="${esc(t.assigned_to || '')}">${esc(t.assigned_to || '—')}</span></div>
       <div class="tc-cell tc-dur">${t.days}d</div>
@@ -246,8 +307,11 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
       return `<div class="timeline-row section-row" style="min-width:${weeks.length * WK_W}px" data-section-idx="${row.secIdx}" data-section-header="1">${weeks.map(() => '<div class="wk-cell"></div>').join('')}</div>`;
     }
     const t = row.task;
-    const barLeft = (parseDate(t.start) - weeks[0]) / (7 * 86400000) * WK_W;
-    const barWidth = Math.max(16, (parseDate(t.end) - parseDate(t.start)) / (7 * 86400000) * WK_W);
+    // Use rollup dates for summary tasks in timeline
+    const barStart = row.isSummary && t.rollup_start ? t.rollup_start : t.start;
+    const barEnd = row.isSummary && t.rollup_end ? t.rollup_end : t.end;
+    const barLeft = (parseDate(barStart) - weeks[0]) / (7 * 86400000) * WK_W;
+    const barWidth = Math.max(16, (parseDate(barEnd) - parseDate(barStart)) / (7 * 86400000) * WK_W);
     const cells = weeks.map((w, i) => `<div class="wk-cell ${i === todayWkIdx ? 'current-wk' : ''}"></div>`).join('');
     const barLabel = barWidth > 40 ? esc(t.name).substring(0, Math.floor(barWidth / 7)) : '';
     const issueFlag = t.open_issues ? '<span class="issue-flag" title="Has open issues"></span>' : '';
@@ -267,10 +331,12 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
       overlayBar = `<div class="gantt-bar ${overlayTask.status} compare-overlay" data-overlay-task-id="${t.id}" data-overlay-start="${overlayTask.start}" data-overlay-end="${overlayTask.end}" data-overlay-start-date="${overlayTask.start}" style="left:${overlayLeft}px;width:${overlayWidth}px;opacity:0.5;z-index:1;border:2px dashed rgba(255,255,255,0.6);background-clip:padding-box;cursor:pointer;" title="Click to restore to: ${esc(overlayTask.name)} ${overlayTask.start} → ${overlayTask.end}"></div>`;
     }
 
+    const tooltipStart = row.isSummary && t.rollup_start ? t.rollup_start : t.start;
+    const tooltipEnd = row.isSummary && t.rollup_end ? t.rollup_end : t.end;
     return `<div class="timeline-row" style="min-width:${weeks.length * WK_W}px;position:relative" data-section-idx="${row.secIdx}">
       ${cells}
       ${overlayBar}
-      <div class="gantt-bar ${t.status}" style="left:${barLeft}px;width:${barWidth}px;z-index:2;" title="${esc(t.name)}: ${t.start} → ${t.end}" data-task-id="${t.id}" data-task-name="${esc(t.name)}">
+      <div class="gantt-bar ${t.status}" style="left:${barLeft}px;width:${barWidth}px;z-index:2;" title="${esc(t.name)}: ${tooltipStart} → ${tooltipEnd}" data-task-id="${t.id}" data-task-name="${esc(t.name)}">
         <div style="position:absolute;left:0;top:0;width:100%;height:100%;cursor:move;user-select:none"></div>
         <span style="position:relative;z-index:1">${barLabel}${issueFlag}</span>
         <div class="gantt-resize-handle" style="position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:e-resize;background:transparent;z-index:12"></div>
@@ -436,6 +502,82 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
       });
     });
   }
+
+  // ── Task parent/child expand/collapse ─────────────────────────────────────
+  function toggleTaskParent(taskId) {
+    if (collapsedParents.has(taskId)) {
+      collapsedParents.delete(taskId);
+    } else {
+      collapsedParents.add(taskId);
+    }
+    localStorage.setItem(taskCollapseKey, JSON.stringify([...collapsedParents]));
+    // Re-render gantt to show/hide children
+    renderProjectGantt(containerId, dataId, compareDataId);
+  }
+
+  // Attach click handlers to task expanders
+  if (gl) {
+    gl.querySelectorAll('.task-expander').forEach(expander => {
+      expander.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskId = parseInt(expander.dataset.taskId);
+        toggleTaskParent(taskId);
+      });
+    });
+  }
+
+  // ── Dynamic progress update (no refresh needed) ────────────────────────────
+  function updateParentProgress(parentId) {
+    // Find all child tasks of this parent from the original data
+    const allTasks = sections.flatMap(s => s.tasks);
+    const parent = allTasks.find(t => t.id === parentId);
+    if (!parent) return;
+
+    const children = allTasks.filter(t => t.parent_id === parentId);
+    if (children.length === 0) return;
+
+    // Calculate new progress
+    const done = children.filter(c => c.status === 'done').length;
+    const total = children.length;
+    const pct = Math.round((done / total) * 100);
+
+    // Update the parent task's stored progress
+    parent._progress = { done, total, pct };
+
+    // Find and update the progress display in the DOM
+    const parentRow = gl?.querySelector(`[data-task-id="${parentId}"]`);
+    if (parentRow) {
+      const taskNameCell = parentRow.querySelector('.tc-task > div');
+      if (taskNameCell) {
+        // Remove old progress display if exists
+        const oldProgress = taskNameCell.querySelectorAll('span[data-progress]');
+        oldProgress.forEach(el => el.remove());
+
+        // Add new progress display (thin CSS bar)
+        const width = 40;
+        const fillWidth = Math.round((pct / 100) * width);
+        const progressHtml = `<span data-progress style="margin-left:6px;font-size:10px;color:var(--text-muted);">${done}/${total}</span><span data-progress style="margin-left:4px;display:inline-block;width:${width}px;height:4px;background:var(--surface2);border-radius:2px;vertical-align:middle;overflow:hidden;"><span data-progress-inner style="display:block;width:${fillWidth}px;height:100%;background:var(--accent);border-radius:2px;"></span></span><span data-progress style="margin-left:4px;font-size:10px;color:var(--text-muted);">${pct}%</span>`;
+
+        // Insert before stage tag
+        const stageTagEl = taskNameCell.querySelector('.stage-tag');
+        if (stageTagEl) {
+          stageTagEl.insertAdjacentHTML('beforebegin', progressHtml);
+        } else {
+          taskNameCell.insertAdjacentHTML('beforeend', progressHtml);
+        }
+      }
+    }
+  }
+
+  // Listen for HTMX task updates and refresh progress
+  function refreshOnTaskChange() {
+    setTimeout(() => {
+      renderProjectGantt(containerId, dataId, compareDataId);
+    }, 100);
+  }
+  document.body.addEventListener('taskSaved', refreshOnTaskChange);
+  document.body.addEventListener('taskUpdated', refreshOnTaskChange);
+  document.body.addEventListener('taskCreated', refreshOnTaskChange);
 
   // Apply initial collapsed state
   applySectionVisibility();
@@ -1335,6 +1477,18 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
           if (response.ok) {
             const result = await response.json();
 
+            // Update local data in sections array
+            for (const sec of sections) {
+              for (const t of sec.tasks) {
+                if (t.id === parseInt(taskId)) {
+                  t.start = result.start;
+                  t.end = result.end;
+                  t.days = result.days;
+                  break;
+                }
+              }
+            }
+
             // Snap bar to exact date-aligned pixels from server response
             // (drag position may be slightly off from date boundaries)
             const snapStart = parseDate(result.start);
@@ -1354,8 +1508,22 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
               if (endCell) { endCell.textContent = formatDateDisplay(result.end); endCell.dataset.date = result.end; }
               if (durCell) { durCell.textContent = `${result.days}d`; }
             }
-            // Push cascaded dependents
-            if (result.cascaded?.length) updateCascadedBars(result.cascaded);
+            // Push cascaded dependents - update their local data too
+            if (result.cascaded?.length) {
+              for (const cascaded of result.cascaded) {
+                for (const sec of sections) {
+                  for (const t of sec.tasks) {
+                    if (t.id === cascaded.id) {
+                      t.start = cascaded.start;
+                      t.end = cascaded.end;
+                      t.days = cascaded.days;
+                      break;
+                    }
+                  }
+                }
+              }
+              updateCascadedBars(result.cascaded);
+            }
           } else {
             console.error(`Failed to save task ${taskName}:`, response.statusText);
           }
@@ -1367,10 +1535,114 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
       await Promise.all(savePromises);
       drawDependencyArrows();
 
+      // Update parent bars dynamically after children move
+      // Also include cascaded dependents' parents
+      const allChangedBars = new Set(barsToSave);
+      for (const bar of barsToSave) {
+        const taskId = parseInt(bar.dataset.taskId);
+        for (const sec of sections) {
+          for (const t of sec.tasks) {
+            if (t.id === taskId && t.parent_id) {
+              const parentBar = taskBarMap[t.parent_id];
+              if (parentBar) allChangedBars.add(parentBar);
+            }
+          }
+        }
+      }
+      updateParentBarsAfterChildChange(allChangedBars);
+
       // Clear selection after save
       selectedBars.forEach(bar => bar.classList.remove('gantt-bar-selected'));
       selectedBars.clear();
     });
+  }
+
+  // ── Dynamic parent bar updates ─────────────────────────────────────────────
+  function updateParentBarsAfterChildChange(changedBars) {
+    // Find all unique parents that need updating
+    const parentIds = new Set();
+    changedBars.forEach(bar => {
+      const taskId = parseInt(bar.dataset.taskId);
+      // Find this task in our data to get its parent
+      for (const sec of sections) {
+        for (const t of sec.tasks) {
+          if (t.id === taskId && t.parent_id) {
+            parentIds.add(t.parent_id);
+          }
+        }
+      }
+    });
+
+    // Update each parent's bar and row display
+    parentIds.forEach(parentId => {
+      updateParentBar(parentId);
+    });
+  }
+
+  function updateParentBar(parentId) {
+    // Get all children of this parent from the data
+    const allTasks = sections.flatMap(s => s.tasks);
+    const parent = allTasks.find(t => t.id === parentId);
+    if (!parent) return;
+
+    const children = allTasks.filter(t => t.parent_id === parentId);
+    if (children.length === 0) return;
+
+    // Calculate new rollup dates
+    const starts = children.map(c => c.start).filter(Boolean);
+    const ends = children.map(c => c.end).filter(Boolean);
+    const newStart = starts.length ? starts.reduce((a, b) => a < b ? a : b) : parent.start;
+    const newEnd = ends.length ? ends.reduce((a, b) => a > b ? a : b) : parent.end;
+
+    // Update stored rollup dates
+    parent.rollup_start = newStart;
+    parent.rollup_end = newEnd;
+
+    // Update parent timeline bar
+    const parentBar = taskBarMap[parentId];
+    if (parentBar) {
+      const newLeft = (parseDate(newStart) - weeks[0]) / (7 * 86400000) * WK_W;
+      const newWidth = Math.max(16, (parseDate(newEnd) - parseDate(newStart)) / (7 * 86400000) * WK_W);
+      parentBar.style.left = `${newLeft}px`;
+      parentBar.style.width = `${newWidth}px`;
+      parentBar.title = `${esc(parent.name)}: ${newStart} → ${newEnd}`;
+    }
+
+    // Update parent row date cells
+    const parentRow = gl?.querySelector(`[data-task-id="${parentId}"]`);
+    if (parentRow) {
+      const startCell = parentRow.querySelector('.tc-start');
+      const endCell = parentRow.querySelector('.tc-end');
+      if (startCell) {
+        startCell.textContent = formatDateDisplay(newStart);
+        startCell.dataset.date = newStart;
+      }
+      if (endCell) {
+        endCell.textContent = formatDateDisplay(newEnd);
+        endCell.dataset.date = newEnd;
+      }
+    }
+
+    // Update progress display
+    const progress = calcProgress(parentId, children);
+    parent._progress = progress;
+    if (parentRow) {
+      const taskNameDiv = parentRow.querySelector('.tc-task > div');
+      if (taskNameDiv && progress.total > 0) {
+        // Remove old progress
+        taskNameDiv.querySelectorAll('span[data-progress]').forEach(el => el.remove());
+        // Add new progress
+        const width = 40;
+        const fillWidth = Math.round((progress.pct / 100) * width);
+        const progressHtml = `<span data-progress style="margin-left:6px;font-size:10px;color:var(--text-muted);">${progress.done}/${progress.total}</span><span data-progress style="margin-left:4px;display:inline-block;width:${width}px;height:4px;background:var(--surface2);border-radius:2px;vertical-align:middle;overflow:hidden;"><span data-progress-inner style="display:block;width:${fillWidth}px;height:100%;background:var(--accent);border-radius:2px;"></span></span><span data-progress style="margin-left:4px;font-size:10px;color:var(--text-muted);">${progress.pct}%</span>`;
+        const stageTagEl = taskNameDiv.querySelector('.stage-tag');
+        if (stageTagEl) {
+          stageTagEl.insertAdjacentHTML('beforebegin', progressHtml);
+        } else {
+          taskNameDiv.insertAdjacentHTML('beforeend', progressHtml);
+        }
+      }
+    }
   }
 
   // Click task row to open edit modal, or issue chip to open issue edit

@@ -5,6 +5,7 @@ from collections import defaultdict, deque
 from datetime import date, timedelta, datetime
 from itertools import groupby
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 def forbidden_response(request, message="You don't have permission to access this resource."):
     """Return styled 403 forbidden page."""
@@ -150,6 +151,11 @@ def _gantt_data_from_snapshot(version, project, user):
                 'nre_count': 0,
                 'depends_on': t.get('depends_on', []),
                 'visibility': t.get('visibility', 'all'),
+                'parent_id': t.get('parent_id'),
+                'is_summary': t.get('is_summary', False),
+                'progress_pct': t.get('progress_pct', 0),
+                'rollup_start': t.get('rollup_start'),
+                'rollup_end': t.get('rollup_end'),
             } for t in tasks],
         }
         for sec_name, tasks in sections_map.items()
@@ -176,7 +182,7 @@ def _gantt_data_from_snapshot(version, project, user):
 
 def _gantt_data_for_project(project, user, stage_filter=''):
     tasks = filter_visible_items(
-        project.tasks.select_related('stage', 'milestone', 'assigned_to').prefetch_related('linked_nre', 'depends_on', 'linked_issues'),
+        project.tasks.select_related('stage', 'milestone', 'assigned_to').prefetch_related('linked_nre', 'depends_on', 'linked_issues', 'subtasks'),
         user
     )
     if stage_filter and stage_filter.isdigit():
@@ -208,6 +214,11 @@ def _gantt_data_for_project(project, user, stage_filter=''):
                 'nre_count': t.linked_nre.count(),
                 'depends_on': list(t.depends_on.values_list('id', flat=True)),
                 'visibility': t.visibility,
+                'parent_id': t.parent_id,
+                'is_summary': t.is_summary,
+                'progress_pct': t.progress_pct,
+                'rollup_start': t.rollup_start.isoformat() if t.rollup_start else t.start.isoformat(),
+                'rollup_end': t.rollup_end.isoformat() if t.rollup_end else t.end.isoformat(),
             } for t in task_list],
         })
     # Use filtered tasks for date range calculation too
@@ -402,7 +413,7 @@ def project_gantt(request, pk):
 
 @login_required
 def project_list(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__milestone', 'tasks__linked_nre', 'stages'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__milestone', 'tasks__linked_nre', 'stages', 'tasks__subtasks'), pk=pk)
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
@@ -416,7 +427,7 @@ def project_list(request, pk):
             tasks = [t for t in all_tasks if t.get('visibility', 'all') in ['all', 'customer']]
     else:
         tasks = filter_visible_items(
-            project.tasks.select_related('milestone', 'stage').prefetch_related('linked_nre', 'depends_on'),
+            project.tasks.select_related('milestone', 'stage').prefetch_related('linked_nre', 'depends_on', 'subtasks'),
             request.user
         )
         if stage_filter and stage_filter.isdigit():
@@ -430,7 +441,60 @@ def project_list(request, pk):
         # Check if milestone itself is internal-only
         if milestone.visibility == 'internal' and not is_internal_user(request.user):
             continue
-        sections.append({'milestone': milestone.name, 'tasks': task_list})
+
+        # Build hierarchical task structure
+        root_tasks = []
+        children_map = {}
+        for t in task_list:
+            if t.parent_id:
+                if t.parent_id not in children_map:
+                    children_map[t.parent_id] = []
+                children_map[t.parent_id].append(t)
+            else:
+                root_tasks.append(t)
+
+        # Build ordered list with hierarchy info
+        ordered_tasks = []
+        item_num = 0
+        for t in root_tasks:
+            item_num += 1
+            is_summary = t.is_summary or (t.id in children_map and len(children_map[t.id]) > 0)
+            # Calculate progress for summary tasks
+            subtasks_done = 0
+            subtasks_total = 0
+            if is_summary and t.id in children_map:
+                subtasks_total = len(children_map[t.id])
+                subtasks_done = sum(1 for c in children_map[t.id] if c.status == 'done')
+            ordered_tasks.append({
+                'task': t,
+                'num': item_num,
+                'level': 0,
+                'is_summary': is_summary,
+                'is_parent': t.id in children_map and len(children_map[t.id]) > 0,
+                'subtasks_done_count': subtasks_done,
+                'subtasks_total': subtasks_total,
+            })
+            # Add children
+            if t.id in children_map:
+                for child in children_map[t.id]:
+                    item_num += 1
+                    ordered_tasks.append({
+                        'task': child,
+                        'num': item_num,
+                        'level': 1,
+                        'is_summary': False,
+                        'is_parent': False,
+                        'parent_id': t.id,
+                        'subtasks_done_count': 0,
+                        'subtasks_total': 0,
+                    })
+
+        sections.append({
+            'milestone': milestone.name,
+            'milestone_obj': milestone,
+            'tasks': ordered_tasks,
+            'task_count': len(ordered_tasks),
+        })
     ctx = _project_ctx(project, 'list', request.user, {
         'sections': sections,
         'stage_filter': stage_filter,
@@ -510,16 +574,22 @@ def project_team(request, pk):
 
 @login_required
 def project_stages(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('stages__gate_items', 'tasks__stage', 'issues__stage', 'nre_items__stage'), pk=pk)
-    if not can_view_project(request.user, project):
-        return forbidden_response(request, "You don't have permission to view this project.")
-    stages = list(project.stages.all())
-    for s in stages:
-        s.gate = s.gate_readiness
-        s.tasks_done = s.tasks.filter(status='done').count()
-        s.tasks_total = s.tasks.count()
-    ctx = _project_ctx(project, 'stages', request.user, {'stages': stages})
-    return _htmx_tab(request, 'project/detail.html', 'project/_stages.html', ctx)
+    try:
+        project = get_object_or_404(Project.objects.prefetch_related('stages__gate_items', 'tasks__stage', 'issues__stage', 'nre_items__stage'), pk=pk)
+        if not can_view_project(request.user, project):
+            return forbidden_response(request, "You don't have permission to view this project.")
+        stages = list(project.stages.all())
+        for s in stages:
+            s.gate = s.gate_readiness
+            s.tasks_done = s.tasks.filter(status='done').count()
+            s.tasks_total = s.tasks.count()
+        ctx = _project_ctx(project, 'stages', request.user, {'stages': stages})
+        return _htmx_tab(request, 'project/detail.html', 'project/_stages.html', ctx)
+    except Exception as e:
+        import traceback
+        print(f"ERROR in project_stages: {e}")
+        print(traceback.format_exc())
+        raise
 
 
 @login_required
@@ -687,35 +757,73 @@ def project_critical_index(request, pk):
 # Example using new permission system
 @permission_required('project', 'add')
 def project_create(request):
+    """Create a new project."""
     if request.method == 'POST':
         form = ProjectForm(request.POST)
+        print(f"POST data keys: {list(request.POST.keys())}")
+        print(f"stages_json received: {request.POST.get('stages_json', 'NOT FOUND')[:200]}")
         if form.is_valid():
-            project = form.save()
-            # Parse dynamic stages from POST
-            stages_json = request.POST.get('stages_json', '')
+            project = form.save(commit=False)
+            project.pm = request.user
+            project.save()
+            form.save_m2m()
+            # Create build stages if specified
+            stages_json = request.POST.get('stages_json', '').strip()
+            stages_data = []
             if stages_json:
                 try:
-                    stages_list = json.loads(stages_json)
-                    for i, s in enumerate(stages_list):
-                        if s.get('name', '').strip():
-                            BuildStage.objects.create(
-                                project=project,
-                                name=s['name'].strip(),
-                                full_name=s.get('full_name', '').strip(),
-                                color=s.get('color', '#3b82f6'),
-                                sort_order=i + 1,
-                            )
-                except (json.JSONDecodeError, TypeError):
-                    pass
-            # If no stages were added, create defaults
-            if not project.stages.exists():
-                project.create_default_stages()
-            if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': f'/project/{project.pk}/gantt/'})
-            return redirect('project-gantt', pk=project.pk)
+                    stages_data = json.loads(stages_json)
+                    print(f"Parsed stages_data: {stages_data}")
+                except json.JSONDecodeError as e:
+                    print(f"Stages JSON parse error: {e}, data: {stages_json[:200]}")
+                    stages_data = []
+            
+            # Filter out empty stages
+            valid_stages = [s for s in stages_data if s.get('name', '').strip()]
+            print(f"Valid stages to create: {len(valid_stages)}")
+            
+            if valid_stages:
+                for i, stage in enumerate(valid_stages):
+                    BuildStage.objects.create(
+                        project=project,
+                        name=stage['name'].strip(),
+                        full_name=stage.get('full_name', '').strip(),
+                        color=stage.get('color', '#666666'),
+                        sort_order=i
+                    )
+            else:
+                # Create default stages
+                defaults = [
+                    ('ETB', 'External Test Build', '#f59e0b'),
+                    ('PS', 'Pre-Series Build', '#8b5cf6'),
+                    ('FAS', 'First Article Sample', '#06b6d4'),
+                ]
+                for i, (name, full, color) in enumerate(defaults):
+                    BuildStage.objects.create(
+                        project=project,
+                        name=name,
+                        full_name=full,
+                        color=color,
+                        sort_order=i
+                    )
+            # Create default milestones
+            defaults = [' EVT', 'DVT', 'PVT']
+            for i, name in enumerate(defaults):
+                Milestone.objects.create(
+                    project=project,
+                    name=name.strip(),
+                    sort_order=i,
+                    visibility='all'
+                )
+            return HttpResponse(
+                f"""<script>window.location.href='{reverse('project-detail', args=[project.pk])}';</script>""",
+                content_type='text/html'
+            )
+        else:
+            return render(request, 'forms/_project_form.html', {'form': form, 'is_edit': False})
     else:
         form = ProjectForm()
-    return render(request, 'forms/_project_form.html', {'form': form})
+    return render(request, 'forms/_project_form.html', {'form': form, 'is_edit': False})
 
 
 @permission_required('project', 'change', project_param='pk')
@@ -1318,7 +1426,7 @@ def template_preview(request, pk, set_pk):
 @csrf_protect
 @require_http_methods(['PATCH'])
 def api_task_update(request, task_id):
-    """Update task dates (start/end) via API. Cascades to direct dependents."""
+    """Update task dates (start/end/sort_order/parent) via API. Cascades to direct dependents."""
     try:
         task = Task.objects.get(pk=task_id)
     except Task.DoesNotExist:
@@ -1326,20 +1434,45 @@ def api_task_update(request, task_id):
 
     try:
         data = json.loads(request.body)
+        updated_parent = False
         if 'start' in data:
             task.start = date.fromisoformat(data['start'])
         if 'end' in data:
             task.end = date.fromisoformat(data['end'])
+        if 'sort_order' in data:
+            task.sort_order = int(data['sort_order'])
+        if 'parent_id' in data:
+            new_parent_id = data['parent_id']
+            if new_parent_id:
+                # Validate: can't be own descendant, max 2 levels
+                parent = Task.objects.get(pk=new_parent_id)
+                if parent.pk == task.pk:
+                    return JsonResponse({'error': 'Cannot set self as parent'}, status=400)
+                if parent.parent_id:
+                    return JsonResponse({'error': 'Maximum 2 levels of nesting'}, status=400)
+                # Check if parent is a descendant of task (circular)
+                if parent.parent_id == task.pk:
+                    return JsonResponse({'error': 'Cannot set child as parent'}, status=400)
+                task.parent = parent
+            else:
+                task.parent = None
+            updated_parent = True
         task.save()
+        # Recompute is_summary for old and new parents
+        if updated_parent:
+            Task.objects.filter(pk=task.parent_id).update(is_summary=True)
         cascaded = _cascade_dependents(task)
         return JsonResponse({
             'success': True,
             'start': task.start.isoformat(),
             'end': task.end.isoformat(),
             'days': task.days,
+            'sort_order': task.sort_order,
+            'parent_id': task.parent_id,
+            'is_summary': task.is_summary,
             'cascaded': cascaded,
         })
-    except (json.JSONDecodeError, ValueError) as e:
+    except (json.JSONDecodeError, ValueError, Task.DoesNotExist) as e:
         return JsonResponse({'error': f'Invalid data: {str(e)}'}, status=400)
 
 
