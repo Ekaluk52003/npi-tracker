@@ -59,8 +59,8 @@ class TaskAdmin(admin.ModelAdmin):
 
 @admin.register(Issue)
 class IssueAdmin(admin.ModelAdmin):
-    list_display = ['title', 'project', 'severity', 'status', 'stage']
-    list_filter = ['severity', 'status']
+    list_display = ['title', 'project', 'category', 'severity', 'status', 'stage', 'reported_by', 'resolved_at']
+    list_filter = ['severity', 'status', 'category']
 
 
 @admin.register(TeamMember)

@@ -109,18 +109,30 @@ class IssueForm(forms.ModelForm):
         required=False,
         empty_label='— Unassigned —',
     )
+    reported_by = ProjectMemberChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        empty_label='— Unknown —',
+    )
 
     class Meta:
         model = Issue
-        fields = ['title', 'desc', 'severity', 'status', 'owner', 'assigned_to', 'due', 'impact', 'stage', 'linked_tasks', 'visibility']
+        fields = [
+            'title', 'desc', 'category', 'severity', 'status',
+            'owner', 'reported_by', 'assigned_to',
+            'due', 'impact', 'resolution',
+            'stage', 'linked_tasks', 'visibility',
+        ]
         widgets = {
             'title': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'Short description'}),
             'desc': forms.Textarea(attrs={'class': textarea_cls, 'placeholder': 'What happened? Impact?', 'rows': 3}),
+            'category': forms.Select(attrs={'class': select_cls}),
             'severity': forms.Select(attrs={'class': select_cls}),
             'status': forms.Select(attrs={'class': select_cls}),
             'owner': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'Who is responsible?'}),
             'due': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
             'impact': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. ETB build delayed 2 weeks'}),
+            'resolution': forms.Textarea(attrs={'class': textarea_cls, 'placeholder': 'How was this resolved?', 'rows': 3}),
             'stage': forms.Select(attrs={'class': select_cls}),
             'linked_tasks': forms.CheckboxSelectMultiple(),
             'visibility': forms.Select(attrs={'class': select_cls}),
@@ -131,20 +143,24 @@ class IssueForm(forms.ModelForm):
         if project:
             self.fields['linked_tasks'].queryset = project.tasks.all()
             self.fields['stage'].queryset = project.stages.all()
-            # Filter assigned_to to project team members (internal users)
             internal_members = project.team_members.filter(member_type='internal', user__isnull=False)
-            self.fields['assigned_to'].project = project
-            self.fields['assigned_to'].queryset = User.objects.filter(
+            member_qs = User.objects.filter(
                 pk__in=internal_members.values_list('user', flat=True)
             ).order_by('first_name', 'last_name', 'username')
+            self.fields['assigned_to'].project = project
+            self.fields['assigned_to'].queryset = member_qs
+            self.fields['reported_by'].project = project
+            self.fields['reported_by'].queryset = member_qs
         elif self.instance and self.instance.pk:
             self.fields['stage'].queryset = self.instance.project.stages.all()
-            # Filter assigned_to to project team members
             internal_members = self.instance.project.team_members.filter(member_type='internal', user__isnull=False)
-            self.fields['assigned_to'].project = self.instance.project
-            self.fields['assigned_to'].queryset = User.objects.filter(
+            member_qs = User.objects.filter(
                 pk__in=internal_members.values_list('user', flat=True)
             ).order_by('first_name', 'last_name', 'username')
+            self.fields['assigned_to'].project = self.instance.project
+            self.fields['assigned_to'].queryset = member_qs
+            self.fields['reported_by'].project = self.instance.project
+            self.fields['reported_by'].queryset = member_qs
         self.fields['stage'].empty_label = '— None —'
 
 

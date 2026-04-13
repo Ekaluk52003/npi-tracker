@@ -14,9 +14,10 @@
             {% for issue in issues %}
             <div class="p-3 rounded-lg bg-[var(--surface2)] border-l-4
                 {% if issue.severity == 'critical' %}border-red-500{% elif issue.severity == 'high' %}border-amber-500{% elif issue.severity == 'medium' %}border-blue-500{% else %}border-gray-500{% endif %}">
-                <div class="flex items-center gap-2 mb-1">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
                     <span class="severity-badge severity-{{ issue.severity }}">{{ issue.severity_label }}</span>
                     <span class="status-badge status-{{ issue.status }}">{{ issue.status_label }}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)]">{{ issue.get_category_display }}</span>
                     <span class="font-medium text-sm">{{ issue.title }}</span>
                 </div>
                 {% if issue.desc %}<p class="text-xs text-[var(--text-muted)] mb-1">{{ issue.desc|truncatewords:30 }}</p>{% endif %}

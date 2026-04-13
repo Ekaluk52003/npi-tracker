@@ -46,6 +46,7 @@
                         {% if issue.desc %}<p class="text-xs text-[var(--text-muted)] mt-0.5 line-clamp-1">{{ issue.desc }}</p>{% endif %}
                         <div class="flex items-center gap-2 mt-1 flex-wrap">
                             {% if issue.stage %}<span class="stage-pill-sm" style="background:{{ issue.stage.color }}22;color:{{ issue.stage.color }}">{{ issue.stage.name }}</span>{% endif %}
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">{{ issue.get_category_display }}</span>
                             {% if issue.visibility == 'internal' %}<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20" title="Internal Only">Internal</span>{% endif %}
                             {% if issue.impact %}<span class="text-[10px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded">{{ issue.impact|truncatewords:6 }}</span>{% endif %}
                             {% for t in issue.linked_tasks.all %}
@@ -120,8 +121,12 @@
                 <div class="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--border)] last:border-b-0 hover:opacity-100 transition-opacity">
                     <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     <span class="severity-badge severity-{{ issue.severity }} !text-[10px] !px-1.5 !py-0.5">{{ issue.severity_label }}</span>
-                    <span class="text-sm text-[var(--text-muted)] flex-1 truncate">{{ issue.title }}</span>
-                    {% if issue.owner %}<span class="text-[11px] text-[var(--text-muted)]">{{ issue.owner }}</span>{% endif %}
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">{{ issue.get_category_display }}</span>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-sm text-[var(--text-muted)] truncate block">{{ issue.title }}</span>
+                        {% if issue.resolution %}<span class="text-[11px] text-emerald-400/80 truncate block" title="{{ issue.resolution }}">{{ issue.resolution|truncatewords:10 }}</span>{% endif %}
+                    </div>
+                    {% if issue.resolved_at %}<span class="text-[11px] text-[var(--text-muted)] whitespace-nowrap">{{ issue.resolved_at|date:"d M y" }}</span>{% endif %}
                     <button hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
                             class="text-xs text-[var(--accent)] hover:underline opacity-0 hover:opacity-100 transition-opacity">Edit</button>
                 </div>

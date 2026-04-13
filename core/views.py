@@ -643,18 +643,29 @@ def project_critical_index(request, pk):
         else:
             stage_groups[-1]['count'] += 1
 
-    # Attach open issues per task - filter by visibility
+    # Attach open + resolved issues per task - filter by visibility
     for s in scored:
-        all_linked = s['task'].linked_issues.exclude(status='resolved')
-        s['open_issues'] = [i for i in all_linked if i.visibility in ('all', 'customer') or is_internal_user(request.user)]
+        all_linked = list(s['task'].linked_issues.select_related('assigned_to', 'reported_by').all())
+        visible = [i for i in all_linked if i.visibility in ('all', 'customer') or is_internal_user(request.user)]
+        s['open_issues'] = [i for i in visible if i.status != 'resolved']
+        s['resolved_issues'] = [i for i in visible if i.status == 'resolved']
         s['issue_count'] = len(s['open_issues'])
 
-    # Unlinked issues (not linked to any active task) - filter by visibility
-    all_issues = list(filter_visible_items(
+    # Unlinked open issues (not linked to any active task) - filter by visibility
+    all_open_issues = list(filter_visible_items(
         project.issues.exclude(status='resolved').prefetch_related('linked_tasks'),
         request.user
     ))
-    unlinked = [i for i in all_issues if not i.linked_tasks.exclude(status='done').exists()]
+    unlinked = [i for i in all_open_issues if not i.linked_tasks.exclude(status='done').exists()]
+
+    # Unlinked resolved issues
+    all_resolved_issues = list(filter_visible_items(
+        project.issues.filter(status='resolved')
+            .select_related('assigned_to', 'reported_by')
+            .prefetch_related('linked_tasks'),
+        request.user
+    ))
+    unlinked_resolved = [i for i in all_resolved_issues if not i.linked_tasks.exclude(status='done').exists()]
 
     today = date.today()
 
@@ -662,7 +673,8 @@ def project_critical_index(request, pk):
         'scored_tasks': scored,
         'stage_groups_json': json.dumps(stage_groups),
         'unlinked_issues': unlinked,
-        'total_issue_count': len(all_issues),
+        'unlinked_resolved_issues': unlinked_resolved,
+        'total_issue_count': len(all_open_issues),
         'unlinked_count': len(unlinked),
         'today': today,
         'open_tasks_only': open_tasks_only,
@@ -846,6 +858,8 @@ def issue_create(request, pk):
         if form.is_valid():
             issue = form.save(commit=False)
             issue.project = project
+            if not issue.reported_by_id:
+                issue.reported_by = request.user
             issue.save()
             form.save_m2m()
             if request.htmx:

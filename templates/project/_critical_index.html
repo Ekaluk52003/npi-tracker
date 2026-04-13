@@ -138,21 +138,44 @@
                      x-show="isVisible('{{ issue.severity }}') && isMyTask({{ issue.assigned_to_id|default:0 }})"
                      @dragstart="startDrag({{ issue.pk }}, null, $event)"
                      @dragend="endDrag($event)">
-                    <div class="flex items-center gap-1.5 mb-1">
+                    <!-- Row 1: severity + status + category -->
+                    <div class="flex items-center gap-1.5 mb-1 flex-wrap">
                         <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
                         <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
                         <span class="text-[10px] text-[var(--text-muted)] capitalize">{{ issue.status_label }}</span>
+                        <span class="ml-auto text-[9px] px-1 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]">{{ issue.get_category_display }}</span>
                     </div>
+                    <!-- Row 2: title -->
                     <div class="text-xs font-medium leading-snug mb-1.5 cursor-pointer hover:text-[var(--accent)]"
                          hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
                         {{ issue.title }}
                     </div>
-                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                        <span>{{ issue.owner|default:"TBD" }}</span>
-                        <span {% if issue.due and issue.due < today %}class="text-red-500"{% endif %}>
-                            {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}-{% endif %}
+                    <!-- Row 3: impact -->
+                    {% if issue.impact %}
+                    <div class="text-[10px] px-1.5 py-0.5 mb-1.5 rounded bg-red-500/10 text-red-400 truncate" title="{{ issue.impact }}">{{ issue.impact }}</div>
+                    {% endif %}
+                    <!-- Row 4: desc -->
+                    {% if issue.desc %}
+                    <div class="text-[10px] text-[var(--text-muted)] leading-snug mb-1.5 line-clamp-2">{{ issue.desc }}</div>
+                    {% endif %}
+                    <!-- Row 5: assignee + due -->
+                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)] mt-auto pt-1 border-t border-[var(--border)]/50">
+                        <span class="truncate max-w-[120px]" title="{% if issue.assigned_to %}{{ issue.assigned_to.get_full_name|default:issue.assigned_to.username }}{% else %}{{ issue.owner }}{% endif %}">
+                            {% if issue.assigned_to %}{{ issue.assigned_to.get_full_name|default:issue.assigned_to.username }}{% elif issue.owner %}{{ issue.owner }}{% else %}Unassigned{% endif %}
+                        </span>
+                        <span {% if issue.due and issue.due < today %}class="text-red-500 font-semibold"{% endif %}>
+                            {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}—{% endif %}
                         </span>
                     </div>
+                    <!-- Row 6: reported by -->
+                    {% if issue.reported_by %}
+                    <div class="text-[9px] text-[var(--text-muted)] mt-1">
+                        Filed by {{ issue.reported_by.get_full_name|default:issue.reported_by.username }}
+                        {% if issue.created_at %}&middot; {{ issue.created_at|date:"d M" }}{% endif %}
+                    </div>
+                    {% elif issue.created_at %}
+                    <div class="text-[9px] text-[var(--text-muted)] mt-1">{{ issue.created_at|date:"d M y" }}</div>
+                    {% endif %}
                 </div>
                 {% empty %}
                 <div class="p-4 text-center text-[11px] text-[var(--text-muted)]">No unlinked issues</div>
@@ -167,7 +190,7 @@
              x-show="isStageVisible('{{ item.task.stage.name|default:'' }}') && isMyTask({{ item.task.assigned_to_id|default:0 }}) && isWithIssues({{ item.issue_count }})">
             <!-- Column header -->
             <div class="p-2.5 border-b border-[var(--border)] bg-[var(--surface)]">
-                <!-- CIS dots + issue count -->
+                <!-- Row 1: CIS dots + issue count badge -->
                 <div class="flex items-center justify-between mb-1">
                     <div class="flex items-center gap-2">
                         <div class="flex gap-0.5" title="CIS {{ item.cis }}/5 (raw: {{ item.score }})">
@@ -181,32 +204,56 @@
                         </div>
                         <span class="text-[11px] font-bold cis-score-text-{{ item.cis }}">{{ item.cis }}/5</span>
                     </div>
-                    <span class="text-[10px] text-[var(--text-muted)] bg-[var(--surface2)] px-1.5 py-0.5 rounded-full">{{ item.issue_count }}</span>
+                    <div class="flex items-center gap-1">
+                        {% if item.task.visibility == 'internal' %}
+                        <span class="text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">Internal</span>
+                        {% endif %}
+                        <span class="text-[10px] text-[var(--text-muted)] bg-[var(--surface2)] px-1.5 py-0.5 rounded-full" title="{{ item.issue_count }} open issue{{ item.issue_count|pluralize }}">{{ item.issue_count }} iss</span>
+                    </div>
                 </div>
-                <!-- Raw CIS score row -->
-                <div class="flex items-center justify-between text-[10px] mt-0.5">
-                    <span class="text-[var(--text-muted)]">CIS Score</span>
-                    <span class="font-bold cis-score-text-{{ item.cis }}">{{ item.score }}</span>
+                <!-- Row 2: Task name + status -->
+                <div class="flex items-start justify-between gap-1 mb-1">
+                    <div class="text-[13px] font-semibold leading-tight cursor-pointer hover:text-[var(--accent)] flex-1"
+                         hx-get="{% url 'task-edit' project.pk item.task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                        {{ item.task.name }}
+                    </div>
+                    <span class="status-dot status-dot-{{ item.task.status }} shrink-0 mt-0.5" style="font-size:0.6rem;">{{ item.task.status_label }}</span>
                 </div>
-                <!-- Task name -->
-                <div class="text-[13px] font-semibold leading-tight mb-1 cursor-pointer hover:text-[var(--accent)]"
-                     hx-get="{% url 'task-edit' project.pk item.task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
-                    {{ item.task.name }}
-                </div>
-                <!-- Meta -->
-                <div class="flex items-center gap-1.5 text-[10px] flex-wrap">
-                    <span class="text-[var(--text-muted)]">{{ item.task.milestone.name }}</span>
+                <!-- Row 3: Milestone + stage -->
+                <div class="flex items-center gap-1.5 text-[10px] flex-wrap mb-1.5">
+                    <span class="text-[var(--text-muted)] truncate">{{ item.task.milestone.name }}</span>
                     {% if item.task.stage %}
-                    <span class="font-semibold px-1.5 py-0.5 rounded" style="background:{{ item.task.stage.color }}22;color:{{ item.task.stage.color }};font-size:0.6rem;">{{ item.task.stage.name }}</span>
+                    <span class="font-semibold px-1.5 py-0.5 rounded shrink-0" style="background:{{ item.task.stage.color }}22;color:{{ item.task.stage.color }};font-size:0.6rem;">{{ item.task.stage.name }}</span>
                     {% endif %}
-                    <span class="ml-auto status-dot status-dot-{{ item.task.status }}" style="font-size:0.65rem;">{{ item.task.status_label }}</span>
+                    {% if item.task.depends_on.exists %}
+                    <span class="text-[9px] px-1 py-0.5 rounded bg-[var(--surface2)] border border-[var(--border)] text-[var(--text-muted)] shrink-0" title="Has dependencies">&#8594; {{ item.task.depends_on.count }} dep</span>
+                    {% endif %}
                 </div>
-                <!-- Score breakdown -->
-                <div class="flex gap-2 mt-1.5 pt-1.5 border-t border-[var(--border)] text-[10px] text-[var(--text-muted)]">
-                    <span>d=<strong class="text-[var(--text)]">{{ item.d }}</strong></span>
-                    <span>p=<strong class="text-[var(--text)]">{{ item.p }}</strong></span>
-                    <span>t=<strong class="text-[var(--text)]">{{ item.t }}d</strong></span>
-                    <span class="ml-auto">{{ item.task.who }}</span>
+                <!-- Row 4: Date range + duration -->
+                <div class="flex items-center gap-1.5 text-[10px] mb-1.5">
+                    <svg class="w-3 h-3 text-[var(--text-muted)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span class="{% if item.task.end < today and item.task.status != 'done' %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">
+                        {{ item.task.start|date:"d M" }} → {{ item.task.end|date:"d M y" }}
+                    </span>
+                    <span class="ml-auto text-[var(--text-muted)]">{{ item.task.days }}d</span>
+                </div>
+                <!-- Row 5: Assignee -->
+                <div class="flex items-center gap-1.5 text-[10px] mb-1.5">
+                    <svg class="w-3 h-3 text-[var(--text-muted)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    <span class="text-[var(--text-muted)] truncate">
+                        {% if item.task.assigned_to %}{{ item.task.assigned_to.get_full_name|default:item.task.assigned_to.username }}{% else %}{{ item.task.who }}{% endif %}
+                    </span>
+                </div>
+                <!-- Row 6: Remark -->
+                {% if item.task.remark %}
+                <div class="text-[10px] text-[var(--text-muted)] italic leading-snug mb-1.5 line-clamp-2 border-l-2 border-[var(--border)] pl-1.5">{{ item.task.remark }}</div>
+                {% endif %}
+                <!-- Row 7: CIS score breakdown -->
+                <div class="flex gap-2 pt-1.5 border-t border-[var(--border)] text-[10px] text-[var(--text-muted)]">
+                    <span title="Downstream dependents">d=<strong class="text-[var(--text)]">{{ item.d }}</strong></span>
+                    <span title="Downstream issues">p=<strong class="text-[var(--text)]">{{ item.p }}</strong></span>
+                    <span title="Duration">t=<strong class="text-[var(--text)]">{{ item.t }}d</strong></span>
+                    <span class="ml-auto font-medium cis-score-text-{{ item.cis }}">score {{ item.score }}</span>
                 </div>
             </div>
 
@@ -224,27 +271,83 @@
                      x-show="isVisible('{{ issue.severity }}') && isMyTask({{ issue.assigned_to_id|default:0 }})"
                      @dragstart="startDrag({{ issue.pk }}, {{ item.task.pk }}, $event)"
                      @dragend="endDrag($event)">
-                    <div class="flex items-center gap-1.5 mb-1">
+                    <!-- Row 1: severity + status + category -->
+                    <div class="flex items-center gap-1.5 mb-1 flex-wrap">
                         <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
                         <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
                         <span class="text-[10px] text-[var(--text-muted)] capitalize">{{ issue.status_label }}</span>
+                        <span class="ml-auto text-[9px] px-1 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]">{{ issue.get_category_display }}</span>
                     </div>
+                    <!-- Row 2: title -->
                     <div class="text-xs font-medium leading-snug mb-1.5 cursor-pointer hover:text-[var(--accent)]"
                          hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
                         {{ issue.title }}
                     </div>
-                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                        <span>{{ issue.owner|default:"TBD" }}</span>
-                        <span {% if issue.due and issue.due < today %}class="text-red-500"{% endif %}>
-                            {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}-{% endif %}
+                    <!-- Row 3: impact -->
+                    {% if issue.impact %}
+                    <div class="text-[10px] px-1.5 py-0.5 mb-1.5 rounded bg-red-500/10 text-red-400 truncate" title="{{ issue.impact }}">{{ issue.impact }}</div>
+                    {% endif %}
+                    <!-- Row 4: desc -->
+                    {% if issue.desc %}
+                    <div class="text-[10px] text-[var(--text-muted)] leading-snug mb-1.5 line-clamp-2">{{ issue.desc }}</div>
+                    {% endif %}
+                    <!-- Row 5: assignee + due -->
+                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)] mt-auto pt-1 border-t border-[var(--border)]/50">
+                        <span class="truncate max-w-[120px]" title="{% if issue.assigned_to %}{{ issue.assigned_to.get_full_name|default:issue.assigned_to.username }}{% else %}{{ issue.owner }}{% endif %}">
+                            {% if issue.assigned_to %}{{ issue.assigned_to.get_full_name|default:issue.assigned_to.username }}{% elif issue.owner %}{{ issue.owner }}{% else %}Unassigned{% endif %}
+                        </span>
+                        <span {% if issue.due and issue.due < today %}class="text-red-500 font-semibold"{% endif %}>
+                            {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}—{% endif %}
                         </span>
                     </div>
+                    <!-- Row 6: reported by -->
+                    {% if issue.reported_by %}
+                    <div class="text-[9px] text-[var(--text-muted)] mt-1">
+                        Filed by {{ issue.reported_by.get_full_name|default:issue.reported_by.username }}
+                        {% if issue.created_at %}&middot; {{ issue.created_at|date:"d M" }}{% endif %}
+                    </div>
+                    {% elif issue.created_at %}
+                    <div class="text-[9px] text-[var(--text-muted)] mt-1">{{ issue.created_at|date:"d M y" }}</div>
+                    {% endif %}
                 </div>
                 {% empty %}
                 <div class="p-3 text-center text-[10px] text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded m-1">
                     Drop issues here
                 </div>
                 {% endfor %}
+
+                <!-- Resolved issues (collapsed) -->
+                {% if item.resolved_issues %}
+                <div x-data="{ open: false }" class="mt-1">
+                    <button @click="open = !open"
+                            class="w-full flex items-center gap-1.5 px-2 py-1 text-[10px] text-emerald-500/70 hover:text-emerald-400 transition-colors">
+                        <svg class="w-3 h-3 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        Resolved ({{ item.resolved_issues|length }})
+                    </button>
+                    <div x-show="open" x-transition.duration.150ms class="space-y-1 px-1 pb-1">
+                        {% for issue in item.resolved_issues %}
+                        <div class="rounded border border-emerald-500/20 bg-emerald-500/5 p-2 opacity-70 hover:opacity-100 transition-opacity">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <svg class="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
+                                <span class="text-[9px] px-1 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]">{{ issue.get_category_display }}</span>
+                            </div>
+                            <div class="text-[11px] font-medium text-[var(--text-muted)] leading-snug mb-1 cursor-pointer hover:text-[var(--accent)]"
+                                 hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                                {{ issue.title }}
+                            </div>
+                            {% if issue.resolution %}
+                            <div class="text-[10px] text-emerald-400/80 leading-snug line-clamp-2 mb-1">{{ issue.resolution }}</div>
+                            {% endif %}
+                            <div class="flex items-center justify-between text-[9px] text-[var(--text-muted)]">
+                                <span>{% if issue.assigned_to %}{{ issue.assigned_to.get_full_name|default:issue.assigned_to.username }}{% elif issue.owner %}{{ issue.owner }}{% endif %}</span>
+                                <span>{% if issue.resolved_at %}{{ issue.resolved_at|date:"d M y" }}{% endif %}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Footer: add issue pre-linked to this task -->
@@ -264,14 +367,24 @@
 
 <!-- ── Table View ──────────────────────────────────────────────── -->
 <div x-show="viewMode === 'table'" class="overflow-x-auto">
+    <!-- Table toolbar -->
+    <div class="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--surface2)]">
+        <button class="cis-filter-btn" :class="{ 'cis-filter-active': showResolved }" @click="showResolved = !showResolved">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Show Resolved
+        </button>
+    </div>
     <table class="w-full text-xs border-collapse">
         <thead>
             <tr class="sticky top-0 z-10 bg-[var(--surface)] border-b-2 border-[var(--border)] text-[var(--text-muted)] text-[10px] uppercase tracking-wider">
                 <th class="px-3 py-2 text-left font-semibold">Severity</th>
                 <th class="px-3 py-2 text-left font-semibold">Title</th>
+                <th class="px-3 py-2 text-left font-semibold">Category</th>
                 <th class="px-3 py-2 text-left font-semibold">Status</th>
-                <th class="px-3 py-2 text-left font-semibold">Owner</th>
+                <th class="px-3 py-2 text-left font-semibold">Assignee</th>
+                <th class="px-3 py-2 text-left font-semibold">Reported By</th>
                 <th class="px-3 py-2 text-left font-semibold">Due</th>
+                <th class="px-3 py-2 text-left font-semibold">Impact</th>
                 <th class="px-3 py-2 text-left font-semibold">Task</th>
                 <th class="px-3 py-2 text-left font-semibold">Stage</th>
                 <th class="px-3 py-2 text-center font-semibold">CIS</th>
@@ -281,20 +394,35 @@
             <!-- Unlinked issues (no stage) -->
             {% for issue in unlinked_issues %}
             <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
-                x-show="isVisible('{{ issue.severity }}') && isStageVisible('') && isMyTask({{ issue.assigned_to_id|default:0 }})"
+                x-show="isVisible('{{ issue.severity }}') && isStageVisible('') && isMyTask({{ issue.assigned_to_id|default:0 }})">
                 <td class="px-3 py-2">
                     <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
                 </td>
-                <td class="px-3 py-2 font-medium text-[var(--text)]">{{ issue.title }}</td>
+                <td class="px-3 py-2 cursor-pointer hover:text-[var(--accent)]"
+                    hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                    <div class="font-medium text-[var(--text)]">{{ issue.title }}</div>
+                    {% if issue.desc %}<div class="text-[10px] text-[var(--text-muted)] line-clamp-1 mt-0.5">{{ issue.desc }}</div>{% endif %}
+                </td>
+                <td class="px-3 py-2">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] border border-[var(--border)] text-[var(--text-muted)]">{{ issue.get_category_display }}</span>
+                </td>
                 <td class="px-3 py-2">
                     <div class="flex items-center gap-1.5">
                         <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
                         <span class="capitalize text-[var(--text-muted)]">{{ issue.status_label }}</span>
                     </div>
                 </td>
-                <td class="px-3 py-2 text-[var(--text-muted)]">{{ issue.owner|default:"TBD" }}</td>
-                <td class="px-3 py-2 {% if issue.due and issue.due < today %}text-red-500{% else %}text-[var(--text-muted)]{% endif %}">
-                    {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}-{% endif %}
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.assigned_to %}{{ issue.assigned_to.get_full_name|default:issue.assigned_to.username }}{% elif issue.owner %}{{ issue.owner }}{% else %}<span class="italic text-amber-400/70">Unassigned</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.reported_by %}{{ issue.reported_by.get_full_name|default:issue.reported_by.username }}{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 {% if issue.due and issue.due < today %}text-red-500 font-semibold{% else %}text-[var(--text-muted)]{% endif %} text-[11px]">
+                    {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[11px]">
+                    {% if issue.impact %}<span class="text-red-400 line-clamp-1" title="{{ issue.impact }}">{{ issue.impact }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}
                 </td>
                 <td class="px-3 py-2 text-amber-500 italic text-[11px]">Unlinked</td>
                 <td class="px-3 py-2 text-[var(--text-muted)]">—</td>
@@ -310,9 +438,13 @@
                 <td class="px-3 py-2">
                     <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
                 </td>
-                <td class="px-3 py-2 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
+                <td class="px-3 py-2 cursor-pointer hover:text-[var(--accent)]"
                     hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
-                    {{ issue.title }}
+                    <div class="font-medium text-[var(--text)]">{{ issue.title }}</div>
+                    {% if issue.desc %}<div class="text-[10px] text-[var(--text-muted)] line-clamp-1 mt-0.5">{{ issue.desc }}</div>{% endif %}
+                </td>
+                <td class="px-3 py-2">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] border border-[var(--border)] text-[var(--text-muted)]">{{ issue.get_category_display }}</span>
                 </td>
                 <td class="px-3 py-2">
                     <div class="flex items-center gap-1.5">
@@ -320,9 +452,109 @@
                         <span class="capitalize text-[var(--text-muted)]">{{ issue.status_label }}</span>
                     </div>
                 </td>
-                <td class="px-3 py-2 text-[var(--text-muted)]">{{ issue.owner|default:"TBD" }}</td>
-                <td class="px-3 py-2 {% if issue.due and issue.due < today %}text-red-500{% else %}text-[var(--text-muted)]{% endif %}">
-                    {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}-{% endif %}
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.assigned_to %}{{ issue.assigned_to.get_full_name|default:issue.assigned_to.username }}{% elif issue.owner %}{{ issue.owner }}{% else %}<span class="italic text-amber-400/70">Unassigned</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.reported_by %}{{ issue.reported_by.get_full_name|default:issue.reported_by.username }}{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 {% if issue.due and issue.due < today %}text-red-500 font-semibold{% else %}text-[var(--text-muted)]{% endif %} text-[11px]">
+                    {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[11px]">
+                    {% if issue.impact %}<span class="text-red-400 line-clamp-1" title="{{ issue.impact }}">{{ issue.impact }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[var(--text)] text-[11px]">{{ item.task.name }}</td>
+                <td class="px-3 py-2">
+                    {% if item.task.stage %}
+                    <span class="font-semibold px-1.5 py-0.5 rounded" style="background:{{ item.task.stage.color }}22;color:{{ item.task.stage.color }};font-size:0.6rem;">{{ item.task.stage.name }}</span>
+                    {% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 text-center">
+                    <span class="text-[11px] font-bold cis-score-text-{{ item.cis }}">{{ item.cis }}/5</span>
+                </td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+
+            <!-- Resolved issues (shown when showResolved is toggled) -->
+            <!-- Unlinked resolved -->
+            {% for issue in unlinked_resolved_issues %}
+            <tr class="border-b border-[var(--border)] opacity-60 hover:opacity-100 transition-opacity bg-emerald-500/5"
+                x-show="showResolved && isVisible('{{ issue.severity }}') && isStageVisible('') && isMyTask({{ issue.assigned_to_id|default:0 }})">
+                <td class="px-3 py-2">
+                    <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
+                </td>
+                <td class="px-3 py-2 cursor-pointer hover:text-[var(--accent)]"
+                    hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                    <div class="font-medium text-[var(--text-muted)] flex items-center gap-1.5">
+                        <svg class="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        {{ issue.title }}
+                    </div>
+                    {% if issue.resolution %}<div class="text-[10px] text-emerald-400/80 line-clamp-1 mt-0.5">{{ issue.resolution }}</div>{% endif %}
+                </td>
+                <td class="px-3 py-2">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] border border-[var(--border)] text-[var(--text-muted)]">{{ issue.get_category_display }}</span>
+                </td>
+                <td class="px-3 py-2">
+                    <div class="flex items-center gap-1.5">
+                        <span class="cis-status-dot cis-st-resolved"></span>
+                        <span class="text-emerald-400">Resolved</span>
+                    </div>
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.assigned_to %}{{ issue.assigned_to.get_full_name|default:issue.assigned_to.username }}{% elif issue.owner %}{{ issue.owner }}{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.reported_by %}{{ issue.reported_by.get_full_name|default:issue.reported_by.username }}{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.resolved_at %}{{ issue.resolved_at|date:"d M y" }}{% elif issue.due %}{{ issue.due|date:"d M" }}{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[11px]">
+                    {% if issue.impact %}<span class="text-red-400 line-clamp-1">{{ issue.impact }}</span>{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-amber-500 italic text-[11px]">Unlinked</td>
+                <td class="px-3 py-2 text-[var(--text-muted)]">—</td>
+                <td class="px-3 py-2 text-center text-[var(--text-muted)]">—</td>
+            </tr>
+            {% endfor %}
+            <!-- Linked resolved -->
+            {% for item in scored_tasks %}
+            {% for issue in item.resolved_issues %}
+            <tr class="border-b border-[var(--border)] opacity-60 hover:opacity-100 transition-opacity bg-emerald-500/5"
+                x-show="showResolved && isVisible('{{ issue.severity }}') && isStageVisible('{{ item.task.stage.name|default:'' }}') && isMyTask({{ issue.assigned_to_id|default:0 }})">
+                <td class="px-3 py-2">
+                    <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
+                </td>
+                <td class="px-3 py-2 cursor-pointer hover:text-[var(--accent)]"
+                    hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                    <div class="font-medium text-[var(--text-muted)] flex items-center gap-1.5">
+                        <svg class="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        {{ issue.title }}
+                    </div>
+                    {% if issue.resolution %}<div class="text-[10px] text-emerald-400/80 line-clamp-1 mt-0.5">{{ issue.resolution }}</div>{% endif %}
+                </td>
+                <td class="px-3 py-2">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] border border-[var(--border)] text-[var(--text-muted)]">{{ issue.get_category_display }}</span>
+                </td>
+                <td class="px-3 py-2">
+                    <div class="flex items-center gap-1.5">
+                        <span class="cis-status-dot cis-st-resolved"></span>
+                        <span class="text-emerald-400">Resolved</span>
+                    </div>
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.assigned_to %}{{ issue.assigned_to.get_full_name|default:issue.assigned_to.username }}{% elif issue.owner %}{{ issue.owner }}{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.reported_by %}{{ issue.reported_by.get_full_name|default:issue.reported_by.username }}{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[var(--text-muted)] text-[11px]">
+                    {% if issue.resolved_at %}{{ issue.resolved_at|date:"d M y" }}{% elif issue.due %}{{ issue.due|date:"d M" }}{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-2 text-[11px]">
+                    {% if issue.impact %}<span class="text-red-400 line-clamp-1">{{ issue.impact }}</span>{% else %}—{% endif %}
                 </td>
                 <td class="px-3 py-2 text-[var(--text)] text-[11px]">{{ item.task.name }}</td>
                 <td class="px-3 py-2">
@@ -361,6 +593,7 @@ function cisBoard() {
         myTasksOnly: false,
         openTasksOnly: {{ open_tasks_only|yesno:'true,false' }},
         withIssuesOnly: false,
+        showResolved: false,
         currentUserId: {{ request.user.pk }},
         stageGroups: {{ stage_groups_json|safe }},
 

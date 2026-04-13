@@ -416,6 +416,14 @@ class Issue(models.Model):
         ('open', 'Open'), ('investigating', 'Investigating'),
         ('resolved', 'Resolved'),
     ]
+    CATEGORY_CHOICES = [
+        ('design', 'Design'),
+        ('quality', 'Quality'),
+        ('supplier', 'Supplier'),
+        ('process', 'Process'),
+        ('test', 'Test'),
+        ('other', 'Other'),
+    ]
     SEVERITY_ORDER = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='issues')
@@ -423,7 +431,14 @@ class Issue(models.Model):
     desc = models.TextField(blank=True)
     severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='medium')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other')
     owner = models.CharField(max_length=200, blank=True)
+    reported_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='reported_issues',
+    )
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -432,6 +447,8 @@ class Issue(models.Model):
     )
     due = models.DateField(null=True, blank=True)
     impact = models.CharField(max_length=500, blank=True)
+    resolution = models.TextField(blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
     stage = models.ForeignKey(BuildStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='issues')
     linked_tasks = models.ManyToManyField(Task, blank=True, related_name='linked_issues')
     visibility = models.CharField(
@@ -440,9 +457,21 @@ class Issue(models.Model):
         default=VisibilityChoices.ALL,
         help_text='Controls who can see this issue'
     )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['status', 'severity']
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            old = Issue.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+            if old != 'resolved' and self.status == 'resolved' and not self.resolved_at:
+                from django.utils import timezone
+                self.resolved_at = timezone.now()
+            elif self.status != 'resolved':
+                self.resolved_at = None
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title
