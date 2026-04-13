@@ -289,6 +289,52 @@ def can_create_issue(user):
     return is_pm(user)
 
 
+def is_internal_user(user):
+    """Check if user has any internal role.
+    
+    Uses Role.is_internal flag - configurable via admin.
+    """
+    from .models import UserRoleAssignment
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return UserRoleAssignment.objects.filter(
+        user=user,
+        role__is_internal=True
+    ).exists()
+
+
+def filter_visible_items(queryset, user):
+    """Filter queryset based on user role and item visibility.
+    
+    Usage:
+        tasks = filter_visible_items(project.tasks.all(), request.user)
+        issues = filter_visible_items(project.issues.all(), request.user)
+        milestones = filter_visible_items(project.milestones.all(), request.user)
+    
+    Visibility rules:
+    - 'all': Everyone can see
+    - 'internal': Only internal users (pm, engineer, admin, superuser)
+    - 'customer': Internal users + customer users see this
+    """
+    if not user or not user.is_authenticated:
+        # Anonymous users see nothing
+        return queryset.none()
+    
+    if user.is_superuser:
+        # Superusers see everything
+        return queryset
+    
+    if is_internal_user(user):
+        # Internal users see 'all' and 'internal' items
+        # They don't see 'customer-only' items (those are for external customer users)
+        return queryset.filter(visibility__in=['all', 'internal'])
+    else:
+        # External/customer users see 'all' and 'customer' items
+        return queryset.filter(visibility__in=['all', 'customer'])
+
+
 def role_required(*roles):
     """View decorator to restrict access by role.
 

@@ -67,7 +67,7 @@ class TaskForm(forms.ModelForm):
 
     class Meta:
         model = Task
-        fields = ['name', 'milestone', 'remark', 'who', 'assigned_to', 'start', 'end', 'status', 'stage']
+        fields = ['name', 'milestone', 'remark', 'who', 'assigned_to', 'start', 'end', 'status', 'stage', 'visibility']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. PCB Production'}),
             'milestone': forms.Select(attrs={'class': select_cls}),
@@ -77,6 +77,7 @@ class TaskForm(forms.ModelForm):
             'end': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
             'status': forms.Select(attrs={'class': select_cls}),
             'stage': forms.Select(attrs={'class': select_cls}),
+            'visibility': forms.Select(attrs={'class': select_cls}),
         }
 
     def __init__(self, *args, project=None, **kwargs):
@@ -111,7 +112,7 @@ class IssueForm(forms.ModelForm):
 
     class Meta:
         model = Issue
-        fields = ['title', 'desc', 'severity', 'status', 'owner', 'assigned_to', 'due', 'impact', 'stage', 'linked_tasks']
+        fields = ['title', 'desc', 'severity', 'status', 'owner', 'assigned_to', 'due', 'impact', 'stage', 'linked_tasks', 'visibility']
         widgets = {
             'title': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'Short description'}),
             'desc': forms.Textarea(attrs={'class': textarea_cls, 'placeholder': 'What happened? Impact?', 'rows': 3}),
@@ -122,6 +123,7 @@ class IssueForm(forms.ModelForm):
             'impact': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. ETB build delayed 2 weeks'}),
             'stage': forms.Select(attrs={'class': select_cls}),
             'linked_tasks': forms.CheckboxSelectMultiple(),
+            'visibility': forms.Select(attrs={'class': select_cls}),
         }
 
     def __init__(self, *args, project=None, **kwargs):
@@ -267,10 +269,11 @@ class GateChecklistItemForm(forms.ModelForm):
 class MilestoneForm(forms.ModelForm):
     class Meta:
         model = Milestone
-        fields = ['name', 'sort_order']
+        fields = ['name', 'sort_order', 'visibility']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Pre-req: Main PCBA'}),
             'sort_order': forms.NumberInput(attrs={'class': input_cls, 'min': 0}),
+            'visibility': forms.Select(attrs={'class': select_cls}),
         }
 
 

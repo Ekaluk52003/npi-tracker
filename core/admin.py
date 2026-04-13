@@ -163,14 +163,14 @@ class RolePermissionInline(admin.TabularInline):
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
-    list_display = ['name', 'key', 'is_superuser', 'created_at']
-    list_filter = ['is_superuser']
+    list_display = ['name', 'key', 'is_internal', 'is_superuser', 'created_at']
+    list_filter = ['is_internal', 'is_superuser']
     search_fields = ['name', 'key', 'description']
     inlines = [RolePermissionInline]
     readonly_fields = ['created_at', 'updated_at']
     fieldsets = (
         (None, {'fields': ('name', 'key', 'description')}),
-        ('Permissions', {'fields': ('is_superuser',)}),
+        ('Status', {'fields': ('is_internal', 'is_superuser')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
 

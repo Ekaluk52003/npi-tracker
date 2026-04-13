@@ -3,7 +3,12 @@
     {% for sec in sections %}
     <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="font-semibold text-sm">{{ sec.milestone }}</h3>
+            <div class="flex items-center gap-2">
+                <h3 class="font-semibold text-sm">{{ sec.milestone }}</h3>
+                {% if sec.milestone_obj.visibility == 'internal' %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20" title="Internal Only Milestone">Internal</span>
+                {% endif %}
+            </div>
             <span class="status-badge {% if sec.pct == 100 %}status-done{% elif sec.pct > 0 %}status-inprogress{% else %}status-open{% endif %}">
                 {% if sec.pct == 100 %}Complete{% elif sec.pct > 0 %}Active{% else %}Planning{% endif %}
             </span>

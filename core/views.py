@@ -22,6 +22,7 @@ from .permissions import (
     can_view_project, can_edit_issue, get_project_queryset,
     # New permission system
     permission_required, has_permission, can_view, can_add, can_change, can_delete,
+    filter_visible_items, is_internal_user,
 )
 
 
@@ -42,12 +43,20 @@ def _htmx_tab(request, full_tpl, partial_tpl, ctx):
     return HttpResponse(content + '\n' + topbar_oob)
 
 
-def _project_ctx(project, tab, extra=None):
+def _project_ctx(project, tab, user=None, extra=None):
     latest_version = project.plan_versions.first()
+    
+    # Filter counts by visibility if user provided
+    if user:
+        visible_issues = filter_visible_items(project.issues.exclude(status='resolved'), user)
+        open_issue_count = visible_issues.count()
+    else:
+        open_issue_count = project.issues.exclude(status='resolved').count()
+    
     ctx = {
         'project': project,
         'active_tab': tab,
-        'open_issue_count': project.issues.exclude(status='resolved').count(),
+        'open_issue_count': open_issue_count,
         'nre_no_po_count': project.nre_items.filter(po_status='no-po').count(),
         'project_stages': list(project.stages.all()),
         'project_milestones': list(project.milestones.all()),
@@ -108,12 +117,20 @@ def _cascade_dependents(task):
     return cascaded
 
 
-def _gantt_data_from_snapshot(version, project):
+def _gantt_data_from_snapshot(version, project, user):
     stage_colors = {s.name: s.color for s in project.stages.all()}
     sections_map = {}
+    
+    # Filter tasks from snapshot by visibility
+    is_user_internal = is_internal_user(user)
     for t in version.task_snapshot:
+        visibility = t.get('visibility', 'all')
+        # Skip if internal-only and user is not internal
+        if visibility == 'internal' and not is_user_internal:
+            continue
         sec = t.get('section', 'Uncategorised')
         sections_map.setdefault(sec, []).append(t)
+    
     sections = [
         {
             'milestone': sec_name,
@@ -132,12 +149,14 @@ def _gantt_data_from_snapshot(version, project):
                 'open_issues': 0,
                 'nre_count': 0,
                 'depends_on': t.get('depends_on', []),
+                'visibility': t.get('visibility', 'all'),
             } for t in tasks],
         }
         for sec_name, tasks in sections_map.items()
     ]
-    starts = [t['start'] for t in version.task_snapshot]
-    ends = [t['end'] for t in version.task_snapshot]
+    all_tasks = [t for tasks in sections_map.values() for t in tasks]
+    starts = [t['start'] for t in all_tasks]
+    ends = [t['end'] for t in all_tasks]
     stages_data = [{
         'stage_id': s.pk, 'name': s.name, 'color': s.color, 'status': s.status,
         'planned_date': s.planned_date.isoformat() if s.planned_date else None,
@@ -155,15 +174,24 @@ def _gantt_data_from_snapshot(version, project):
     }
 
 
-def _gantt_data_for_project(project, stage_filter=''):
-    tasks = project.tasks.select_related('stage', 'milestone', 'assigned_to').prefetch_related('linked_nre', 'depends_on', 'linked_issues').all()
+def _gantt_data_for_project(project, user, stage_filter=''):
+    tasks = filter_visible_items(
+        project.tasks.select_related('stage', 'milestone', 'assigned_to').prefetch_related('linked_nre', 'depends_on', 'linked_issues'),
+        user
+    )
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
     for milestone_id, group in groupby(tasks, key=lambda t: t.milestone_id):
         task_list = list(group)
+        if not task_list:
+            continue  # Skip sections with no visible tasks
+        milestone = task_list[0].milestone
+        # Also check if milestone itself is internal-only
+        if milestone.visibility == 'internal' and not is_internal_user(user):
+            continue  # Skip internal-only milestones for external users
         sections.append({
-            'milestone': task_list[0].milestone.name if task_list else '',
+            'milestone': milestone.name,
             'tasks': [{
                 'id': t.pk,
                 'name': t.name,
@@ -179,9 +207,11 @@ def _gantt_data_for_project(project, stage_filter=''):
                 'open_issues': t.linked_issues.exclude(status='resolved').count(),
                 'nre_count': t.linked_nre.count(),
                 'depends_on': list(t.depends_on.values_list('id', flat=True)),
+                'visibility': t.visibility,
             } for t in task_list],
         })
-    all_tasks = project.tasks.all()
+    # Use filtered tasks for date range calculation too
+    all_tasks = list(tasks)
     starts = [t.start for t in all_tasks]
     ends = [t.end for t in all_tasks]
     stages_data = []
@@ -285,7 +315,7 @@ def project_issues_modal(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
-    issues = project.issues.select_related('stage').all()
+    issues = filter_visible_items(project.issues.select_related('stage'), request.user)
     return render(request, 'portfolio/_issues_modal.html', {'project': project, 'issues': issues})
 
 
@@ -338,7 +368,7 @@ def project_detail(request, pk):
 
 @login_required
 def project_gantt(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__linked_nre', 'stages', 'issues'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('stages', 'issues'), pk=pk)
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
@@ -350,16 +380,16 @@ def project_gantt(request, pk):
 
     if version_id and version_id.isdigit():
         viewing_version = get_object_or_404(ProjectPlanVersion, pk=int(version_id), project=project)
-        gantt_data = _gantt_data_from_snapshot(viewing_version, project)
+        gantt_data = _gantt_data_from_snapshot(viewing_version, project, request.user)
     else:
-        gantt_data = _gantt_data_for_project(project, stage_filter)
+        gantt_data = _gantt_data_for_project(project, request.user, stage_filter)
 
     # Handle comparison version for overlay display
     if compare_version_id and compare_version_id.isdigit():
         compare_version = get_object_or_404(ProjectPlanVersion, pk=int(compare_version_id), project=project)
-        compare_data = _gantt_data_from_snapshot(compare_version, project)
+        compare_data = _gantt_data_from_snapshot(compare_version, project, request.user)
 
-    ctx = _project_ctx(project, 'gantt', {
+    ctx = _project_ctx(project, 'gantt', request.user, {
         'gantt_data': gantt_data,
         'stage_filter': stage_filter,
         'viewing_version': viewing_version,
@@ -376,14 +406,32 @@ def project_list(request, pk):
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
-    tasks = project.tasks.select_related('stage', 'milestone').prefetch_related('linked_nre').all()
-    if stage_filter and stage_filter.isdigit():
-        tasks = tasks.filter(stage_id=int(stage_filter))
+    if 'version' in request.GET:
+        viewing_version = get_object_or_404(ProjectPlanVersion, pk=int(request.GET['version']), project=project)
+        # Filter visible tasks from snapshot
+        all_tasks = viewing_version.snapshot_data.get('tasks', [])
+        if is_internal_user(request.user):
+            tasks = [t for t in all_tasks if t.get('visibility', 'all') in ['all', 'internal']]
+        else:
+            tasks = [t for t in all_tasks if t.get('visibility', 'all') in ['all', 'customer']]
+    else:
+        tasks = filter_visible_items(
+            project.tasks.select_related('milestone', 'stage').prefetch_related('linked_nre', 'depends_on'),
+            request.user
+        )
+        if stage_filter and stage_filter.isdigit():
+            tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
     for milestone_id, group in groupby(tasks, key=lambda t: t.milestone_id):
         task_list = list(group)
-        sections.append({'milestone': task_list[0].milestone.name, 'tasks': task_list})
-    ctx = _project_ctx(project, 'list', {
+        if not task_list:
+            continue
+        milestone = task_list[0].milestone
+        # Check if milestone itself is internal-only
+        if milestone.visibility == 'internal' and not is_internal_user(request.user):
+            continue
+        sections.append({'milestone': milestone.name, 'tasks': task_list})
+    ctx = _project_ctx(project, 'list', request.user, {
         'sections': sections,
         'stage_filter': stage_filter,
     })
@@ -392,22 +440,32 @@ def project_list(request, pk):
 
 @login_required
 def project_milestones(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__milestone', 'stages'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('stages'), pk=pk)
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
-    tasks = project.tasks.select_related('stage', 'milestone').all()
+    tasks = filter_visible_items(
+        project.tasks.select_related('stage', 'milestone'),
+        request.user
+    )
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
     for milestone_id, group in groupby(tasks, key=lambda t: t.milestone_id):
         task_list = list(group)
+        if not task_list:
+            continue
+        milestone = task_list[0].milestone
+        # Check if milestone itself is internal-only
+        if milestone.visibility == 'internal' and not is_internal_user(request.user):
+            continue
         total = len(task_list)
         done = sum(1 for t in task_list if t.status == 'done')
         starts = [t.start for t in task_list]
         ends = [t.end for t in task_list]
         sections.append({
-            'milestone': task_list[0].milestone.name,
+            'milestone': milestone.name,
+            'milestone_obj': milestone,
             'tasks': task_list,
             'total': total,
             'done': done,
@@ -415,7 +473,7 @@ def project_milestones(request, pk):
             'start': min(starts) if starts else None,
             'end': max(ends) if ends else None,
         })
-    ctx = _project_ctx(project, 'milestones', {
+    ctx = _project_ctx(project, 'milestones', request.user, {
         'sections': sections,
         'stage_filter': stage_filter,
     })
@@ -428,20 +486,25 @@ def project_team(request, pk):
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
     members = project.team_members.all()
+    
+    # Get visible tasks and issues once for efficiency
+    visible_tasks = filter_visible_items(project.tasks.all(), request.user)
+    visible_issues = filter_visible_items(project.issues.all(), request.user)
+    
     for m in members:
         # For internal members, count tasks assigned to their user account
         if m.member_type == 'internal' and m.user:
-            m.task_count = project.tasks.filter(assigned_to=m.user).count()
-            m.issue_count = project.issues.filter(assigned_to=m.user).count()
+            m.task_count = visible_tasks.filter(assigned_to=m.user).count()
+            m.issue_count = visible_issues.filter(assigned_to=m.user).count()
         else:
             # For external members, fall back to who/owner field matching
-            m.task_count = project.tasks.filter(who__icontains=m.name).count()
+            m.task_count = visible_tasks.filter(who__icontains=m.name).count()
             if not m.task_count and m.company:
-                m.task_count = project.tasks.filter(who__icontains=m.company).count()
-            m.issue_count = project.issues.filter(owner__icontains=m.name).count()
+                m.task_count = visible_tasks.filter(who__icontains=m.company).count()
+            m.issue_count = visible_issues.filter(owner__icontains=m.name).count()
             if not m.issue_count and m.company:
-                m.issue_count = project.issues.filter(owner__icontains=m.company).count()
-    ctx = _project_ctx(project, 'team', {'members': members})
+                m.issue_count = visible_issues.filter(owner__icontains=m.company).count()
+    ctx = _project_ctx(project, 'team', request.user, {'members': members})
     return _htmx_tab(request, 'project/detail.html', 'project/_team.html', ctx)
 
 
@@ -455,7 +518,7 @@ def project_stages(request, pk):
         s.gate = s.gate_readiness
         s.tasks_done = s.tasks.filter(status='done').count()
         s.tasks_total = s.tasks.count()
-    ctx = _project_ctx(project, 'stages', {'stages': stages})
+    ctx = _project_ctx(project, 'stages', request.user, {'stages': stages})
     return _htmx_tab(request, 'project/detail.html', 'project/_stages.html', ctx)
 
 
@@ -473,7 +536,7 @@ def project_nre(request, pk):
     covered = sum(n.total_cost for n in items if n.po_status != 'no-po')
     paid = sum(n.total_cost for n in items if n.po_status == 'paid')
     no_po = items.filter(po_status='no-po').count()
-    ctx = _project_ctx(project, 'nre', {
+    ctx = _project_ctx(project, 'nre', request.user, {
         'categories': categories,
         'nre_total': total,
         'nre_covered': covered,
@@ -499,7 +562,10 @@ def project_critical_index(request, pk):
     )
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
-    tasks = list(project.tasks.exclude(status='done').select_related('stage', 'milestone'))
+    tasks = list(filter_visible_items(
+        project.tasks.exclude(status='done').select_related('stage', 'milestone'),
+        request.user
+    ))
     task_ids = {t.pk for t in tasks}
 
     # Build adjacency from M2M through table in one query
@@ -574,18 +640,22 @@ def project_critical_index(request, pk):
         else:
             stage_groups[-1]['count'] += 1
 
-    # Attach open issues per task
+    # Attach open issues per task - filter by visibility
     for s in scored:
-        s['open_issues'] = list(s['task'].linked_issues.exclude(status='resolved'))
+        all_linked = s['task'].linked_issues.exclude(status='resolved')
+        s['open_issues'] = [i for i in all_linked if i.visibility in ('all', 'customer') or is_internal_user(request.user)]
         s['issue_count'] = len(s['open_issues'])
 
-    # Unlinked issues (not linked to any active task)
-    all_issues = list(project.issues.exclude(status='resolved').prefetch_related('linked_tasks'))
+    # Unlinked issues (not linked to any active task) - filter by visibility
+    all_issues = list(filter_visible_items(
+        project.issues.exclude(status='resolved').prefetch_related('linked_tasks'),
+        request.user
+    ))
     unlinked = [i for i in all_issues if not i.linked_tasks.exclude(status='done').exists()]
 
     today = date.today()
 
-    ctx = _project_ctx(project, 'critical-index', {
+    ctx = _project_ctx(project, 'critical-index', request.user, {
         'scored_tasks': scored,
         'stage_groups_json': json.dumps(stage_groups),
         'unlinked_issues': unlinked,

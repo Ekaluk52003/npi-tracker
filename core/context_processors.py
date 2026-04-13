@@ -1,5 +1,7 @@
 from .models import Project, UserRoleAssignment
-from .permissions import get_project_queryset, has_permission, can_view, can_add, can_change, can_delete
+from .permissions import (
+    get_project_queryset, has_permission, can_view, can_add, can_change, can_delete
+)
 
 
 def sidebar_context(request):

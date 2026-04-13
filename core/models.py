@@ -3,6 +3,12 @@ from django.db import models
 from datetime import date
 
 
+class VisibilityChoices(models.TextChoices):
+    ALL = 'all', 'All Users'
+    INTERNAL = 'internal', 'Internal Only'
+    CUSTOMER = 'customer', 'Customer Only'
+
+
 class Customer(models.Model):
     name = models.CharField(max_length=200, unique=True)
 
@@ -236,6 +242,12 @@ class Milestone(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='milestones')
     name = models.CharField(max_length=200)
     sort_order = models.IntegerField(default=0)
+    visibility = models.CharField(
+        max_length=20,
+        choices=VisibilityChoices.choices,
+        default=VisibilityChoices.ALL,
+        help_text='Controls who can see this milestone'
+    )
 
     class Meta:
         ordering = ['sort_order', 'id']
@@ -273,6 +285,12 @@ class Task(models.Model):
         symmetrical=False,
         blank=True,
         related_name='dependents',
+    )
+    visibility = models.CharField(
+        max_length=20,
+        choices=VisibilityChoices.choices,
+        default=VisibilityChoices.ALL,
+        help_text='Controls who can see this task'
     )
 
     class Meta:
@@ -416,6 +434,12 @@ class Issue(models.Model):
     impact = models.CharField(max_length=500, blank=True)
     stage = models.ForeignKey(BuildStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='issues')
     linked_tasks = models.ManyToManyField(Task, blank=True, related_name='linked_issues')
+    visibility = models.CharField(
+        max_length=20,
+        choices=VisibilityChoices.choices,
+        default=VisibilityChoices.ALL,
+        help_text='Controls who can see this issue'
+    )
 
     class Meta:
         ordering = ['status', 'severity']
@@ -676,6 +700,7 @@ class Role(models.Model):
     name = models.CharField(max_length=50, unique=True)
     key = models.SlugField(max_length=50, unique=True, help_text='Unique identifier used in code')
     description = models.TextField(blank=True)
+    is_internal = models.BooleanField(default=True, help_text='Internal roles can see internal-only tasks/milestones/issues')
     is_superuser = models.BooleanField(default=False, help_text='Bypass all permission checks')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

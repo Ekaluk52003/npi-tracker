@@ -46,6 +46,7 @@
                         {% if issue.desc %}<p class="text-xs text-[var(--text-muted)] mt-0.5 line-clamp-1">{{ issue.desc }}</p>{% endif %}
                         <div class="flex items-center gap-2 mt-1 flex-wrap">
                             {% if issue.stage %}<span class="stage-pill-sm" style="background:{{ issue.stage.color }}22;color:{{ issue.stage.color }}">{{ issue.stage.name }}</span>{% endif %}
+                            {% if issue.visibility == 'internal' %}<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20" title="Internal Only">Internal</span>{% endif %}
                             {% if issue.impact %}<span class="text-[10px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded">{{ issue.impact|truncatewords:6 }}</span>{% endif %}
                             {% for t in issue.linked_tasks.all %}
                             <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)]">#{{ t.pk }} {{ t.name|truncatewords:5 }}</span>

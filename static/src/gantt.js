@@ -59,12 +59,21 @@ function getWeeks(minDate, maxDate) {
 
 const WK_W = 80;
 const STATUS_LABELS = { open: 'Open', inprogress: 'In Progress', done: 'Done', blocked: 'Blocked' };
+const VISIBILITY_LABELS = { all: '', internal: 'Internal', customer: 'Customer' };
+const VISIBILITY_COLORS = { all: '', internal: '#f59e0b', customer: '#8b5cf6' };  // amber for internal, purple for customer
 
 function stageTag(stage, color) {
   if (!stage) return '';
   const bg = color ? color + '22' : 'var(--surface2)';
   const fg = color || 'var(--text-muted)';
   return `<span class="stage-tag" style="background:${bg};color:${fg};border:1px solid ${fg}33">${esc(stage).toUpperCase()}</span>`;
+}
+
+function visibilityTag(visibility) {
+  if (!visibility || visibility === 'all') return '';
+  const label = VISIBILITY_LABELS[visibility] || visibility;
+  const color = VISIBILITY_COLORS[visibility] || 'var(--text-muted)';
+  return `<span class="visibility-tag" style="background:${color}22;color:${color};border:1px solid ${color}44;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px;text-transform:uppercase">${esc(label)}</span>`;
 }
 
 function getMondayAligned(minDate, maxDate) {
@@ -207,7 +216,7 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
     return `<div class="task-row status-${t.status}" style="cursor:pointer" data-edit-url="${editUrl}" data-task-id="${t.id}" data-section-idx="${row.secIdx}">
       <div class="tc-cell tc-item">${row.num}</div>
       <div class="tc-cell tc-task">
-        <div>${esc(t.name)}${stageTag(t.stage, t.stage_color)}</div>
+        <div>${esc(t.name)}${stageTag(t.stage, t.stage_color)}${visibilityTag(t.visibility)}</div>
         ${t.remark ? `<div class="tc-remark">${esc(t.remark)}</div>` : ''}
       </div>
       <div class="tc-cell tc-start tc-date" data-date="${t.start}">${startDisp}</div>
@@ -1412,7 +1421,7 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
       const nameCell = taskRow.querySelector('.tc-task');
       if (nameCell) {
         const nameDiv = nameCell.querySelector('div');
-        if (nameDiv) nameDiv.innerHTML = `${esc(t.name)}${stageTag(t.stage, t.stage_color)}`;
+        if (nameDiv) nameDiv.innerHTML = `${esc(t.name)}${stageTag(t.stage, t.stage_color)}${visibilityTag(t.visibility)}`;
         let remarkEl = nameCell.querySelector('.tc-remark');
         if (t.remark && !remarkEl) {
           remarkEl = document.createElement('div');

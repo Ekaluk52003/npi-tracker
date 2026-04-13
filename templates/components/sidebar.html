@@ -57,10 +57,6 @@
            :title="sidebarCollapsed ? '{{ p.name|escapejs }}' : ''">
             <span class="w-6 h-6 rounded-md shrink-0 flex items-center justify-center text-[10px] font-bold bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">{{ p.name|first }}</span>
             <span class="truncate flex-1 whitespace-nowrap" x-show="!sidebarCollapsed" x-transition.opacity>{{ p.name }}</span>
-            {% if p.open_issue_count %}
-            <span class="text-[10px] bg-red-500/20 text-red-400 rounded-full px-1.5 py-0.5 font-medium"
-                  x-show="!sidebarCollapsed" x-transition.opacity>{{ p.open_issue_count }}</span>
-            {% endif %}
         </a>
         {% endfor %}
     </div>
