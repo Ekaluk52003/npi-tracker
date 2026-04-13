@@ -118,7 +118,7 @@
                         {{ task.name }}
                     </div>
                     <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                        <span class="truncate mr-2">{{ task.section.name }}</span>
+                        <span class="truncate mr-2">{{ task.milestone.name }}</span>
                         <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
                     </div>
                 </div>
@@ -147,7 +147,7 @@
                         {{ task.name }}
                     </div>
                     <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                        <span class="truncate mr-2">{{ task.section.name }}</span>
+                        <span class="truncate mr-2">{{ task.milestone.name }}</span>
                         <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
                     </div>
                 </div>
@@ -176,7 +176,7 @@
                         {{ task.name }}
                     </div>
                     <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                        <span class="truncate mr-2">{{ task.section.name }}</span>
+                        <span class="truncate mr-2">{{ task.milestone.name }}</span>
                         <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
                     </div>
                 </div>
@@ -211,7 +211,7 @@
                     </div>
                     {% endif %}{% endfor %}
                     <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)] mt-1">
-                        <span class="truncate mr-2">{{ task.section.name }}</span>
+                        <span class="truncate mr-2">{{ task.milestone.name }}</span>
                         <span class="shrink-0">{{ task.end|date:"d M y" }}</span>
                     </div>
                 </div>
@@ -261,7 +261,7 @@
                 <th class="px-3 py-2.5 text-left font-semibold w-28">Status</th>
                 <th class="px-3 py-2.5 text-left font-semibold">Task / Issue</th>
                 <th class="px-3 py-2.5 text-left font-semibold">Project</th>
-                <th class="px-3 py-2.5 text-left font-semibold">Section</th>
+                <th class="px-3 py-2.5 text-left font-semibold">Milestone</th>
                 <th class="px-3 py-2.5 text-left font-semibold">Stage</th>
                 <th class="px-3 py-2.5 text-left font-semibold">End Date</th>
             </tr>
@@ -279,7 +279,7 @@
                 <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
                     hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
                 <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
-                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
+                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.milestone.name }}</td>
                 <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
                 <td class="px-3 py-2.5 {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M y" }}</td>
             </tr>
@@ -296,7 +296,7 @@
                 <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
                     hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
                 <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
-                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
+                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.milestone.name }}</td>
                 <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
                 <td class="px-3 py-2.5 {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M y" }}</td>
             </tr>
@@ -313,7 +313,7 @@
                 <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
                     hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
                 <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
-                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
+                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.milestone.name }}</td>
                 <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
                 <td class="px-3 py-2.5 {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M y" }}</td>
             </tr>
@@ -330,7 +330,7 @@
                 <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
                     hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
                 <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
-                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
+                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.milestone.name }}</td>
                 <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
                 <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.end|date:"d M y" }}</td>
             </tr>

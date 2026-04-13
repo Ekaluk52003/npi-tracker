@@ -3,10 +3,10 @@
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="open = false; document.getElementById('modal-container').innerHTML=''"></div>
     <div class="relative bg-[var(--surface)] rounded-xl border border-[var(--border)] w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl" @click.stop>
         <div class="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] px-5 py-4 flex items-center justify-between z-10">
-            <h2 class="text-lg font-semibold">{% if section %}Edit Section{% else %}New Section{% endif %}</h2>
+            <h2 class="text-lg font-semibold">{% if milestone %}Edit Milestone{% else %}New Milestone{% endif %}</h2>
             <button @click="open = false; document.getElementById('modal-container').innerHTML=''" class="text-[var(--text-muted)] hover:text-[var(--text)] text-xl">&times;</button>
         </div>
-        <form hx-post="{% if section %}{% url 'section-edit' project.pk section.pk %}{% else %}{% url 'section-create' project.pk %}{% endif %}"
+        <form hx-post="{% if milestone %}{% url 'milestone-edit' project.pk milestone.pk %}{% else %}{% url 'milestone-create' project.pk %}{% endif %}"
               hx-target="#modal-container" hx-swap="innerHTML" class="p-5 space-y-4">
             {% csrf_token %}
             {% for field in form %}
@@ -17,12 +17,12 @@
             </div>
             {% endfor %}
             <div class="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
-                {% if section %}
-                <button type="button" hx-post="{% url 'section-delete' project.pk section.pk %}" hx-confirm="Delete this section and all its tasks?"
+                {% if milestone %}
+                <button type="button" hx-post="{% url 'milestone-delete' project.pk milestone.pk %}" hx-confirm="Delete this milestone and all its tasks?"
                         class="mr-auto text-xs text-red-400 hover:underline">Delete</button>
                 {% endif %}
                 <button type="button" @click="open = false; document.getElementById('modal-container').innerHTML=''" class="btn-secondary">Cancel</button>
-                <button type="submit" class="action-btn">{% if section %}Save{% else %}Create{% endif %}</button>
+                <button type="submit" class="action-btn">{% if milestone %}Save{% else %}Create{% endif %}</button>
             </div>
         </form>
     </div>

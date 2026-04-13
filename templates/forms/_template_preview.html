@@ -22,8 +22,8 @@
         <!-- Section date override -->
         <div class="flex items-center gap-2 mb-2">
             <label class="text-[10px] text-[var(--text-muted)] shrink-0">Override start:</label>
-            <input type="date" name="section_date_{{ sec.pk }}"
-                   @change="$dispatch('section-date-changed')"
+            <input type="date" name="milestone_date_{{ sec.pk }}"
+                   @change="$dispatch('milestone-date-changed')"
                    class="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text)] focus:border-[var(--accent)] focus:outline-none">
         </div>
 
@@ -53,9 +53,9 @@
 
     <!-- Summary footer -->
     <div class="px-4 py-2.5 flex items-center justify-between text-xs text-[var(--text-muted)]">
-        <span>{{ sections|length }} section{{ sections|length|pluralize }} total</span>
+        <span>{{ sections|length }} milestone{{ sections|length|pluralize }} total</span>
     </div>
 </div>
 {% else %}
-<p class="text-[var(--text-muted)] text-sm text-center py-8">No sections in this template set.</p>
+<p class="text-[var(--text-muted)] text-sm text-center py-8">No milestones in this template set.</p>
 {% endif %}

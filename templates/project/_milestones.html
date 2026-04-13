@@ -3,7 +3,7 @@
     {% for sec in sections %}
     <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="font-semibold text-sm">{{ sec.section }}</h3>
+            <h3 class="font-semibold text-sm">{{ sec.milestone }}</h3>
             <span class="status-badge {% if sec.pct == 100 %}status-done{% elif sec.pct > 0 %}status-inprogress{% else %}status-open{% endif %}">
                 {% if sec.pct == 100 %}Complete{% elif sec.pct > 0 %}Active{% else %}Planning{% endif %}
             </span>

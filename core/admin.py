@@ -1,8 +1,8 @@
 from django.contrib import admin
 import nested_admin
 from .models import (
-    Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem,
-    TaskTemplateSet, SectionTemplate, TaskTemplate, ProjectPlanVersion, InboundWebhook,
+    Project, BuildStage, GateChecklistItem, Milestone, Task, Issue, TeamMember, NREItem,
+    TaskTemplateSet, MilestoneTemplate, TaskTemplate, ProjectPlanVersion, InboundWebhook,
     Customer, UserProfile,
 )
 
@@ -12,8 +12,8 @@ class BuildStageInline(admin.TabularInline):
     extra = 0
 
 
-class ProjectSectionInline(admin.TabularInline):
-    model = ProjectSection
+class MilestoneInline(admin.TabularInline):
+    model = Milestone
     extra = 0
 
 
@@ -30,7 +30,7 @@ class IssueInline(admin.TabularInline):
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     list_display = ['name', 'customer', 'pgm', 'start_date', 'end_date']
-    inlines = [BuildStageInline, ProjectSectionInline, TaskInline, IssueInline]
+    inlines = [BuildStageInline, MilestoneInline, TaskInline, IssueInline]
 
 
 @admin.register(BuildStage)
@@ -44,8 +44,8 @@ class GateChecklistItemAdmin(admin.ModelAdmin):
     list_display = ['label', 'stage', 'checked']
 
 
-@admin.register(ProjectSection)
-class ProjectSectionAdmin(admin.ModelAdmin):
+@admin.register(Milestone)
+class MilestoneAdmin(admin.ModelAdmin):
     list_display = ['name', 'project', 'sort_order']
     list_filter = ['project']
     list_editable = ['sort_order']
@@ -53,7 +53,7 @@ class ProjectSectionAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['name', 'project', 'section', 'status', 'stage', 'start', 'end']
+    list_display = ['name', 'project', 'milestone', 'status', 'stage', 'start', 'end']
     list_filter = ['status']
 
 
@@ -81,15 +81,15 @@ class TaskTemplateNestedInline(nested_admin.NestedTabularInline):
     sortable_field_name = 'sort_order'
 
 
-class SectionTemplateNestedInline(nested_admin.NestedStackedInline):
-    model = SectionTemplate
+class MilestoneTemplateNestedInline(nested_admin.NestedStackedInline):
+    model = MilestoneTemplate
     extra = 0
     fields = ['sort_order', 'name', 'depends_on', 'day_offset']
     inlines = [TaskTemplateNestedInline]
     sortable_field_name = 'sort_order'
 
 
-# Keep flat inlines for standalone SectionTemplate admin
+# Keep flat inlines for standalone MilestoneTemplate admin
 class TaskTemplateInline(admin.TabularInline):
     model = TaskTemplate
     extra = 0
@@ -99,7 +99,7 @@ class TaskTemplateInline(admin.TabularInline):
 @admin.register(TaskTemplateSet)
 class TaskTemplateSetAdmin(nested_admin.NestedModelAdmin):
     list_display = ['name', 'section_count', 'created_at']
-    inlines = [SectionTemplateNestedInline]
+    inlines = [MilestoneTemplateNestedInline]
 
     class Media:
         js = (
@@ -113,8 +113,8 @@ class TaskTemplateSetAdmin(nested_admin.NestedModelAdmin):
         return obj.sections.count()
 
 
-@admin.register(SectionTemplate)
-class SectionTemplateAdmin(admin.ModelAdmin):
+@admin.register(MilestoneTemplate)
+class MilestoneTemplateAdmin(admin.ModelAdmin):
     list_display = ['name', 'template_set', 'sort_order', 'depends_on', 'day_offset', 'task_count']
     list_filter = ['template_set']
     list_editable = ['sort_order', 'depends_on', 'day_offset']
@@ -134,12 +134,12 @@ class ProjectPlanVersionAdmin(admin.ModelAdmin):
 
 @admin.register(TaskTemplate)
 class TaskTemplateAdmin(admin.ModelAdmin):
-    list_display = ['name', 'section', 'days', 'sort_order']
-    list_filter = ['section__template_set']
+    list_display = ['name', 'milestone', 'days', 'sort_order']
+    list_filter = ['milestone__template_set']
     list_editable = ['sort_order']
     filter_horizontal = ['depends_on']
-    search_fields = ['name', 'section__name']
-    ordering = ['section__template_set', 'section__sort_order', 'sort_order', 'id']
+    search_fields = ['name', 'milestone__name']
+    ordering = ['milestone__template_set', 'milestone__sort_order', 'sort_order', 'id']
 
 
 @admin.register(InboundWebhook)

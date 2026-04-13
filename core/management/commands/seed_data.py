@@ -105,10 +105,10 @@ class Command(BaseCommand):
         ]
         order = 0
         task_map = {}
-        for section, items in tasks_data:
+        for milestone, items in tasks_data:
             for name, who, days, start, end, status, stage, remark in items:
                 t = Task.objects.create(
-                    project=p1, name=name, section=section, who=who, days=days,
+                    project=p1, name=name, milestone=milestone, who=who, days=days,
                     start=start, end=end, status=status, stage=stage, remark=remark,
                     sort_order=order,
                 )
@@ -203,10 +203,10 @@ class Command(BaseCommand):
             ]),
         ]
         order = 0
-        for section, items in v_tasks:
+        for milestone, items in v_tasks:
             for name, who, days, start, end, status, stage, remark in items:
                 Task.objects.create(
-                    project=p2, name=name, section=section, who=who, days=days,
+                    project=p2, name=name, milestone=milestone, who=who, days=days,
                     start=start, end=end, status=status, stage=stage, remark=remark,
                     sort_order=order,
                 )
@@ -262,10 +262,10 @@ class Command(BaseCommand):
             ]),
         ]
         order = 0
-        for section, items in s_tasks:
+        for milestone, items in s_tasks:
             for name, who, days, start, end, status, stage, remark in items:
                 Task.objects.create(
-                    project=p3, name=name, section=section, who=who, days=days,
+                    project=p3, name=name, milestone=milestone, who=who, days=days,
                     start=start, end=end, status=status, stage=stage, remark=remark,
                     sort_order=order,
                 )

@@ -22,7 +22,7 @@
         <tbody>
             {% for sec in sections %}
             <tr class="bg-[var(--surface2)]">
-                <td colspan="9" class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{{ sec.section }}</td>
+                <td colspan="9" class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{{ sec.milestone }}</td>
             </tr>
             {% for task in sec.tasks %}
             <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] {% if user_is_pm %}cursor-pointer{% endif %} transition"

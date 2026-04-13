@@ -158,7 +158,7 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
   let itemNum = 0;
   let secIdx = 0;
   for (const sec of sections) {
-    rows.push({ type: 'section', label: sec.section, secIdx });
+    rows.push({ type: 'section', label: sec.milestone, secIdx });
     for (const t of sec.tasks) {
       itemNum++;
       rows.push({ type: 'task', task: t, num: itemNum, secIdx });
@@ -278,14 +278,49 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
       <div class="gantt-container" id="gantt-main-container">
         <div class="gantt-shared-header">
           <div class="gantt-header-left">
-            <div class="gh-cell gh-item">#</div>
+            <div class="gh-cell gh-item" style="position:relative;padding:0;width:58px;min-width:58px">
+              <div class="gh-milestone-filter" id="gh-milestone-filter">
+                <button class="gh-milestone-filter-btn" id="gh-milestone-filter-btn" title="Filter by milestone">
+                  <div class="gh-milestone-filter-label">
+                    <span>#</span>
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <div class="gh-milestone-filter-count" id="gh-milestone-filter-count" style="display:none"></div>
+                </button>
+                <div class="gh-milestone-dropdown" id="gh-milestone-dropdown"></div>
+              </div>
+            </div>
             <div class="gh-cell gh-task" id="gh-task-col" style="position:relative">Task<span id="gh-task-resize" style="position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:col-resize;z-index:10;background:transparent" title="Drag to resize"></span></div>
             <div class="gh-cell gh-start">Start</div>
             <div class="gh-cell gh-end">End</div>
             <div class="gh-cell gh-who">Who</div>
             <div class="gh-cell gh-assigned">Assigned</div>
             <div class="gh-cell gh-dur">Days</div>
-            <div class="gh-cell gh-status">Status</div>
+            <div class="gh-cell gh-status" style="position:relative;padding:0">
+              <div class="gh-status-filter" id="gh-status-filter">
+                <button class="gh-status-filter-btn" id="gh-status-filter-btn" title="Filter by status">
+                  <div class="gh-status-filter-label">
+                    <span>Status</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <div class="gh-status-filter-count" id="gh-status-filter-count" style="display:none"></div>
+                </button>
+                <div class="gh-status-dropdown" id="gh-status-dropdown">
+                  <label class="gh-status-option"><input type="checkbox" value="open" checked><span class="status-dot-open">Open</span></label>
+                  <label class="gh-status-option"><input type="checkbox" value="inprogress" checked><span class="status-dot-inprogress">In Progress</span></label>
+                  <label class="gh-status-option"><input type="checkbox" value="done" checked><span class="status-dot-done">Done</span></label>
+                  <label class="gh-status-option"><input type="checkbox" value="blocked" checked><span class="status-dot-blocked">Blocked</span></label>
+                  <div class="gh-status-dropdown-actions">
+                    <button class="gh-status-select-all">All</button>
+                    <button class="gh-status-select-none">None</button>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="gh-cell gh-issues">\u26A0</div>
             <div class="gh-cell gh-nre">NRE</div>
           </div>
@@ -1408,6 +1443,218 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
     gl?.querySelector(`.task-row[data-task-id="${taskId}"]`)?.remove();
     delete taskBarMap[String(taskId)];
     drawDependencyArrows();
+  }
+
+  // ── Status Filter ─────────────────────────────────────────────────
+  const statusFilterBtn = document.getElementById('gh-status-filter-btn');
+  const statusDropdown = document.getElementById('gh-status-dropdown');
+  const statusFilterCount = document.getElementById('gh-status-filter-count');
+
+  if (statusFilterBtn && statusDropdown) {
+    const statusCheckboxes = statusDropdown.querySelectorAll('input[type="checkbox"]');
+    const selectAllBtn = statusDropdown.querySelector('.gh-status-select-all');
+    const selectNoneBtn = statusDropdown.querySelector('.gh-status-select-none');
+
+    function getSelectedStatuses() {
+      return Array.from(statusCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+    }
+
+    function applyStatusFilter() {
+      const selected = getSelectedStatuses();
+      const totalStatuses = statusCheckboxes.length;
+
+      // Update filter count badge
+      if (selected.length === totalStatuses) {
+        statusFilterCount.style.display = 'none';
+        statusFilterBtn.classList.remove('active');
+      } else {
+        statusFilterCount.style.display = 'inline';
+        statusFilterCount.textContent = `${selected.length}/${totalStatuses}`;
+        statusFilterBtn.classList.add('active');
+      }
+
+      // Filter left panel task rows
+      const leftRows = gl?.querySelectorAll('.task-row[data-task-id]');
+      leftRows?.forEach(row => {
+        const statusMatch = selected.some(s => row.classList.contains(`status-${s}`));
+        row.style.display = statusMatch ? '' : 'none';
+      });
+
+      // Filter right panel timeline rows
+      const timelineRows = gr?.querySelectorAll('.timeline-row:not(.section-row)');
+      timelineRows?.forEach(row => {
+        const bar = row.querySelector('.gantt-bar');
+        if (bar) {
+          const statusMatch = selected.some(s => bar.classList.contains(s));
+          row.style.display = statusMatch ? '' : 'none';
+        }
+      });
+
+      // Redraw dependency arrows after filter change
+      if (typeof drawDependencyArrows === 'function') {
+        setTimeout(() => drawDependencyArrows(), 0);
+      }
+    }
+
+    // Toggle dropdown
+    statusFilterBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = statusDropdown.classList.contains('open');
+      if (isOpen) {
+        statusDropdown.classList.remove('open');
+      } else {
+        // Position dropdown below the button
+        const rect = statusFilterBtn.getBoundingClientRect();
+        statusDropdown.style.left = rect.left + 'px';
+        statusDropdown.style.top = (rect.bottom + 4) + 'px';
+        statusDropdown.classList.add('open');
+      }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!statusFilterBtn.contains(e.target) && !statusDropdown.contains(e.target)) {
+        statusDropdown.classList.remove('open');
+      }
+    });
+
+    // Handle checkbox changes
+    statusCheckboxes.forEach(cb => {
+      cb.addEventListener('change', applyStatusFilter);
+    });
+
+    // Select All / None buttons
+    selectAllBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      statusCheckboxes.forEach(cb => cb.checked = true);
+      applyStatusFilter();
+    });
+
+    selectNoneBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      statusCheckboxes.forEach(cb => cb.checked = false);
+      applyStatusFilter();
+    });
+
+    // Initial filter application
+    applyStatusFilter();
+  }
+
+  // ── Milestone Filter ─────────────────────────────────────────────
+  const milestoneFilterBtn = document.getElementById('gh-milestone-filter-btn');
+  const milestoneDropdown = document.getElementById('gh-milestone-dropdown');
+  const milestoneFilterCount = document.getElementById('gh-milestone-filter-count');
+
+  if (milestoneFilterBtn && milestoneDropdown && sections) {
+    // Build milestone options from sections
+    const milestones = sections.map((sec, idx) => ({ name: sec.milestone, idx }));
+
+    // Populate dropdown
+    milestoneDropdown.innerHTML = `
+      <div class="gh-milestone-dropdown-header">Milestone</div>
+    ` + milestones.map(m => `
+      <label class="gh-milestone-option" data-idx="${m.idx}">
+        <input type="checkbox" value="${m.idx}" checked>
+        <span>${esc(m.name)}</span>
+      </label>
+    `).join('') + `
+      <div class="gh-milestone-dropdown-actions">
+        <button class="gh-milestone-select-all">All</button>
+        <button class="gh-milestone-select-none">None</button>
+      </div>
+    `;
+
+    const milestoneCheckboxes = milestoneDropdown.querySelectorAll('input[type="checkbox"]');
+    const selectAllMilestoneBtn = milestoneDropdown.querySelector('.gh-milestone-select-all');
+    const selectNoneMilestoneBtn = milestoneDropdown.querySelector('.gh-milestone-select-none');
+
+    function getSelectedMilestones() {
+      return Array.from(milestoneCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => parseInt(cb.value));
+    }
+
+    function applyMilestoneFilter() {
+      const selected = getSelectedMilestones();
+      const totalMilestones = milestoneCheckboxes.length;
+
+      // Update filter count badge
+      if (selected.length === totalMilestones) {
+        milestoneFilterCount.style.display = 'none';
+        milestoneFilterBtn.classList.remove('active');
+      } else {
+        milestoneFilterCount.style.display = 'flex';
+        milestoneFilterCount.textContent = `${selected.length}/${totalMilestones}`;
+        milestoneFilterBtn.classList.add('active');
+      }
+
+      // Filter left panel rows
+      const leftRows = gl?.querySelectorAll('.task-row');
+      leftRows?.forEach(row => {
+        const rowSecIdx = parseInt(row.dataset.sectionIdx);
+        const isSection = row.dataset.sectionHeader === '1';
+        const show = selected.includes(rowSecIdx);
+        row.style.display = show ? '' : 'none';
+      });
+
+      // Filter right panel timeline rows
+      const timelineRows = gr?.querySelectorAll('.timeline-row');
+      timelineRows?.forEach(row => {
+        const rowSecIdx = parseInt(row.dataset.sectionIdx);
+        const show = selected.includes(rowSecIdx);
+        row.style.display = show ? '' : 'none';
+      });
+
+      // Redraw dependency arrows
+      if (typeof drawDependencyArrows === 'function') {
+        setTimeout(() => drawDependencyArrows(), 0);
+      }
+    }
+
+    // Toggle dropdown
+    milestoneFilterBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = milestoneDropdown.classList.contains('open');
+      if (isOpen) {
+        milestoneDropdown.classList.remove('open');
+      } else {
+        // Position dropdown below the button
+        const rect = milestoneFilterBtn.getBoundingClientRect();
+        milestoneDropdown.style.left = rect.left + 'px';
+        milestoneDropdown.style.top = (rect.bottom + 4) + 'px';
+        milestoneDropdown.classList.add('open');
+      }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!milestoneFilterBtn.contains(e.target) && !milestoneDropdown.contains(e.target)) {
+        milestoneDropdown.classList.remove('open');
+      }
+    });
+
+    // Handle checkbox changes
+    milestoneCheckboxes.forEach(cb => {
+      cb.addEventListener('change', applyMilestoneFilter);
+    });
+
+    // Select All / None buttons
+    selectAllMilestoneBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      milestoneCheckboxes.forEach(cb => cb.checked = true);
+      applyMilestoneFilter();
+    });
+
+    selectNoneMilestoneBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      milestoneCheckboxes.forEach(cb => cb.checked = false);
+      applyMilestoneFilter();
+    });
+
+    // Initial filter application
+    applyMilestoneFilter();
   }
 
   window.ganttAPI = { update: ganttUpdateTask, remove: ganttRemoveTask };

@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from .models import Project, ProjectSection, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet, WebhookConfig, InboundWebhook, Customer
+from .models import Project, Milestone, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet, WebhookConfig, InboundWebhook, Customer
 
 User = get_user_model()
 
@@ -64,10 +64,10 @@ class TaskForm(forms.ModelForm):
 
     class Meta:
         model = Task
-        fields = ['name', 'section', 'remark', 'who', 'assigned_to', 'start', 'end', 'status', 'stage']
+        fields = ['name', 'milestone', 'remark', 'who', 'assigned_to', 'start', 'end', 'status', 'stage']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. PCB Production'}),
-            'section': forms.Select(attrs={'class': select_cls}),
+            'milestone': forms.Select(attrs={'class': select_cls}),
             'remark': forms.Textarea(attrs={'class': textarea_cls, 'placeholder': 'Supplier info, dependencies, notes…', 'rows': 2}),
             'who': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Axis, SVI'}),
             'start': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
@@ -79,7 +79,7 @@ class TaskForm(forms.ModelForm):
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
         if project:
-            self.fields['section'].queryset = project.sections.all()
+            self.fields['milestone'].queryset = project.milestones.all()
             self.fields['stage'].queryset = project.stages.all()
             # Filter assigned_to to project team members (internal users)
             internal_members = project.team_members.filter(member_type='internal', user__isnull=False)
@@ -88,7 +88,7 @@ class TaskForm(forms.ModelForm):
                 pk__in=internal_members.values_list('user', flat=True)
             ).order_by('first_name', 'last_name', 'username')
         elif self.instance and self.instance.pk:
-            self.fields['section'].queryset = self.instance.project.sections.all()
+            self.fields['milestone'].queryset = self.instance.project.milestones.all()
             self.fields['stage'].queryset = self.instance.project.stages.all()
             # Filter assigned_to to project team members
             internal_members = self.instance.project.team_members.filter(member_type='internal', user__isnull=False)
@@ -261,9 +261,9 @@ class GateChecklistItemForm(forms.ModelForm):
         self.fields['label'].required = False
 
 
-class ProjectSectionForm(forms.ModelForm):
+class MilestoneForm(forms.ModelForm):
     class Meta:
-        model = ProjectSection
+        model = Milestone
         fields = ['name', 'sort_order']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Pre-req: Main PCBA'}),

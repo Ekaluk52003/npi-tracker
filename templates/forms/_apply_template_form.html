@@ -34,7 +34,7 @@
 
                 {% for stage in stages %}
                 <div class="rounded-lg border border-[var(--border)] overflow-hidden"
-                     @section-date-changed="loadPreview('{{ stage.pk }}')">
+                     @milestone-date-changed="loadPreview('{{ stage.pk }}')">
 
                     <!-- Stage header: color · name · date · template -->
                     <div class="flex items-center gap-3 px-4 py-3 bg-[var(--surface2)] flex-wrap">
@@ -110,7 +110,7 @@ function applyTemplate(initialTemplates, initialDates) {
             }
             let url = `/project/{{ project.pk }}/apply-template/${setId}/preview/?start_date=${startDate}`;
             if (panel) {
-                panel.querySelectorAll('input[name^="section_date_"]').forEach(input => {
+                panel.querySelectorAll('input[name^="milestone_date_"]').forEach(input => {
                     if (input.value) url += `&${input.name}=${input.value}`;
                 });
             }

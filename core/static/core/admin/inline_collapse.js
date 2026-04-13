@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const $ = django.jQuery;
 
   function initCollapse() {
-    $('.djn-dynamic-form-core-sectiontemplate').each(function () {
+    $('.djn-dynamic-form-core-milestonetemplate').each(function () {
       const $row = $(this);
       if ($row.find('> h3 .collapse-toggle').length) return;
 

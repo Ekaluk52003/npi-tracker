@@ -256,6 +256,137 @@ body {
 .gh-assigned { width: 90px; }
 .gh-dur { width: 38px; text-align: center; }
 .gh-status { width: 78px; }
+
+/* ── Status Filter Dropdown ──────────────────────────────────────── */
+.gh-status-filter { position: relative; width: 100%; height: 100%; }
+.gh-status-filter-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 100%; padding: 1px 4px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+  color: var(--text-muted); background: transparent; border: none;
+  cursor: pointer; transition: all 0.15s; gap: 0;
+  line-height: 1.2;
+}
+.gh-status-filter-btn:hover { color: var(--text); background: rgba(45,155,132,0.08); }
+.gh-status-filter-btn.active { color: var(--accent); }
+.gh-status-filter-label {
+  display: flex; align-items: center; gap: 4px;
+}
+.gh-status-filter-label svg { flex-shrink: 0; opacity: 0.7; width: 10px; height: 10px; }
+.gh-status-filter-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 14px; height: 14px; padding: 0 3px;
+  font-size: 8px; font-weight: 700;
+  background: var(--accent); color: #fff;
+  border-radius: 7px; margin-top: 1px;
+}
+.gh-status-dropdown {
+  position: fixed;
+  min-width: 140px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 0.375rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 9999; display: none; padding: 4px;
+}
+.gh-status-dropdown.open { display: block; }
+.gh-status-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; font-size: 12px; color: var(--text);
+  cursor: pointer; border-radius: 0.25rem; transition: background 0.15s;
+}
+.gh-status-option:hover { background: var(--surface2); }
+.gh-status-option input[type="checkbox"] {
+  width: 14px; height: 14px; accent-color: var(--accent);
+  cursor: pointer; margin: 0;
+}
+.gh-status-option span { display: flex; align-items: center; gap: 6px; }
+.gh-status-option span::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.status-dot-open::before { background: var(--text-muted); }
+.status-dot-inprogress::before { background: var(--accent); }
+.status-dot-done::before { background: var(--success); }
+.status-dot-blocked::before { background: var(--danger); }
+.gh-status-dropdown-actions {
+  display: flex; gap: 4px; padding: 6px 4px 4px;
+  border-top: 1px solid var(--border); margin-top: 4px;
+}
+.gh-status-dropdown-actions button {
+  flex: 1; padding: 4px 8px;
+  font-size: 10px; font-weight: 600;
+  color: var(--text-muted); background: transparent;
+  border: 1px solid var(--border); border-radius: 0.25rem;
+  cursor: pointer; transition: all 0.15s;
+}
+.gh-status-dropdown-actions button:hover {
+  color: var(--text); border-color: var(--text-muted); background: var(--surface2);
+}
+
+/* ── Milestone Filter Dropdown ───────────────────────────────────── */
+.gh-milestone-filter { position: relative; width: 100%; height: 100%; }
+.gh-milestone-filter-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 100%; padding: 1px 4px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+  color: var(--text-muted); background: transparent; border: none;
+  cursor: pointer; transition: all 0.15s; gap: 0;
+  line-height: 1.2;
+}
+.gh-milestone-filter-btn:hover { color: var(--text); background: rgba(45,155,132,0.08); }
+.gh-milestone-filter-btn.active { color: var(--accent); }
+.gh-milestone-filter-label {
+  display: flex; align-items: center; gap: 4px;
+}
+.gh-milestone-filter-label svg { flex-shrink: 0; opacity: 0.7; width: 10px; height: 10px; }
+.gh-milestone-filter-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 14px; height: 14px; padding: 0 3px;
+  font-size: 8px; font-weight: 700;
+  background: var(--accent); color: #fff;
+  border-radius: 7px; margin-top: 1px;
+}
+.gh-milestone-dropdown {
+  position: fixed;
+  min-width: 160px; max-width: 220px; max-height: 300px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 0.375rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 9999; display: none; padding: 4px;
+}
+.gh-milestone-dropdown.open { display: block; }
+.gh-milestone-dropdown-header {
+  padding: 6px 8px 4px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.gh-milestone-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; font-size: 12px; color: var(--text);
+  cursor: pointer; border-radius: 0.25rem; transition: background 0.15s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gh-milestone-option:hover { background: var(--surface2); }
+.gh-milestone-option input[type="checkbox"] {
+  width: 14px; height: 14px; accent-color: var(--accent);
+  cursor: pointer; margin: 0; flex-shrink: 0;
+}
+.gh-milestone-option span { overflow: hidden; text-overflow: ellipsis; }
+.gh-milestone-dropdown-actions {
+  display: flex; gap: 4px; padding: 6px 4px 4px;
+  border-top: 1px solid var(--border); margin-top: 4px;
+}
+.gh-milestone-dropdown-actions button {
+  flex: 1; padding: 4px 8px;
+  font-size: 10px; font-weight: 600;
+  color: var(--text-muted); background: transparent;
+  border: 1px solid var(--border); border-radius: 0.25rem;
+  cursor: pointer; transition: all 0.15s;
+}
+.gh-milestone-dropdown-actions button:hover {
+  color: var(--text); border-color: var(--text-muted); background: var(--surface2);
+}
+
 .gh-issues { width: 30px; text-align: center; }
 .gh-nre { width: 30px; text-align: center; }
 .gantt-tasks { overflow-y: auto; overflow-x: hidden; flex: 1; }

@@ -13,7 +13,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import InboundWebhook, Project, Task, BuildStage, Issue, ProjectSection
+from .models import InboundWebhook, Project, Task, BuildStage, Issue, Milestone
 
 logger = logging.getLogger(__name__)
 
@@ -190,9 +190,9 @@ def _handle_create_task(project, payload):
     if not section_name:
         raise ValueError('section name is required')
 
-    section, _ = ProjectSection.objects.get_or_create(
+    section, _ = Milestone.objects.get_or_create(
         project=project, name=section_name,
-        defaults={'sort_order': project.sections.count()},
+        defaults={'sort_order': project.milestones.count()},
     )
 
     status = payload.get('status', 'open').lower()

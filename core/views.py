@@ -12,8 +12,8 @@ from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_protect, csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from .models import Project, BuildStage, GateChecklistItem, ProjectSection, Task, Issue, TeamMember, NREItem, TaskTemplateSet, ProjectPlanVersion, WebhookConfig, InboundWebhook
-from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, ProjectSectionForm, CommitForm
+from .models import Project, BuildStage, GateChecklistItem, Milestone, Task, Issue, TeamMember, NREItem, TaskTemplateSet, ProjectPlanVersion, WebhookConfig, InboundWebhook
+from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, MilestoneForm, CommitForm
 from .scheduling import generate_tasks_from_template, SchedulingError
 from .permissions import role_required, can_view_project, can_edit_issue, get_project_queryset, is_pm
 
@@ -43,7 +43,7 @@ def _project_ctx(project, tab, extra=None):
         'open_issue_count': project.issues.exclude(status='resolved').count(),
         'nre_no_po_count': project.nre_items.filter(po_status='no-po').count(),
         'project_stages': list(project.stages.all()),
-        'project_sections': list(project.sections.all()),
+        'project_milestones': list(project.milestones.all()),
         'latest_version': latest_version,
         'has_draft': latest_version is None or project.tasks.count() != len(latest_version.task_snapshot),
     }
@@ -109,7 +109,7 @@ def _gantt_data_from_snapshot(version, project):
         sections_map.setdefault(sec, []).append(t)
     sections = [
         {
-            'section': sec_name,
+            'milestone': sec_name,
             'tasks': [{
                 'id': t['id'],
                 'name': t['name'],
@@ -149,14 +149,14 @@ def _gantt_data_from_snapshot(version, project):
 
 
 def _gantt_data_for_project(project, stage_filter=''):
-    tasks = project.tasks.select_related('stage', 'section', 'assigned_to').prefetch_related('linked_nre', 'depends_on', 'linked_issues').all()
+    tasks = project.tasks.select_related('stage', 'milestone', 'assigned_to').prefetch_related('linked_nre', 'depends_on', 'linked_issues').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
-    for section, group in groupby(tasks, key=lambda t: t.section_id):
+    for milestone_id, group in groupby(tasks, key=lambda t: t.milestone_id):
         task_list = list(group)
         sections.append({
-            'section': task_list[0].section.name if task_list else '',
+            'milestone': task_list[0].milestone.name if task_list else '',
             'tasks': [{
                 'id': t.pk,
                 'name': t.name,
@@ -282,7 +282,7 @@ def my_tasks(request):
     # Tasks assigned to the current user that are not done
     base_qs = Task.objects.filter(
         assigned_to=user,
-    ).exclude(status='done').select_related('project', 'section', 'stage').prefetch_related('depends_on')
+    ).exclude(status='done').select_related('project', 'milestone', 'stage').prefetch_related('depends_on')
 
     # "Ready to start": open, with no incomplete dependencies
     has_pending_dep_ids = Task.objects.filter(
@@ -356,17 +356,17 @@ def project_gantt(request, pk):
 
 @login_required
 def project_list(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__section', 'tasks__linked_nre', 'stages'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__milestone', 'tasks__linked_nre', 'stages'), pk=pk)
     if not can_view_project(request.user, project):
         return HttpResponseForbidden("You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
-    tasks = project.tasks.select_related('stage', 'section').prefetch_related('linked_nre').all()
+    tasks = project.tasks.select_related('stage', 'milestone').prefetch_related('linked_nre').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
-    for section_id, group in groupby(tasks, key=lambda t: t.section_id):
+    for milestone_id, group in groupby(tasks, key=lambda t: t.milestone_id):
         task_list = list(group)
-        sections.append({'section': task_list[0].section.name, 'tasks': task_list})
+        sections.append({'milestone': task_list[0].milestone.name, 'tasks': task_list})
     ctx = _project_ctx(project, 'list', {
         'sections': sections,
         'stage_filter': stage_filter,
@@ -376,22 +376,22 @@ def project_list(request, pk):
 
 @login_required
 def project_milestones(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__section', 'stages'), pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__milestone', 'stages'), pk=pk)
     if not can_view_project(request.user, project):
         return HttpResponseForbidden("You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
-    tasks = project.tasks.select_related('stage', 'section').all()
+    tasks = project.tasks.select_related('stage', 'milestone').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
-    for section_id, group in groupby(tasks, key=lambda t: t.section_id):
+    for milestone_id, group in groupby(tasks, key=lambda t: t.milestone_id):
         task_list = list(group)
         total = len(task_list)
         done = sum(1 for t in task_list if t.status == 'done')
         starts = [t.start for t in task_list]
         ends = [t.end for t in task_list]
         sections.append({
-            'section': task_list[0].section.name,
+            'milestone': task_list[0].milestone.name,
             'tasks': task_list,
             'total': total,
             'done': done,
@@ -477,13 +477,13 @@ W_DURATION = 1
 def project_critical_index(request, pk):
     project = get_object_or_404(
         Project.objects.prefetch_related(
-            'tasks__stage', 'tasks__section', 'tasks__linked_issues', 'stages',
+            'tasks__stage', 'tasks__milestone', 'tasks__linked_issues', 'stages',
         ),
         pk=pk,
     )
     if not can_view_project(request.user, project):
         return HttpResponseForbidden("You don't have permission to view this project.")
-    tasks = list(project.tasks.exclude(status='done').select_related('stage', 'section'))
+    tasks = list(project.tasks.exclude(status='done').select_related('stage', 'milestone'))
     task_ids = {t.pk for t in tasks}
 
     # Build adjacency from M2M through table in one query
@@ -636,42 +636,42 @@ def project_edit(request, pk):
 def section_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
-        form = ProjectSectionForm(request.POST)
+        form = MilestoneForm(request.POST)
         if form.is_valid():
-            section = form.save(commit=False)
-            section.project = project
-            if not section.sort_order:
-                section.sort_order = project.sections.count()
-            section.save()
+            milestone = form.save(commit=False)
+            milestone.project = project
+            if not milestone.sort_order:
+                milestone.sort_order = project.milestones.count()
+            milestone.save()
             if request.htmx:
                 return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
             return redirect('project-gantt', pk=pk)
     else:
-        form = ProjectSectionForm(initial={'sort_order': project.sections.count()})
-    return render(request, 'forms/_section_form.html', {'form': form, 'project': project})
+        form = MilestoneForm(initial={'sort_order': project.milestones.count()})
+    return render(request, 'forms/_milestone_form.html', {'form': form, 'project': project})
 
 
 @role_required('pm')
 def section_edit(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
-    section = get_object_or_404(ProjectSection, pk=sid, project=project)
+    milestone = get_object_or_404(Milestone, pk=sid, project=project)
     if request.method == 'POST':
-        form = ProjectSectionForm(request.POST, instance=section)
+        form = MilestoneForm(request.POST, instance=milestone)
         if form.is_valid():
             form.save()
             if request.htmx:
                 return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
             return redirect('project-gantt', pk=pk)
     else:
-        form = ProjectSectionForm(instance=section)
-    return render(request, 'forms/_section_form.html', {'form': form, 'project': project, 'section': section})
+        form = MilestoneForm(instance=milestone)
+    return render(request, 'forms/_milestone_form.html', {'form': form, 'project': project, 'milestone': milestone})
 
 
 @role_required('pm')
 def section_delete(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
-    section = get_object_or_404(ProjectSection, pk=sid, project=project)
-    section.delete()
+    milestone = get_object_or_404(Milestone, pk=sid, project=project)
+    milestone.delete()
     if request.htmx:
         return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/gantt/')})
     return redirect('project-gantt', pk=pk)
@@ -1076,12 +1076,12 @@ def template_apply(request, pk):
                 stage_dates=stage_dates,
             )
 
-        # Parse per-section date overrides from POST (section PKs are globally unique)
+        # Parse per-milestone date overrides from POST (milestone PKs are globally unique)
         section_overrides = {}
         for key, val in request.POST.items():
-            if key.startswith('section_date_') and val:
+            if key.startswith('milestone_date_') and val:
                 try:
-                    sec_pk = int(key.replace('section_date_', ''))
+                    sec_pk = int(key.replace('milestone_date_', ''))
                     section_overrides[sec_pk] = date.fromisoformat(val)
                 except (ValueError, TypeError):
                     pass
@@ -1098,23 +1098,23 @@ def template_apply(request, pk):
                 if replace_existing:
                     project.tasks.all().delete()
 
-                section_cache = {}
-                base_section_order = project.sections.count()
+                milestone_cache = {}
+                base_milestone_order = project.milestones.count()
                 for d in all_task_dicts:
-                    sec_name = d['section']
-                    if sec_name not in section_cache:
-                        ps, _ = ProjectSection.objects.get_or_create(
-                            project=project, name=sec_name,
-                            defaults={'sort_order': base_section_order + len(section_cache)},
+                    ms_name = d['milestone']
+                    if ms_name not in milestone_cache:
+                        ms, _ = Milestone.objects.get_or_create(
+                            project=project, name=ms_name,
+                            defaults={'sort_order': base_milestone_order + len(milestone_cache)},
                         )
-                        section_cache[sec_name] = ps
+                        milestone_cache[ms_name] = ms
 
                 base_sort = project.tasks.count()
                 tasks_to_create = []
                 for i, d in enumerate(all_task_dicts):
                     d.pop('template_pk', None)
                     d['sort_order'] = base_sort + i
-                    d['section'] = section_cache[d['section']]
+                    d['milestone'] = milestone_cache[d['milestone']]
                     tasks_to_create.append(Task(project=project, **d))
                 Task.objects.bulk_create(tasks_to_create)
 
@@ -1147,12 +1147,12 @@ def template_preview(request, pk, set_pk):
     except (ValueError, TypeError):
         preview_start = project.start_date
 
-    # Parse per-section date overrides from GET
+    # Parse per-milestone date overrides from GET
     section_overrides = {}
     for key, val in request.GET.items():
-        if key.startswith('section_date_') and val:
+        if key.startswith('milestone_date_') and val:
             try:
-                sec_pk = int(key.replace('section_date_', ''))
+                sec_pk = int(key.replace('milestone_date_', ''))
                 section_overrides[sec_pk] = date.fromisoformat(val)
             except (ValueError, TypeError):
                 pass
@@ -1166,7 +1166,7 @@ def template_preview(request, pk, set_pk):
     pk_to_scheduled = {d['template_pk']: d for d in task_dicts}
 
     # Build section data with their tasks
-    sections_qs = template_set.sections.select_related('depends_on').prefetch_related('tasks__depends_on').order_by('sort_order', 'id')
+    sections_qs = template_set.milestones.select_related('depends_on').prefetch_related('tasks__depends_on').order_by('sort_order', 'id')
     sections = []
     for sec in sections_qs:
         tasks = []
@@ -1195,7 +1195,7 @@ def template_preview(request, pk, set_pk):
             'end': max(task_ends) if task_ends else None,
         })
 
-    has_error = len(task_dicts) == 0 and template_set.sections.exists()
+    has_error = len(task_dicts) == 0 and template_set.milestones.exists()
 
     return render(request, 'forms/_template_preview.html', {
         'project': project,
@@ -1384,18 +1384,18 @@ def project_version_restore(request, pk, vid):
         # Drop all current tasks (clears M2M: depends_on, linked_issues, linked_nre)
         project.tasks.all().delete()
 
-        # Reconcile sections: keep existing ones that appear in snapshot, create missing ones
+        # Reconcile milestones: keep existing ones that appear in snapshot, create missing ones
         snapshot_section_names = {t['section'] for t in version.task_snapshot}
-        project.sections.exclude(name__in=snapshot_section_names).delete()
+        project.milestones.exclude(name__in=snapshot_section_names).delete()
         section_map = {}
         for t in version.task_snapshot:
             name = t['section']
             if name not in section_map:
-                sec, _ = ProjectSection.objects.get_or_create(
+                ms, _ = Milestone.objects.get_or_create(
                     project=project, name=name,
                     defaults={'sort_order': 0}
                 )
-                section_map[name] = sec
+                section_map[name] = ms
 
         # Create tasks, mapping old snapshot IDs → new Task instances
         old_to_new = {}
@@ -1405,7 +1405,7 @@ def project_version_restore(request, pk, vid):
                 stage = BuildStage.objects.filter(pk=t['stage_id'], project=project).first()
             new_task = Task.objects.create(
                 project=project,
-                section=section_map[t['section']],
+                milestone=section_map[t['section']],
                 name=t['name'],
                 remark=t.get('remark', ''),
                 who=t.get('who', 'TBD'),

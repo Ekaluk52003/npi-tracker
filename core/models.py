@@ -232,8 +232,8 @@ class GateChecklistItem(models.Model):
         return self.label
 
 
-class ProjectSection(models.Model):
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='sections')
+class Milestone(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='milestones')
     name = models.CharField(max_length=200)
     sort_order = models.IntegerField(default=0)
 
@@ -253,7 +253,7 @@ class Task(models.Model):
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks')
     name = models.CharField(max_length=300)
-    section = models.ForeignKey(ProjectSection, on_delete=models.CASCADE, related_name='tasks')
+    milestone = models.ForeignKey(Milestone, on_delete=models.CASCADE, related_name='tasks')
     remark = models.TextField(blank=True)
     who = models.CharField(max_length=200, default='TBD')
     assigned_to = models.ForeignKey(
@@ -276,7 +276,7 @@ class Task(models.Model):
     )
 
     class Meta:
-        ordering = ['section__sort_order', 'start']
+        ordering = ['milestone__sort_order', 'start']
 
     def save(self, *args, **kwargs):
         if self.start and self.end:
@@ -342,13 +342,13 @@ class ProjectPlanVersion(models.Model):
 
     @classmethod
     def snapshot_project(cls, project):
-        tasks = project.tasks.select_related('section', 'stage').prefetch_related('depends_on').all()
+        tasks = project.tasks.select_related('milestone', 'stage').prefetch_related('depends_on').all()
         return [
             {
                 'id': t.pk,
                 'name': t.name,
-                'section': t.section.name,
-                'section_id': t.section_id,
+                'section': t.milestone.name,
+                'section_id': t.milestone_id,
                 'remark': t.remark,
                 'who': t.who,
                 'days': t.days,
@@ -622,9 +622,9 @@ class TaskTemplateSet(models.Model):
         return self.name
 
 
-class SectionTemplate(models.Model):
+class MilestoneTemplate(models.Model):
     template_set = models.ForeignKey(
-        TaskTemplateSet, on_delete=models.CASCADE, related_name='sections'
+        TaskTemplateSet, on_delete=models.CASCADE, related_name='milestones'
     )
     name = models.CharField(max_length=200)
     sort_order = models.IntegerField(default=0)
@@ -649,8 +649,8 @@ class SectionTemplate(models.Model):
 
 
 class TaskTemplate(models.Model):
-    section = models.ForeignKey(
-        SectionTemplate, on_delete=models.CASCADE, related_name='tasks'
+    milestone = models.ForeignKey(
+        MilestoneTemplate, on_delete=models.CASCADE, related_name='tasks'
     )
     name = models.CharField(max_length=300)
     who = models.CharField(max_length=200, default='TBD')
@@ -668,7 +668,7 @@ class TaskTemplate(models.Model):
         ordering = ['sort_order', 'id']
 
     def __str__(self):
-        return f'{self.section.name} / {self.name}'
+        return f'{self.milestone.name} / {self.name}'
 
 
 class UserProfile(models.Model):

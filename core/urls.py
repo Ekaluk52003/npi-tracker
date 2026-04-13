@@ -23,10 +23,10 @@ urlpatterns = [
     path('project/create/', views.project_create, name='project-create'),
     path('project/<int:pk>/edit/', views.project_edit, name='project-edit'),
 
-    # Section CRUD
-    path('project/<int:pk>/sections/create/', views.section_create, name='section-create'),
-    path('project/<int:pk>/sections/<int:sid>/edit/', views.section_edit, name='section-edit'),
-    path('project/<int:pk>/sections/<int:sid>/delete/', views.section_delete, name='section-delete'),
+    # Milestone CRUD
+    path('project/<int:pk>/sections/create/', views.section_create, name='milestone-create'),
+    path('project/<int:pk>/sections/<int:sid>/edit/', views.section_edit, name='milestone-edit'),
+    path('project/<int:pk>/sections/<int:sid>/delete/', views.section_delete, name='milestone-delete'),
 
     # Task CRUD
     path('project/<int:pk>/tasks/create/', views.task_create, name='task-create'),

@@ -75,8 +75,8 @@
     {% if active_tab == 'gantt' or active_tab == 'list' or active_tab == 'milestones' %}
     <button hx-get="{% url 'template-apply' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
             class="btn-secondary text-xs">Apply Template</button>
-    <button hx-get="{% url 'section-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-            class="btn-secondary text-xs">+ Section</button>
+    <button hx-get="{% url 'milestone-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+            class="btn-secondary text-xs">+ Milestone</button>
     <button hx-get="{% url 'task-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
             class="action-btn">+ Add Task</button>
     {% elif active_tab == 'team' %}

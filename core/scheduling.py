@@ -59,7 +59,7 @@ def _schedule_tasks_in_section(templates, forced_stage, section_start):
         result.append({
             'template_pk': pk,
             'name': tmpl.name,
-            'section': tmpl.section.name,
+            'milestone': tmpl.milestone.name,
             'who': tmpl.who,
             'days': tmpl.days,
             'start': task_start,
@@ -75,9 +75,9 @@ def _schedule_tasks_in_section(templates, forced_stage, section_start):
                 queue.append(dep_pk)
 
     if processed != len(templates):
-        section_name = templates[0].section.name if templates else '?'
+        section_name = templates[0].milestone.name if templates else '?'
         raise SchedulingError(
-            f'Dependency cycle in section "{section_name}". '
+            f'Dependency cycle in milestone "{section_name}". '
             f'{len(templates) - processed} task(s) could not be scheduled.'
         )
 
@@ -104,7 +104,7 @@ def generate_tasks_from_template(
     section_overrides = section_overrides or {}
 
     sections = list(
-        template_set.sections
+        template_set.milestones
         .prefetch_related('tasks__depends_on', 'depends_on')
         .order_by('sort_order', 'id')
     )
