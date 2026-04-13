@@ -562,10 +562,13 @@ def project_critical_index(request, pk):
     )
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
-    tasks = list(filter_visible_items(
-        project.tasks.exclude(status='done').select_related('stage', 'milestone'),
-        request.user
-    ))
+
+    # Filter tasks: show all by default, open only when ?open_tasks=1
+    open_tasks_only = request.GET.get('open_tasks') == '1'
+    task_query = project.tasks.select_related('stage', 'milestone')
+    if open_tasks_only:
+        task_query = task_query.exclude(status='done')
+    tasks = list(filter_visible_items(task_query, request.user))
     task_ids = {t.pk for t in tasks}
 
     # Build adjacency from M2M through table in one query
@@ -662,6 +665,7 @@ def project_critical_index(request, pk):
         'total_issue_count': len(all_issues),
         'unlinked_count': len(unlinked),
         'today': today,
+        'open_tasks_only': open_tasks_only,
     })
     return _htmx_tab(request, 'project/detail.html', 'project/_critical_index.html', ctx)
 

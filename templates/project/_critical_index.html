@@ -1,7 +1,7 @@
 <div id="cis-container"
      x-data="cisBoard()"
      x-init="init()"
-     hx-get="{% url 'project-critical-index' project.pk %}"
+     hx-get="{% url 'project-critical-index' project.pk %}{% if open_tasks_only %}?open_tasks=1{% endif %}"
      hx-trigger="issueSaved from:body"
      hx-target="#cis-container"
      hx-swap="outerHTML">
@@ -41,6 +41,20 @@
     <button class="cis-filter-btn" :class="{ 'cis-filter-active': myTasksOnly }" @click="myTasksOnly = !myTasksOnly">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
         My Tasks
+    </button>
+
+    <!-- Open Tasks toggle -->
+    <span class="w-px h-4 bg-[var(--border)]"></span>
+    <button class="cis-filter-btn" :class="{ 'cis-filter-active': openTasksOnly }" @click="toggleOpenTasks()">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Open Tasks
+    </button>
+
+    <!-- With Issues toggle -->
+    <span class="w-px h-4 bg-[var(--border)]"></span>
+    <button class="cis-filter-btn" :class="{ 'cis-filter-active': withIssuesOnly }" @click="withIssuesOnly = !withIssuesOnly">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+        With Issues
     </button>
 
     <div class="flex-1"></div>
@@ -150,7 +164,7 @@
         {% for item in scored_tasks %}
         <div class="flex-none flex flex-col border-r border-[var(--border)]"
              style="width:280px;min-width:280px;"
-             x-show="isStageVisible('{{ item.task.stage.name|default:'' }}') && isMyTask({{ item.task.assigned_to_id|default:0 }})">
+             x-show="isStageVisible('{{ item.task.stage.name|default:'' }}') && isMyTask({{ item.task.assigned_to_id|default:0 }}) && isWithIssues({{ item.issue_count }})">
             <!-- Column header -->
             <div class="p-2.5 border-b border-[var(--border)] bg-[var(--surface)]">
                 <!-- CIS dots + issue count -->
@@ -345,6 +359,8 @@ function cisBoard() {
         stageFilter: '',
         viewMode: 'column',
         myTasksOnly: false,
+        openTasksOnly: {{ open_tasks_only|yesno:'true,false' }},
+        withIssuesOnly: false,
         currentUserId: {{ request.user.pk }},
         stageGroups: {{ stage_groups_json|safe }},
 
@@ -372,6 +388,24 @@ function cisBoard() {
         isMyTask(assignedToId) {
             if (!this.myTasksOnly) return true;
             return assignedToId === this.currentUserId;
+        },
+
+        isWithIssues(issueCount) {
+            if (!this.withIssuesOnly) return true;
+            return issueCount > 0;
+        },
+
+        toggleOpenTasks() {
+            this.openTasksOnly = !this.openTasksOnly;
+            // Reload the board with the new filter via HTMX
+            const container = document.getElementById('cis-container');
+            const url = new URL(window.location.href);
+            if (this.openTasksOnly) {
+                url.searchParams.set('open_tasks', '1');
+            } else {
+                url.searchParams.delete('open_tasks');
+            }
+            htmx.ajax('GET', url.pathname + url.search, { target: '#cis-container', swap: 'outerHTML' });
         },
 
         startDrag(issueId, taskId, event) {
