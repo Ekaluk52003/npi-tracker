@@ -1,5 +1,5 @@
-from .models import Project
-from .permissions import get_role, get_project_queryset
+from .models import Project, UserRoleAssignment
+from .permissions import get_project_queryset, has_permission, can_view, can_add, can_change, can_delete
 
 
 def sidebar_context(request):
@@ -15,17 +15,40 @@ def sidebar_context(request):
 
 
 def user_permissions(request):
-    """Expose user role information to templates.
+    """Expose user permissions to templates.
 
-    Superusers are treated as PMs for all template purposes.
+    Provides permission check functions and role information.
     """
     if not request.user.is_authenticated:
         return {}
-    role = get_role(request.user)
+
     is_superuser = request.user.is_superuser
+
+    # Helper functions for templates
+    def _can_view(model_name, project=None):
+        return is_superuser or can_view(request.user, model_name, project)
+
+    def _can_add(model_name, project=None):
+        return is_superuser or can_add(request.user, model_name, project)
+
+    def _can_change(model_name, project=None):
+        return is_superuser or can_change(request.user, model_name, project)
+
+    def _can_delete(model_name, project=None):
+        return is_superuser or can_delete(request.user, model_name, project)
+
+    # Get primary role for display
+    assignments = UserRoleAssignment.objects.filter(
+        user=request.user, project__isnull=True
+    ).select_related('role')
+    primary_role = assignments.first().role if assignments.exists() else None
+
     return {
-        'user_role': role,
-        'user_is_pm': is_superuser or role == 'pm',
-        'user_is_engineer': is_superuser or role == 'engineer',
-        'user_is_customer': role == 'customer',  # Never treat superuser as customer
+        'user_role': primary_role.key if primary_role else None,
+        'user_role_name': primary_role.name if primary_role else None,
+        'user_is_superuser': is_superuser,
+        'can_view': _can_view,
+        'can_add': _can_add,
+        'can_change': _can_change,
+        'can_delete': _can_delete,
     }

@@ -3,7 +3,7 @@ import nested_admin
 from .models import (
     Project, BuildStage, GateChecklistItem, Milestone, Task, Issue, TeamMember, NREItem,
     TaskTemplateSet, MilestoneTemplate, TaskTemplate, ProjectPlanVersion, InboundWebhook,
-    Customer, UserProfile,
+    Customer, Role, RolePermission, UserRoleAssignment,
 )
 
 
@@ -155,9 +155,37 @@ class CustomerAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
-@admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'role', 'customer']
-    list_filter = ['role']
-    raw_id_fields = ['user', 'customer']
-    search_fields = ['user__username', 'user__email']
+class RolePermissionInline(admin.TabularInline):
+    model = RolePermission
+    extra = 0
+    fields = ['model_name', 'action']
+
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ['name', 'key', 'is_superuser', 'created_at']
+    list_filter = ['is_superuser']
+    search_fields = ['name', 'key', 'description']
+    inlines = [RolePermissionInline]
+    readonly_fields = ['created_at', 'updated_at']
+    fieldsets = (
+        (None, {'fields': ('name', 'key', 'description')}),
+        ('Permissions', {'fields': ('is_superuser',)}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )
+
+
+@admin.register(RolePermission)
+class RolePermissionAdmin(admin.ModelAdmin):
+    list_display = ['role', 'model_name', 'action']
+    list_filter = ['role', 'model_name', 'action']
+    search_fields = ['role__name']
+
+
+@admin.register(UserRoleAssignment)
+class UserRoleAssignmentAdmin(admin.ModelAdmin):
+    list_display = ['user', 'role', 'project', 'customer', 'created_at']
+    list_filter = ['role', 'project', 'customer']
+    search_fields = ['user__username', 'user__email', 'role__name']
+    raw_id_fields = ['user', 'project', 'customer']
+    date_hierarchy = 'created_at'

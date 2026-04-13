@@ -1,3 +1,4 @@
+{% load permission_tags %}
 {% if members %}
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
     {% for m in members %}
@@ -18,13 +19,21 @@
             <div class="text-[var(--text-muted)]">{{ m.task_count }} task{{ m.task_count|pluralize }}</div>
             <div class="text-[var(--text-muted)]">{{ m.issue_count }} issue{{ m.issue_count|pluralize }}</div>
         </div>
+        {% can_change_model 'teammember' project as can_edit_member %}
+        {% can_delete_model 'teammember' project as can_del_member %}
+        {% if can_edit_member or can_del_member %}
         <div class="mt-3 flex gap-2">
+            {% if can_edit_member %}
             <button hx-get="{% url 'member-edit' project.pk m.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
                     class="text-xs text-[var(--accent)] hover:underline">Edit</button>
+            {% endif %}
+            {% if can_del_member %}
             <button hx-post="{% url 'member-delete' project.pk m.pk %}" hx-confirm="Remove {{ m.name }}?"
                     hx-target="#content" hx-swap="innerHTML"
                     class="text-xs text-red-400 hover:underline">Remove</button>
+            {% endif %}
         </div>
+        {% endif %}
     </div>
     {% endfor %}
 </div>

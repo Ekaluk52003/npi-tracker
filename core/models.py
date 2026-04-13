@@ -671,35 +671,92 @@ class TaskTemplate(models.Model):
         return f'{self.milestone.name} / {self.name}'
 
 
-class UserProfile(models.Model):
-    ROLE_CHOICES = [
-        ('pm', 'Project Manager'),
-        ('engineer', 'Engineer'),
-        ('customer', 'Customer'),
+class Role(models.Model):
+    """Configurable role for permission system."""
+    name = models.CharField(max_length=50, unique=True)
+    key = models.SlugField(max_length=50, unique=True, help_text='Unique identifier used in code')
+    description = models.TextField(blank=True)
+    is_superuser = models.BooleanField(default=False, help_text='Bypass all permission checks')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class RolePermission(models.Model):
+    """Permission matrix defining what each role can do on each model."""
+    ACTION_CHOICES = [
+        ('view', 'View'),
+        ('add', 'Create'),
+        ('change', 'Edit'),
+        ('delete', 'Delete'),
     ]
 
-    user = models.OneToOneField(
+    MODEL_CHOICES = [
+        ('project', 'Project'),
+        ('buildstage', 'Build Stage'),
+        ('milestone', 'Milestone'),
+        ('task', 'Task'),
+        ('issue', 'Issue'),
+        ('teammember', 'Team Member'),
+        ('nreitem', 'NRE Item'),
+        ('gatechecklistitem', 'Gate Checklist Item'),
+        ('projectplanversion', 'Project Plan Version'),
+        ('tasktemplateset', 'Task Template Set'),
+        ('webhookconfig', 'Webhook Config'),
+    ]
+
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name='permissions')
+    model_name = models.CharField(max_length=50, choices=MODEL_CHOICES)
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+
+    class Meta:
+        unique_together = ['role', 'model_name', 'action']
+        ordering = ['role', 'model_name', 'action']
+
+    def __str__(self):
+        return f'{self.role.name}: {self.model_name} - {self.action}'
+
+
+class UserRoleAssignment(models.Model):
+    """
+    Assign roles to users.
+    - If project is null: global role (applies to all projects)
+    - If project is set: project-specific role
+    """
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='profile'
+        related_name='role_assignments'
     )
-    role = models.CharField(
-        max_length=20,
-        choices=ROLE_CHOICES,
-        default='engineer'
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name='user_assignments')
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='user_roles'
     )
     customer = models.ForeignKey(
-        'Customer',
+        Customer,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='users',
-        help_text='Set only for customer role users.'
+        related_name='user_roles',
+        help_text='For customer-scoped access. If set, user can only view projects for this customer.'
     )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'user profile'
-        verbose_name_plural = 'user profiles'
+        unique_together = ['user', 'role', 'project']
+        ordering = ['user', 'role_id']
 
     def __str__(self):
-        return f'{self.user.username} ({self.role})'
+        scope = 'Global' if self.project is None else self.project.name
+        if self.customer:
+            scope += f' [Customer: {self.customer.name}]'
+        return f'{self.user.username}: {self.role.name} ({scope})'

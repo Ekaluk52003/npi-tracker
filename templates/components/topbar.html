@@ -1,3 +1,4 @@
+{% load permission_tags %}
 <!-- Top Bar -->
 <header id="topbar" class="sticky top-0 z-30 bg-[var(--surface)] border-b border-[var(--border)] px-4 py-2.5 flex items-center gap-3 flex-wrap">
     <!-- Hamburger (mobile) -->
@@ -70,27 +71,47 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
     </button>
 
-    <!-- Context action buttons (PM only) -->
-    {% if project and user_is_pm %}
+    <!-- Context action buttons (permission-based) -->
+    {% if project %}
     {% if active_tab == 'gantt' or active_tab == 'list' or active_tab == 'milestones' %}
-    <button hx-get="{% url 'template-apply' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-            class="btn-secondary text-xs">Apply Template</button>
-    <button hx-get="{% url 'milestone-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-            class="btn-secondary text-xs">+ Milestone</button>
-    <button hx-get="{% url 'task-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-            class="action-btn">+ Add Task</button>
+        {% can_add_model 'task' project as can_add_task %}
+        {% if can_add_task %}
+        <button hx-get="{% url 'template-apply' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                class="btn-secondary text-xs">Apply Template</button>
+        {% endif %}
+        {% can_add_model 'milestone' project as can_add_milestone %}
+        {% if can_add_milestone %}
+        <button hx-get="{% url 'milestone-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                class="btn-secondary text-xs">+ Milestone</button>
+        {% endif %}
+        {% if can_add_task %}
+        <button hx-get="{% url 'task-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                class="action-btn">+ Add Task</button>
+        {% endif %}
     {% elif active_tab == 'team' %}
-    <button hx-get="{% url 'member-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-            class="action-btn">+ Add Member</button>
+        {% can_add_model 'teammember' project as can_add_member %}
+        {% if can_add_member %}
+        <button hx-get="{% url 'member-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                class="action-btn">+ Add Member</button>
+        {% endif %}
     {% elif active_tab == 'critical-index' %}
-    <button hx-get="{% url 'issue-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-            class="action-btn">+ Add Issue</button>
+        {% can_add_model 'issue' project as can_add_issue %}
+        {% if can_add_issue %}
+        <button hx-get="{% url 'issue-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                class="action-btn">+ Add Issue</button>
+        {% endif %}
     {% elif active_tab == 'nre' %}
-    <button hx-get="{% url 'nre-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-            class="action-btn">+ Add NRE Item</button>
+        {% can_add_model 'nreitem' project as can_add_nre %}
+        {% if can_add_nre %}
+        <button hx-get="{% url 'nre-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                class="action-btn">+ Add NRE Item</button>
+        {% endif %}
     {% elif active_tab == 'history' %}
-    <button hx-get="{% url 'project-commit-form' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-            class="action-btn">Commit Version</button>
+        {% can_add_model 'projectplanversion' project as can_add_version %}
+        {% if can_add_version %}
+        <button hx-get="{% url 'project-commit-form' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                class="action-btn">Commit Version</button>
+        {% endif %}
     {% endif %}
     {% endif %}
 </header>

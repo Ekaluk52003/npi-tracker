@@ -28,7 +28,10 @@ class ProjectMemberChoiceField(forms.ModelChoiceField):
 
 class ProjectForm(forms.ModelForm):
     pgm = forms.ModelChoiceField(
-        queryset=User.objects.filter(profile__role='pm').order_by('first_name', 'last_name', 'username'),
+        queryset=User.objects.filter(
+            role_assignments__role__key='pm',
+            role_assignments__project__isnull=True
+        ).distinct().order_by('first_name', 'last_name', 'username'),
         required=False,
         empty_label='— Select Program Manager —',
         widget=forms.Select(attrs={'class': select_cls})

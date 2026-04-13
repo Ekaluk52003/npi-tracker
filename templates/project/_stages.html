@@ -1,4 +1,5 @@
 {% load humanize %}
+{% load permission_tags %}
 
 <!-- Project Details Card -->
 <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 mb-4">
@@ -48,7 +49,8 @@
                 </div>
             </div>
         </div>
-        {% if user_is_pm %}
+        {% can_change_model 'project' None as can_edit_project %}
+        {% if can_edit_project %}
         <button hx-get="{% url 'project-edit' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
                 class="ml-4 px-3 py-1.5 text-sm bg-[var(--accent)] text-white rounded-lg hover:opacity-90 flex items-center gap-1">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
@@ -60,7 +62,8 @@
 
 <div class="flex items-center justify-between mb-4">
     <h3 class="text-sm font-semibold text-[var(--text-muted)]">Build Stages</h3>
-    {% if user_is_pm %}
+    {% can_add_model 'buildstage' project as can_add_stage %}
+    {% if can_add_stage %}
     <button hx-get="{% url 'stage-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
             class="action-btn text-xs">+ Add Stage</button>
     {% endif %}
@@ -82,12 +85,18 @@
             </div>
             <div class="flex items-center gap-2">
                 <span class="stage-pill stage-{{ stage.status }}">{{ stage.status_label }}</span>
-                {% if user_is_pm %}
-                <button hx-get="{% url 'stage-edit' project.pk stage.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-                        class="text-xs text-[var(--accent)] hover:underline">Edit</button>
-                <button hx-post="{% url 'stage-delete' project.pk stage.pk %}" hx-confirm="Delete stage '{{ stage.name }}'? Tasks, issues, and NRE items linked to this stage will be unlinked."
-                        hx-target="#content" hx-swap="innerHTML"
-                        class="text-xs text-red-400 hover:underline">Del</button>
+                {% can_change_model 'buildstage' project as can_edit_stage %}
+                {% can_delete_model 'buildstage' project as can_del_stage %}
+                {% if can_edit_stage or can_del_stage %}
+                    {% if can_edit_stage %}
+                    <button hx-get="{% url 'stage-edit' project.pk stage.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                            class="text-xs text-[var(--accent)] hover:underline">Edit</button>
+                    {% endif %}
+                    {% if can_del_stage %}
+                    <button hx-post="{% url 'stage-delete' project.pk stage.pk %}" hx-confirm="Delete stage '{{ stage.name }}'? Tasks, issues, and NRE items linked to this stage will be unlinked."
+                            hx-target="#content" hx-swap="innerHTML"
+                            class="text-xs text-red-400 hover:underline">Del</button>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>

@@ -1,3 +1,4 @@
+{% load permission_tags %}
 <div x-data="{ open: true, memberType: '{{ form.member_type.value|default:'external' }}' }" x-show="open" x-cloak
      class="fixed inset-0 z-[100] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="open = false; document.getElementById('modal-container').innerHTML=''"></div>
@@ -61,8 +62,11 @@
 
             <div class="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
                 {% if member %}
+                {% can_delete_model 'teammember' project as can_del_member %}
+                {% if can_del_member %}
                 <button type="button" hx-post="{% url 'member-delete' project.pk member.pk %}" hx-confirm="Remove this member?"
                         class="mr-auto text-xs text-red-400 hover:underline">Remove</button>
+                {% endif %}
                 {% endif %}
                 <button type="button" @click="open = false; document.getElementById('modal-container').innerHTML=''" class="btn-secondary">Cancel</button>
                 <button type="submit" class="action-btn">{% if member %}Save{% else %}Add Member{% endif %}</button>

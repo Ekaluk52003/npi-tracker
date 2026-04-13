@@ -1,3 +1,6 @@
+{% load permission_tags %}
+{% can_delete_model 'gatechecklistitem' project as can_del_gate_item %}
+{% can_add_model 'gatechecklistitem' project as can_add_gate_item %}
 <div id="gate-checklist-section" class="border-t border-[var(--border)] pt-4">
     <h3 class="text-sm font-semibold mb-2">Gate Checklist</h3>
     {% for item in gate_items %}
@@ -9,9 +12,10 @@
                 hx-target="#gate-checklist-section"
                 hx-swap="outerHTML"
                 class="cursor-pointer text-base leading-none {% if item.checked %}text-emerald-400{% else %}text-[var(--text-muted)]{% endif %} hover:text-emerald-400">
-            {% if item.checked %}✓{% else %}☐{% endif %}
+            {% if item.checked %}&#10003;{% else %}&#9744;{% endif %}
         </button>
         <span class="flex-1">{{ item.label }}</span>
+        {% if can_del_gate_item %}
         <button type="button"
                 name="delete_gate_item"
                 value="{{ item.pk }}"
@@ -19,8 +23,10 @@
                 hx-target="#gate-checklist-section"
                 hx-swap="outerHTML"
                 class="text-xs text-red-400 hover:underline">&times;</button>
+        {% endif %}
     </div>
     {% endfor %}
+    {% if can_add_gate_item %}
     <div class="flex gap-2 mt-2">
         {{ gate_form.label }}
         <button type="button"
@@ -31,4 +37,5 @@
                 hx-swap="outerHTML"
                 class="text-xs text-[var(--accent)] hover:underline whitespace-nowrap">+ Add</button>
     </div>
+    {% endif %}
 </div>

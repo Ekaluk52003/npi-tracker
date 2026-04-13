@@ -1,4 +1,5 @@
 {% load django_vite %}
+{% load permission_tags %}
 <!-- Mobile overlay -->
 <div x-show="sidebarOpen" @click="sidebarOpen = false"
      class="fixed inset-0 bg-black/50 z-40 lg:hidden" x-cloak></div>
@@ -67,7 +68,8 @@
     <!-- Footer actions -->
     <div class="border-t border-[var(--border)] shrink-0"
          :class="sidebarCollapsed ? 'p-1.5 space-y-1' : 'p-3 space-y-2'">
-        {% if user_is_pm %}
+        {% can_view_model 'webhookconfig' None as can_view_webhooks %}
+        {% if can_view_webhooks %}
         <a href="{% url 'webhook-list' %}"
            class="w-full flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition px-1"
            :class="sidebarCollapsed ? 'justify-center py-1.5' : 'px-3 py-2'"
@@ -75,6 +77,9 @@
             <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <span x-show="!sidebarCollapsed" x-transition.opacity class="whitespace-nowrap">Power Automate</span>
         </a>
+        {% endif %}
+        {% can_add_model 'project' None as can_create_project %}
+        {% if can_create_project %}
         <button hx-get="{% url 'project-create' %}" hx-target="#modal-container" hx-swap="innerHTML"
                 class="w-full flex items-center justify-center gap-1.5 text-sm font-medium rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition"
                 :class="sidebarCollapsed ? 'px-0 py-2' : 'px-3 py-2'"

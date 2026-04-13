@@ -21,6 +21,7 @@
         </div>
     </div>
 
+    {% load permission_tags %}
     <!-- ── Issue Table ────────────────────────────────────────────── -->
     <div class="bg-[var(--surface)] rounded-lg border border-[var(--border)] overflow-hidden">
         <!-- Table Header -->
@@ -81,11 +82,13 @@
             </div>
             <!-- Actions -->
             <div class="px-3 py-3 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                {% if user_is_pm or user_is_engineer and issue.assigned_to == request.user %}
+                {% can_change_model 'issue' project as can_edit_issue %}
+                {% if can_edit_issue %}
                 <button hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
                         class="text-xs text-[var(--accent)] hover:underline">Edit</button>
                 {% endif %}
-                {% if user_is_pm %}
+                {% can_delete_model 'issue' project as can_del_issue %}
+                {% if can_del_issue %}
                 <button hx-post="{% url 'issue-delete' project.pk issue.pk %}" hx-confirm="Delete this issue?"
                         hx-target="#content" hx-swap="innerHTML"
                         class="text-xs text-red-400 hover:underline">Delete</button>

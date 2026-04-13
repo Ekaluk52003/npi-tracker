@@ -6,6 +6,9 @@ from datetime import date, timedelta, datetime
 from itertools import groupby
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+def forbidden_response(request, message="You don't have permission to access this resource."):
+    """Return styled 403 forbidden page."""
+    return render(request, '403.html', {'error_message': message}, status=403)
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_http_methods
@@ -15,7 +18,11 @@ from django.db import transaction
 from .models import Project, BuildStage, GateChecklistItem, Milestone, Task, Issue, TeamMember, NREItem, TaskTemplateSet, ProjectPlanVersion, WebhookConfig, InboundWebhook
 from .forms import ProjectForm, TaskForm, IssueForm, TeamMemberForm, NREItemForm, BuildStageForm, GateChecklistItemForm, MilestoneForm, CommitForm
 from .scheduling import generate_tasks_from_template, SchedulingError
-from .permissions import role_required, can_view_project, can_edit_issue, get_project_queryset, is_pm
+from .permissions import (
+    can_view_project, can_edit_issue, get_project_queryset,
+    # New permission system
+    permission_required, has_permission, can_view, can_add, can_change, can_delete,
+)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
@@ -240,6 +247,15 @@ def portfolio(request):
     # Filter projects based on user role (customers see only their projects)
     all_projects = Project.objects.prefetch_related('stages', 'tasks', 'issues', 'nre_items').all()
     projects = get_project_queryset(request.user, all_projects)
+    
+    # Example of programmatic permission checks (new system)
+    # You can check permissions in views like this:
+    # if can_add(request.user, 'project'):
+    #     # Show create project button
+    # if can_change(request.user, 'project', project):
+    #     # Show edit button for this project
+    # if has_permission(request.user, 'task', 'change', project):
+    #     # Check specific permission on specific project
     project_rows = []
     for p in projects:
         cs = p.current_stage
@@ -268,7 +284,7 @@ def portfolio(request):
 def project_issues_modal(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     issues = project.issues.select_related('stage').all()
     return render(request, 'portfolio/_issues_modal.html', {'project': project, 'issues': issues})
 
@@ -324,7 +340,7 @@ def project_detail(request, pk):
 def project_gantt(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__linked_nre', 'stages', 'issues'), pk=pk)
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
     version_id = request.GET.get('version', '')
     compare_version_id = request.GET.get('compare_version', '')
@@ -358,7 +374,7 @@ def project_gantt(request, pk):
 def project_list(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__milestone', 'tasks__linked_nre', 'stages'), pk=pk)
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
     tasks = project.tasks.select_related('stage', 'milestone').prefetch_related('linked_nre').all()
     if stage_filter and stage_filter.isdigit():
@@ -378,7 +394,7 @@ def project_list(request, pk):
 def project_milestones(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('tasks__stage', 'tasks__milestone', 'stages'), pk=pk)
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     stage_filter = request.GET.get('stage', '')
     tasks = project.tasks.select_related('stage', 'milestone').all()
     if stage_filter and stage_filter.isdigit():
@@ -410,7 +426,7 @@ def project_milestones(request, pk):
 def project_team(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     members = project.team_members.all()
     for m in members:
         # For internal members, count tasks assigned to their user account
@@ -433,7 +449,7 @@ def project_team(request, pk):
 def project_stages(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('stages__gate_items', 'tasks__stage', 'issues__stage', 'nre_items__stage'), pk=pk)
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     stages = list(project.stages.all())
     for s in stages:
         s.gate = s.gate_readiness
@@ -447,7 +463,7 @@ def project_stages(request, pk):
 def project_nre(request, pk):
     project = get_object_or_404(Project.objects.prefetch_related('nre_items__stage', 'tasks', 'stages'), pk=pk)
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     items = project.nre_items.select_related('stage').all()
     categories = []
     for cat, group in groupby(items, key=lambda n: n.category):
@@ -482,7 +498,7 @@ def project_critical_index(request, pk):
         pk=pk,
     )
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     tasks = list(project.tasks.exclude(status='done').select_related('stage', 'milestone'))
     task_ids = {t.pk for t in tasks}
 
@@ -582,7 +598,8 @@ def project_critical_index(request, pk):
 
 # ── Project CRUD ─────────────────────────────────────────────────────────
 
-@role_required('pm')
+# Example using new permission system
+@permission_required('project', 'add')
 def project_create(request):
     if request.method == 'POST':
         form = ProjectForm(request.POST)
@@ -615,7 +632,7 @@ def project_create(request):
     return render(request, 'forms/_project_form.html', {'form': form})
 
 
-@role_required('pm')
+@permission_required('project', 'change', project_param='pk')
 def project_edit(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -632,7 +649,7 @@ def project_edit(request, pk):
 
 # ── Section CRUD ────────────────────────────────────────────────────────
 
-@role_required('pm')
+@permission_required('milestone', 'add', project_param='pk')
 def section_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -651,7 +668,7 @@ def section_create(request, pk):
     return render(request, 'forms/_milestone_form.html', {'form': form, 'project': project})
 
 
-@role_required('pm')
+@permission_required('milestone', 'change', project_param='pk')
 def section_edit(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
     milestone = get_object_or_404(Milestone, pk=sid, project=project)
@@ -667,7 +684,7 @@ def section_edit(request, pk, sid):
     return render(request, 'forms/_milestone_form.html', {'form': form, 'project': project, 'milestone': milestone})
 
 
-@role_required('pm')
+@permission_required('milestone', 'delete', project_param='pk')
 def section_delete(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
     milestone = get_object_or_404(Milestone, pk=sid, project=project)
@@ -679,7 +696,7 @@ def section_delete(request, pk, sid):
 
 # ── Task CRUD ────────────────────────────────────────────────────────────
 
-@role_required('pm')
+@permission_required('task', 'add', project_param='pk')
 def task_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -696,7 +713,7 @@ def task_create(request, pk):
     return render(request, 'forms/_task_form.html', {'form': form, 'project': project})
 
 
-@role_required('pm')
+@permission_required('task', 'change', project_param='pk')
 def task_edit(request, pk, tid):
     project = get_object_or_404(Project, pk=pk)
     task = get_object_or_404(Task, pk=tid, project=project)
@@ -727,7 +744,7 @@ def task_edit(request, pk, tid):
     return render(request, 'forms/_task_form.html', {'form': form, 'project': project, 'task': task})
 
 
-@role_required('pm')
+@permission_required('task', 'delete', project_param='pk')
 def task_delete(request, pk, tid):
     project = get_object_or_404(Project, pk=pk)
     task = get_object_or_404(Task, pk=tid, project=project)
@@ -739,7 +756,7 @@ def task_delete(request, pk, tid):
 
 # ── Issue CRUD ───────────────────────────────────────────────────────────
 
-@role_required('pm')
+@permission_required('issue', 'add', project_param='pk')
 def issue_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     task_id = request.GET.get('task_id')
@@ -770,7 +787,7 @@ def issue_edit(request, pk, iid):
     project = get_object_or_404(Project, pk=pk)
     issue = get_object_or_404(Issue, pk=iid, project=project)
     if not can_edit_issue(request.user, issue):
-        return HttpResponseForbidden("You don't have permission to edit this issue.")
+        return forbidden_response(request, "You don't have permission to edit this issue.")
     if request.method == 'POST':
         form = IssueForm(request.POST, instance=issue, project=project)
         if form.is_valid():
@@ -783,7 +800,8 @@ def issue_edit(request, pk, iid):
     return render(request, 'forms/_issue_form.html', {'form': form, 'project': project, 'issue': issue})
 
 
-@role_required('pm')
+# Example using new permission system
+@permission_required('issue', 'delete', project_param='pk')
 def issue_delete(request, pk, iid):
     project = get_object_or_404(Project, pk=pk)
     issue = get_object_or_404(Issue, pk=iid, project=project)
@@ -795,7 +813,7 @@ def issue_delete(request, pk, iid):
 
 # ── Team CRUD ────────────────────────────────────────────────────────────
 
-@role_required('pm')
+@permission_required('teammember', 'add', project_param='pk')
 def member_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -812,7 +830,7 @@ def member_create(request, pk):
     return render(request, 'forms/_member_form.html', {'form': form, 'project': project})
 
 
-@role_required('pm')
+@permission_required('teammember', 'change', project_param='pk')
 def member_edit(request, pk, mid):
     project = get_object_or_404(Project, pk=pk)
     member = get_object_or_404(TeamMember, pk=mid, project=project)
@@ -828,7 +846,7 @@ def member_edit(request, pk, mid):
     return render(request, 'forms/_member_form.html', {'form': form, 'project': project, 'member': member})
 
 
-@role_required('pm')
+@permission_required('teammember', 'delete', project_param='pk')
 def member_delete(request, pk, mid):
     project = get_object_or_404(Project, pk=pk)
     member = get_object_or_404(TeamMember, pk=mid, project=project)
@@ -840,7 +858,7 @@ def member_delete(request, pk, mid):
 
 # ── NRE CRUD ─────────────────────────────────────────────────────────────
 
-@role_required('pm')
+@permission_required('nreitem', 'add', project_param='pk')
 def nre_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -858,7 +876,7 @@ def nre_create(request, pk):
     return render(request, 'forms/_nre_form.html', {'form': form, 'project': project})
 
 
-@role_required('pm')
+@permission_required('nre', 'change', project_param='pk')
 def nre_edit(request, pk, nid):
     project = get_object_or_404(Project, pk=pk)
     nre = get_object_or_404(NREItem, pk=nid, project=project)
@@ -874,7 +892,7 @@ def nre_edit(request, pk, nid):
     return render(request, 'forms/_nre_form.html', {'form': form, 'project': project, 'nre': nre})
 
 
-@role_required('pm')
+@permission_required('nreitem', 'delete', project_param='pk')
 def nre_delete(request, pk, nid):
     project = get_object_or_404(Project, pk=pk)
     nre = get_object_or_404(NREItem, pk=nid, project=project)
@@ -890,7 +908,7 @@ def nre_delete(request, pk, nid):
 def task_issues_modal(request, pk, tid):
     project = get_object_or_404(Project, pk=pk)
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     task = get_object_or_404(Task, pk=tid, project=project)
     issues = task.linked_issues.exclude(status='resolved')
     return render(request, 'forms/_task_issues_modal.html', {
@@ -902,7 +920,7 @@ def task_issues_modal(request, pk, tid):
 
 # ── Build Stage CRUD ────────────────────────────────────────────────────
 
-@role_required('pm')
+@permission_required('buildstage', 'add', project_param='pk')
 def stage_create(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -924,7 +942,7 @@ def stage_create(request, pk):
     })
 
 
-@role_required('pm')
+@permission_required('buildstage', 'change', project_param='pk')
 def stage_edit(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
     stage = get_object_or_404(BuildStage, pk=sid, project=project)
@@ -990,7 +1008,7 @@ def stage_edit(request, pk, sid):
     })
 
 
-@role_required('pm')
+@permission_required('buildstage', 'delete', project_param='pk')
 def stage_delete(request, pk, sid):
     project = get_object_or_404(Project, pk=pk)
     stage = get_object_or_404(BuildStage, pk=sid, project=project)
@@ -1000,7 +1018,7 @@ def stage_delete(request, pk, sid):
     return redirect('project-stages', pk=pk)
 
 
-@role_required('pm')
+@permission_required('gatechecklistitem', 'change', project_param='pk')
 def gate_toggle(request, pk, sid, gid):
     project = get_object_or_404(Project, pk=pk)
     stage = get_object_or_404(BuildStage, pk=sid, project=project)
@@ -1014,7 +1032,7 @@ def gate_toggle(request, pk, sid, gid):
 
 # ── Apply Task Template ────────────────────────────────────────────────
 
-@role_required('pm')
+@permission_required('task', 'add', project_param='pk')
 def template_apply(request, pk):
     project = get_object_or_404(Project, pk=pk)
     stages = list(project.stages.order_by('sort_order'))
@@ -1137,7 +1155,7 @@ def template_apply(request, pk):
     return _render_form()
 
 
-@role_required('pm')
+@permission_required('tasktemplateset', 'view', project_param='pk')
 def template_preview(request, pk, set_pk):
     project = get_object_or_404(Project, pk=pk)
     template_set = get_object_or_404(TaskTemplateSet, pk=set_pk)
@@ -1208,7 +1226,7 @@ def template_preview(request, pk, set_pk):
 
 # ── API Endpoints ────────────────────────────────────────────────────────────
 
-@role_required('pm')
+@permission_required('task', 'change')
 @csrf_protect
 @require_http_methods(['PATCH'])
 def api_task_update(request, task_id):
@@ -1237,7 +1255,7 @@ def api_task_update(request, task_id):
         return JsonResponse({'error': f'Invalid data: {str(e)}'}, status=400)
 
 
-@role_required('pm')
+@permission_required('task', 'change')
 @csrf_protect
 @require_http_methods(['POST'])
 def api_task_link(request, task_id):
@@ -1273,7 +1291,7 @@ def api_task_link(request, task_id):
     return JsonResponse({'success': True, 'cascaded': cascaded})
 
 
-@role_required('pm')
+@permission_required('task', 'change')
 @csrf_protect
 @require_http_methods(['POST'])
 def api_task_unlink(request, task_id):
@@ -1294,7 +1312,7 @@ def api_task_unlink(request, task_id):
     return JsonResponse({'success': True})
 
 
-@role_required('pm')
+@permission_required('issue', 'change')
 @csrf_protect
 @require_http_methods(['POST'])
 def api_issue_relink(request, issue_id):
@@ -1327,14 +1345,14 @@ def api_issue_relink(request, issue_id):
 def project_history(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if not can_view_project(request.user, project):
-        return HttpResponseForbidden("You don't have permission to view this project.")
+        return forbidden_response(request, "You don't have permission to view this project.")
     versions = list(project.plan_versions.select_related('committed_by').all())
     versions_with_diff = [{'version': v, 'diff': v.diff_vs_previous} for v in versions]
     ctx = _project_ctx(project, 'history', {'versions_with_diff': versions_with_diff})
     return _htmx_tab(request, 'project/detail.html', 'project/_history.html', ctx)
 
 
-@role_required('pm')
+@permission_required('projectplanversion', 'add', project_param='pk')
 def project_commit_form(request, pk):
     project = get_object_or_404(Project, pk=pk)
     latest = project.plan_versions.first()
@@ -1345,7 +1363,7 @@ def project_commit_form(request, pk):
     })
 
 
-@role_required('pm')
+@permission_required('projectplanversion', 'add', project_param='pk')
 @require_POST
 def project_commit(request, pk):
     project = get_object_or_404(Project, pk=pk)
@@ -1374,7 +1392,7 @@ def project_commit(request, pk):
     return HttpResponse(headers={'HX-Trigger-After-Settle': json.dumps({'versionCommitted': True})})
 
 
-@role_required('pm')
+@permission_required('projectplanversion', 'add', project_param='pk')
 @require_POST
 def project_version_restore(request, pk, vid):
     project = get_object_or_404(Project, pk=pk)
@@ -1448,7 +1466,7 @@ def project_version_detail(request, pk, vid):
 
 # ── Power Automate Webhooks ───────────────────────────────────────────────────
 
-@role_required('pm')
+@permission_required('webhookconfig', 'view')
 def webhook_list(request):
     webhooks = WebhookConfig.objects.select_related('project').all()
     return render(request, 'webhooks/list.html', {
@@ -1457,7 +1475,7 @@ def webhook_list(request):
     })
 
 
-@role_required('pm')
+@permission_required('webhookconfig', 'add')
 def webhook_create(request):
     from .forms import WebhookConfigForm
     if request.method == 'POST':
@@ -1474,7 +1492,7 @@ def webhook_create(request):
     return render(request, 'forms/_webhook_form.html', {'form': form})
 
 
-@role_required('pm')
+@permission_required('webhookconfig', 'change')
 def webhook_edit(request, wid):
     from .forms import WebhookConfigForm
     webhook = get_object_or_404(WebhookConfig, pk=wid)
@@ -1490,7 +1508,7 @@ def webhook_edit(request, wid):
     return render(request, 'forms/_webhook_form.html', {'form': form, 'webhook': webhook})
 
 
-@role_required('pm')
+@permission_required('webhookconfig', 'delete')
 @require_POST
 def webhook_delete(request, wid):
     webhook = get_object_or_404(WebhookConfig, pk=wid)
@@ -1541,7 +1559,7 @@ def webhook_pa_unsubscribe(request, wid, token):
     return JsonResponse({'status': 'unsubscribed'})
 
 
-@role_required('pm')
+@permission_required('webhookconfig', 'change')
 @require_POST
 def webhook_test(request, wid):
     from .webhooks import _deliver
@@ -1565,7 +1583,7 @@ def webhook_test(request, wid):
     return redirect('webhook-list')
 
 
-@role_required('pm')
+@permission_required('webhookconfig', 'change')
 @require_POST
 def webhook_test_chat(request, wid):
     """Send a test card to a specific recipient (chat webhook with dynamic routing)."""
@@ -1600,7 +1618,7 @@ def webhook_test_chat(request, wid):
     return redirect('webhook-list')
 
 
-@role_required('pm')
+@permission_required('webhookconfig', 'change')
 @require_POST
 def webhook_test_text(request, wid):
     """Send a plain text ping — use this first to verify the URL is reachable."""
@@ -1617,7 +1635,7 @@ def webhook_test_text(request, wid):
 
 # ── Inbound Webhooks (receive events from Power Automate) ────────────────
 
-@role_required('pm')
+@permission_required('inboundwebhook', 'view')
 def inbound_webhook_list(request):
     webhooks = InboundWebhook.objects.select_related('project').all()
     return render(request, 'webhooks/inbound_list.html', {
@@ -1626,7 +1644,7 @@ def inbound_webhook_list(request):
     })
 
 
-@role_required('pm')
+@permission_required('inboundwebhook', 'add')
 def inbound_webhook_create(request):
     from .forms import InboundWebhookForm
     if request.method == 'POST':
@@ -1643,7 +1661,7 @@ def inbound_webhook_create(request):
     return render(request, 'forms/_inbound_webhook_form.html', {'form': form})
 
 
-@role_required('pm')
+@permission_required('inboundwebhook', 'change')
 def inbound_webhook_edit(request, wid):
     from .forms import InboundWebhookForm
     webhook = get_object_or_404(InboundWebhook, pk=wid)
@@ -1659,7 +1677,7 @@ def inbound_webhook_edit(request, wid):
     return render(request, 'forms/_inbound_webhook_form.html', {'form': form, 'webhook': webhook})
 
 
-@role_required('pm')
+@permission_required('inboundwebhook', 'delete')
 @require_POST
 def inbound_webhook_delete(request, wid):
     webhook = get_object_or_404(InboundWebhook, pk=wid)
@@ -1669,7 +1687,7 @@ def inbound_webhook_delete(request, wid):
     return redirect('inbound-webhook-list')
 
 
-@role_required('pm')
+@permission_required('inboundwebhook', 'change')
 @require_POST
 def inbound_webhook_regenerate(request, wid):
     """Regenerate the secret token for an inbound webhook."""
