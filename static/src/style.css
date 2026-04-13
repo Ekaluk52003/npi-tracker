@@ -240,12 +240,12 @@ body {
 .gantt-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 0.375rem; overflow: hidden; }
 .gantt-container { display: flex; flex-direction: column; height: calc(100vh - 200px); }
 .gantt-shared-header { display: flex; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
-.gantt-header-left { width: 560px; min-width: 560px; display: flex; align-items: stretch; border-right: 1px solid var(--border); overflow: hidden; }
+.gantt-header-left { width: 650px; min-width: 650px; display: flex; align-items: stretch; border-right: 1px solid var(--border); overflow: hidden; }
 .gantt-header-left .gh-cell { display: flex; align-items: center; }
 .gantt-header-right { flex: 1; overflow-x: hidden; overflow-y: scroll; min-width: 0; scrollbar-width: none; }
 .gantt-header-right::-webkit-scrollbar { display: none; }
 .gantt-body { display: flex; flex: 1; overflow: hidden; }
-.gantt-left { width: 560px; min-width: 560px; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.gantt-left { width: 650px; min-width: 650px; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
 .gantt-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .gh-cell { padding: 8px 6px; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; border-right: 1px solid var(--border); white-space: nowrap; }
 .gh-item { width: 30px; min-width: 30px; text-align: center; }
@@ -253,6 +253,7 @@ body {
 .gh-start { width: 70px; text-align: center; }
 .gh-end { width: 70px; text-align: center; }
 .gh-who { width: 70px; }
+.gh-assigned { width: 90px; }
 .gh-dur { width: 38px; text-align: center; }
 .gh-status { width: 78px; }
 .gh-issues { width: 30px; text-align: center; }
@@ -272,6 +273,8 @@ body {
 .tc-date:hover { background: rgba(45,155,132,0.08); }
 .tc-who { width: 70px; }
 .who-pill { font-size: 11px; padding: 2px 6px; background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60px; display: block; }
+.tc-assigned { width: 90px; }
+.assigned-pill { font-size: 11px; padding: 2px 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; display: block; }
 .tc-dur { width: 38px; text-align: center; color: var(--text-muted); font-size: 12px; justify-content: center; }
 .tc-status { width: 78px; }
 .tc-issues { width: 30px; text-align: center; justify-content: center; }
@@ -319,6 +322,7 @@ body {
 @media (max-width: 1024px) {
   .gantt-header-left, .gantt-left { width: 420px; min-width: 420px; }
   .tc-who, .gh-who { display: none; }
+  .tc-assigned, .gh-assigned { display: none; }
   .tc-dur, .gh-dur { display: none; }
   .tc-nre, .gh-nre { display: none; }
   .tc-start, .gh-start, .tc-end, .gh-end { width: 64px; }

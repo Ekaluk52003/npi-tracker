@@ -16,6 +16,7 @@
             {% if m.email %}<a href="mailto:{{ m.email }}" class="text-[var(--accent)] hover:underline block truncate">{{ m.email }}</a>{% endif %}
             {% if m.phone %}<div class="text-[var(--text-muted)]">{{ m.phone }}</div>{% endif %}
             <div class="text-[var(--text-muted)]">{{ m.task_count }} task{{ m.task_count|pluralize }}</div>
+            <div class="text-[var(--text-muted)]">{{ m.issue_count }} issue{{ m.issue_count|pluralize }}</div>
         </div>
         <div class="mt-3 flex gap-2">
             <button hx-get="{% url 'member-edit' project.pk m.pk %}" hx-target="#modal-container" hx-swap="innerHTML"

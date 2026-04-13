@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from .models import Project, ProjectSection, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet, WebhookConfig, InboundWebhook
+from .models import Project, ProjectSection, Task, Issue, TeamMember, NREItem, BuildStage, GateChecklistItem, TaskTemplateSet, WebhookConfig, InboundWebhook, Customer
 
 User = get_user_model()
 
@@ -10,22 +10,54 @@ select_cls = input_cls
 textarea_cls = input_cls + ' min-h-[60px] resize-y'
 
 
+class ProjectMemberChoiceField(forms.ModelChoiceField):
+    """Custom field to display team member name with their role."""
+
+    def __init__(self, project=None, *args, **kwargs):
+        self.project = project
+        super().__init__(*args, **kwargs)
+
+    def label_from_instance(self, user):
+        if self.project:
+            # Get role from team member record
+            team_member = self.project.team_members.filter(user=user, member_type='internal').first()
+            if team_member and team_member.role:
+                return f"{user.get_full_name() or user.username} ({team_member.role})"
+        return user.get_full_name() or user.username
+
+
 class ProjectForm(forms.ModelForm):
+    pgm = forms.ModelChoiceField(
+        queryset=User.objects.filter(profile__role='pm').order_by('first_name', 'last_name', 'username'),
+        required=False,
+        empty_label='— Select Program Manager —',
+        widget=forms.Select(attrs={'class': select_cls})
+    )
+    customer = forms.ModelChoiceField(
+        queryset=Customer.objects.all().order_by('name'),
+        required=False,
+        empty_label='— Select Customer —',
+        widget=forms.Select(attrs={'class': select_cls})
+    )
+
     class Meta:
         model = Project
-        fields = ['name', 'pgm', 'customer', 'start_date', 'end_date']
+        fields = ['name', 'product_code', 'pgm', 'customer', 'start_date', 'end_date', 'color', 'annual_volume', 'annual_revenue', 'currency']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Greenland'}),
-            'pgm': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'Program Manager'}),
-            'customer': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Axis'}),
+            'product_code': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. PRD-001, SKU-12345'}),
             'start_date': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
             'end_date': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
+            'color': forms.TextInput(attrs={'class': input_cls + ' h-10 w-full cursor-pointer', 'type': 'color'}),
+            'annual_volume': forms.NumberInput(attrs={'class': input_cls, 'min': 0, 'placeholder': 'e.g. 100000'}),
+            'annual_revenue': forms.NumberInput(attrs={'class': input_cls, 'min': 0, 'step': '0.01', 'placeholder': 'e.g. 5000000.00'}),
+            'currency': forms.Select(attrs={'class': select_cls}),
         }
 
 
 class TaskForm(forms.ModelForm):
-    assigned_to = forms.ModelChoiceField(
-        queryset=User.objects.all().order_by('first_name', 'last_name', 'username'),
+    assigned_to = ProjectMemberChoiceField(
+        queryset=User.objects.none(),
         required=False,
         empty_label='— Unassigned —',
     )
@@ -49,15 +81,27 @@ class TaskForm(forms.ModelForm):
         if project:
             self.fields['section'].queryset = project.sections.all()
             self.fields['stage'].queryset = project.stages.all()
+            # Filter assigned_to to project team members (internal users)
+            internal_members = project.team_members.filter(member_type='internal', user__isnull=False)
+            self.fields['assigned_to'].project = project
+            self.fields['assigned_to'].queryset = User.objects.filter(
+                pk__in=internal_members.values_list('user', flat=True)
+            ).order_by('first_name', 'last_name', 'username')
         elif self.instance and self.instance.pk:
             self.fields['section'].queryset = self.instance.project.sections.all()
             self.fields['stage'].queryset = self.instance.project.stages.all()
+            # Filter assigned_to to project team members
+            internal_members = self.instance.project.team_members.filter(member_type='internal', user__isnull=False)
+            self.fields['assigned_to'].project = self.instance.project
+            self.fields['assigned_to'].queryset = User.objects.filter(
+                pk__in=internal_members.values_list('user', flat=True)
+            ).order_by('first_name', 'last_name', 'username')
         self.fields['stage'].empty_label = '— None —'
 
 
 class IssueForm(forms.ModelForm):
-    assigned_to = forms.ModelChoiceField(
-        queryset=User.objects.all().order_by('first_name', 'last_name', 'username'),
+    assigned_to = ProjectMemberChoiceField(
+        queryset=User.objects.none(),
         required=False,
         empty_label='— Unassigned —',
     )
@@ -82,15 +126,39 @@ class IssueForm(forms.ModelForm):
         if project:
             self.fields['linked_tasks'].queryset = project.tasks.all()
             self.fields['stage'].queryset = project.stages.all()
+            # Filter assigned_to to project team members (internal users)
+            internal_members = project.team_members.filter(member_type='internal', user__isnull=False)
+            self.fields['assigned_to'].project = project
+            self.fields['assigned_to'].queryset = User.objects.filter(
+                pk__in=internal_members.values_list('user', flat=True)
+            ).order_by('first_name', 'last_name', 'username')
         elif self.instance and self.instance.pk:
             self.fields['stage'].queryset = self.instance.project.stages.all()
+            # Filter assigned_to to project team members
+            internal_members = self.instance.project.team_members.filter(member_type='internal', user__isnull=False)
+            self.fields['assigned_to'].project = self.instance.project
+            self.fields['assigned_to'].queryset = User.objects.filter(
+                pk__in=internal_members.values_list('user', flat=True)
+            ).order_by('first_name', 'last_name', 'username')
         self.fields['stage'].empty_label = '— None —'
 
 
 class TeamMemberForm(forms.ModelForm):
+    member_type = forms.ChoiceField(
+        choices=TeamMember.MEMBER_TYPE_CHOICES,
+        initial='external',
+        widget=forms.Select(attrs={'class': select_cls, 'onchange': 'toggleMemberType(this)'})
+    )
+    user = forms.ModelChoiceField(
+        queryset=User.objects.all().order_by('first_name', 'last_name', 'username'),
+        required=False,
+        empty_label='— Select User —',
+        widget=forms.Select(attrs={'class': select_cls})
+    )
+
     class Meta:
         model = TeamMember
-        fields = ['name', 'role', 'company', 'email', 'phone']
+        fields = ['member_type', 'user', 'name', 'role', 'company', 'email', 'phone']
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'Full name'}),
             'role': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. PGM, PCB Engineer'}),
@@ -98,6 +166,30 @@ class TeamMemberForm(forms.ModelForm):
             'email': forms.EmailInput(attrs={'class': input_cls, 'placeholder': 'name@company.com'}),
             'phone': forms.TextInput(attrs={'class': input_cls, 'placeholder': '+66…'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make name required only for external members
+        self.fields['name'].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        member_type = cleaned_data.get('member_type')
+        user = cleaned_data.get('user')
+        name = cleaned_data.get('name')
+
+        if member_type == 'internal':
+            if not user:
+                self.add_error('user', 'Please select a user for internal members.')
+            # Auto-populate name from user if not provided
+            if user and not name:
+                cleaned_data['name'] = user.get_full_name() or user.username
+        else:
+            # External member requires name
+            if not name:
+                self.add_error('name', 'Please enter a name for external members.')
+
+        return cleaned_data
 
 
 class NREItemForm(forms.ModelForm):
@@ -141,7 +233,7 @@ class BuildStageForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. EVT, DVT, PVT'}),
             'full_name': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Engineering Verification Test'}),
-            'color': forms.TextInput(attrs={'class': input_cls, 'type': 'color'}),
+            'color': forms.TextInput(attrs={'class': input_cls + ' h-10 w-full cursor-pointer', 'type': 'color'}),
             'status': forms.Select(attrs={'class': select_cls}),
             'planned_date': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
             'actual_date': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),

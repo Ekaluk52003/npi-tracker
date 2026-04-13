@@ -12,7 +12,25 @@
             {% for field in form %}
             <div>
                 <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">{{ field.label }}</label>
+                {% if field.name == 'color' %}
+                <div class="flex items-center gap-2">
+                    {{ field }}
+                    <div id="color-preview" class="w-8 h-8 rounded border border-[var(--border)]" style="background-color: {{ field.value|default:'#3b82f6' }}"></div>
+                </div>
+                <script>
+                    (function() {
+                        const colorInput = document.querySelector('input[type="color"]');
+                        const preview = document.getElementById('color-preview');
+                        if (colorInput && preview) {
+                            colorInput.addEventListener('input', function() {
+                                preview.style.backgroundColor = this.value;
+                            });
+                        }
+                    })();
+                </script>
+                {% else %}
                 {{ field }}
+                {% endif %}
                 {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
             </div>
             {% endfor %}

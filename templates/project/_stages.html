@@ -1,5 +1,65 @@
+{% load humanize %}
+
+<!-- Project Details Card -->
+<div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 mb-4">
+    <div class="flex items-start justify-between">
+        <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="w-3 h-3 rounded-full shrink-0" style="background:{{ project.color }}"></span>
+                <h2 class="text-lg font-bold">{{ project.name }}</h2>
+                <span class="stage-pill stage-{{ project.overall_status }} text-xs">{{ project.overall_status_label }}</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                <div>
+                    <span class="text-xs text-[var(--text-muted)] block">Product Code</span>
+                    <span>{{ project.product_code|default:"—" }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-[var(--text-muted)] block">Program Manager</span>
+                    <span>{{ project.pgm.get_full_name|default:project.pgm.username|default:"—" }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-[var(--text-muted)] block">Customer</span>
+                    <span>{{ project.customer|default:"—" }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-[var(--text-muted)] block">Start Date</span>
+                    <span>{{ project.start_date|date:"d M Y" }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-[var(--text-muted)] block">End Date</span>
+                    <span>{{ project.end_date|date:"d M Y" }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-[var(--text-muted)] block">Duration</span>
+                    <span>{{ project.duration_label }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-[var(--text-muted)] block">Annual Volume</span>
+                    <span>{{ project.annual_volume|default:"—"|intcomma }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-[var(--text-muted)] block">Annual Revenue</span>
+                    <span>{{ project.currency_symbol }}{{ project.annual_revenue|default:"—"|intcomma }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-[var(--text-muted)] block">Tasks</span>
+                    <span>{{ project.task_progress.done }}/{{ project.task_progress.total }} ({{ project.task_progress.pct }}%)</span>
+                </div>
+            </div>
+        </div>
+        {% if user_is_pm %}
+        <button hx-get="{% url 'project-edit' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                class="ml-4 px-3 py-1.5 text-sm bg-[var(--accent)] text-white rounded-lg hover:opacity-90 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+            Edit Project
+        </button>
+        {% endif %}
+    </div>
+</div>
+
 <div class="flex items-center justify-between mb-4">
-    <div></div>
+    <h3 class="text-sm font-semibold text-[var(--text-muted)]">Build Stages</h3>
     {% if user_is_pm %}
     <button hx-get="{% url 'stage-create' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
             class="action-btn text-xs">+ Add Stage</button>

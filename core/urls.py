@@ -21,6 +21,7 @@ urlpatterns = [
 
     # Project CRUD
     path('project/create/', views.project_create, name='project-create'),
+    path('project/<int:pk>/edit/', views.project_edit, name='project-edit'),
 
     # Section CRUD
     path('project/<int:pk>/sections/create/', views.section_create, name='section-create'),

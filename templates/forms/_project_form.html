@@ -1,13 +1,13 @@
-<div x-data="projectForm()" x-show="open" x-cloak
+<div x-data="projectForm({% if is_edit %}true{% else %}false{% endif %})" x-show="open" x-cloak
      class="fixed inset-0 z-[100] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="open = false; document.getElementById('modal-container').innerHTML=''"></div>
     <div class="relative bg-[var(--surface)] rounded-xl border border-[var(--border)] w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl" @click.stop>
         <div class="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] px-5 py-4 flex items-center justify-between z-10">
-            <h2 class="text-lg font-semibold">New Project</h2>
+            <h2 class="text-lg font-semibold">{% if is_edit %}Edit Project{% else %}New Project{% endif %}</h2>
             <button @click="open = false; document.getElementById('modal-container').innerHTML=''" class="text-[var(--text-muted)] hover:text-[var(--text)] text-xl">&times;</button>
         </div>
-        <form hx-post="{% url 'project-create' %}" hx-target="#modal-container" hx-swap="innerHTML" class="p-5 space-y-4"
-              @submit="$el.querySelector('[name=stages_json]').value = JSON.stringify(stages)">
+        <form hx-post="{% if is_edit %}{% url 'project-edit' project.pk %}{% else %}{% url 'project-create' %}{% endif %}" hx-target="#modal-container" hx-swap="innerHTML" class="p-5 space-y-4"
+              {% if not is_edit %}@submit="$el.querySelector('[name=stages_json]').value = JSON.stringify(stages)"{% endif %}
             {% csrf_token %}
             {% for field in form %}
             <div>
@@ -17,7 +17,8 @@
             </div>
             {% endfor %}
 
-            <!-- Dynamic Stages Builder -->
+            {% if not is_edit %}
+            <!-- Dynamic Stages Builder (only for new projects) -->
             <div class="border-t border-[var(--border)] pt-4">
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-sm font-semibold">Build Stages</h3>
@@ -36,20 +37,21 @@
                 </template>
                 <input type="hidden" name="stages_json" value="">
             </div>
+            {% endif %}
 
             <div class="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
                 <button type="button" @click="open = false; document.getElementById('modal-container').innerHTML=''" class="btn-secondary">Cancel</button>
-                <button type="submit" class="action-btn">Create Project</button>
+                <button type="submit" class="action-btn">{% if is_edit %}Save Changes{% else %}Create Project{% endif %}</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-function projectForm() {
+function projectForm(isEdit) {
     return {
         open: true,
-        stages: [
+        stages: isEdit ? [] : [
             { name: 'ETB', full_name: 'External Test Build', color: '#f59e0b' },
             { name: 'PS', full_name: 'Pre-Series Build', color: '#8b5cf6' },
             { name: 'FAS', full_name: 'First Article Sample', color: '#06b6d4' },

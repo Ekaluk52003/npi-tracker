@@ -19,6 +19,11 @@
     {% if project %}
     <!-- Tab buttons -->
     <nav class="flex items-center gap-1 ml-2 overflow-x-auto">
+        <a href="{% url 'project-stages' project.pk %}"
+           class="tab-btn {% if active_tab == 'stages' %}active{% endif %}"
+           hx-get="{% url 'project-stages' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
+            Build Stages
+        </a>
         <a href="{% url 'project-gantt' project.pk %}"
            class="tab-btn {% if active_tab == 'gantt' %}active{% endif %}"
            hx-get="{% url 'project-gantt' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
@@ -38,11 +43,6 @@
            class="tab-btn {% if active_tab == 'team' %}active{% endif %}"
            hx-get="{% url 'project-team' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
             Team
-        </a>
-        <a href="{% url 'project-stages' project.pk %}"
-           class="tab-btn {% if active_tab == 'stages' %}active{% endif %}"
-           hx-get="{% url 'project-stages' project.pk %}" hx-target="#content" hx-push-url="true" hx-swap="innerHTML">
-            Build Stages
         </a>
         <a href="{% url 'project-nre' project.pk %}"
            class="tab-btn {% if active_tab == 'nre' %}active{% endif %}"

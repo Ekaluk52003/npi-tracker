@@ -1,7 +1,3 @@
-{% extends "base.html" %}
-{% block title %}My Tasks — NPI Tracker{% endblock %}
-
-{% block content %}
 <div x-data="myTasksBoard()" class="-m-4 lg:-m-6">
 
 <!-- ── Toolbar ─────────────────────────────────────────────────────── -->
@@ -117,7 +113,10 @@
                         <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
                         {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
                     </div>
-                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5">{{ task.name }}</div>
+                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5 cursor-pointer hover:text-[var(--accent)]"
+                         hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                        {{ task.name }}
+                    </div>
                     <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
                         <span class="truncate mr-2">{{ task.section.name }}</span>
                         <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
@@ -143,7 +142,10 @@
                         <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
                         {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
                     </div>
-                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5">{{ task.name }}</div>
+                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5 cursor-pointer hover:text-[var(--accent)]"
+                         hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                        {{ task.name }}
+                    </div>
                     <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
                         <span class="truncate mr-2">{{ task.section.name }}</span>
                         <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
@@ -169,7 +171,10 @@
                         <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
                         {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
                     </div>
-                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5">{{ task.name }}</div>
+                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5 cursor-pointer hover:text-[var(--accent)]"
+                         hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                        {{ task.name }}
+                    </div>
                     <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
                         <span class="truncate mr-2">{{ task.section.name }}</span>
                         <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
@@ -195,7 +200,10 @@
                         <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
                         {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
                     </div>
-                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5">{{ task.name }}</div>
+                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5 cursor-pointer hover:text-[var(--accent)]"
+                         hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                        {{ task.name }}
+                    </div>
                     {% for dep in task.depends_on.all %}{% if dep.status != 'done' %}
                     <div class="flex items-center gap-1 text-[10px] text-amber-400/70 mb-0.5">
                         <svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -268,7 +276,8 @@
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>Ready
                     </span>
                 </td>
-                <td class="px-3 py-2.5 font-medium text-[var(--text)]">{{ task.name }}</td>
+                <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
+                    hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
                 <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
                 <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
                 <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
@@ -284,7 +293,8 @@
                         <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>In Progress
                     </span>
                 </td>
-                <td class="px-3 py-2.5 font-medium text-[var(--text)]">{{ task.name }}</td>
+                <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
+                    hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
                 <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
                 <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
                 <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
@@ -300,7 +310,8 @@
                         <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>Blocked
                     </span>
                 </td>
-                <td class="px-3 py-2.5 font-medium text-[var(--text)]">{{ task.name }}</td>
+                <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
+                    hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
                 <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
                 <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
                 <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
@@ -316,7 +327,8 @@
                         <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>Waiting
                     </span>
                 </td>
-                <td class="px-3 py-2.5 font-medium text-[var(--text)]">{{ task.name }}</td>
+                <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
+                    hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
                 <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
                 <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.section.name }}</td>
                 <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
@@ -379,5 +391,3 @@ function myTasksBoard() {
     };
 }
 </script>
-
-{% endblock %}

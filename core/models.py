@@ -17,7 +17,15 @@ class Project(models.Model):
     CURRENCY_CHOICES = [('THB', 'THB'), ('USD', 'USD'), ('EUR', 'EUR')]
 
     name = models.CharField(max_length=200)
-    pgm = models.CharField(max_length=100, verbose_name='Program Manager')
+    product_code = models.CharField(max_length=100, blank=True, help_text='Product code or SKU')
+    pgm = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='managed_projects',
+        verbose_name='Program Manager'
+    )
     customer = models.ForeignKey(
         'Customer',
         on_delete=models.SET_NULL,
@@ -149,7 +157,7 @@ class BuildStage(models.Model):
     sort_order = models.IntegerField(default=0)
 
     class Meta:
-        ordering = ['sort_order']
+        ordering = ['actual_date', 'planned_date']
         unique_together = ['project', 'name']
 
     def __str__(self):
@@ -429,8 +437,20 @@ class Issue(models.Model):
 
 
 class TeamMember(models.Model):
+    MEMBER_TYPE_CHOICES = [
+        ('internal', 'Internal'),
+        ('external', 'External'),
+    ]
+
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='team_members')
-    name = models.CharField(max_length=200)
+    member_type = models.CharField(max_length=10, choices=MEMBER_TYPE_CHOICES, default='external')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='team_memberships'
+    )
+    name = models.CharField(max_length=200, blank=True)
     role = models.CharField(max_length=100, blank=True)
     company = models.CharField(max_length=200, blank=True)
     email = models.EmailField(blank=True)
@@ -440,11 +460,17 @@ class TeamMember(models.Model):
         ordering = ['name']
 
     def __str__(self):
-        return self.name
+        return self.display_name
+
+    @property
+    def display_name(self):
+        if self.member_type == 'internal' and self.user:
+            return self.user.get_full_name() or self.user.username
+        return self.name or 'Unnamed'
 
     @property
     def initials(self):
-        parts = self.name.split()
+        parts = self.display_name.split()
         return ''.join(p[0] for p in parts[:2]).upper()
 
 

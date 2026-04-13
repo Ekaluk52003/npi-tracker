@@ -114,6 +114,7 @@ def _gantt_data_from_snapshot(version, project):
                 'id': t['id'],
                 'name': t['name'],
                 'who': t.get('who', ''),
+                'assigned_to': t.get('assigned_to', ''),
                 'days': t.get('days', 1),
                 'start': t['start'],
                 'end': t['end'],
@@ -148,7 +149,7 @@ def _gantt_data_from_snapshot(version, project):
 
 
 def _gantt_data_for_project(project, stage_filter=''):
-    tasks = project.tasks.select_related('stage', 'section').prefetch_related('linked_nre', 'depends_on').all()
+    tasks = project.tasks.select_related('stage', 'section', 'assigned_to').prefetch_related('linked_nre', 'depends_on', 'linked_issues').all()
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
@@ -160,6 +161,7 @@ def _gantt_data_for_project(project, stage_filter=''):
                 'id': t.pk,
                 'name': t.name,
                 'who': t.who,
+                'assigned_to': t.assigned_to.get_full_name() or t.assigned_to.username if t.assigned_to else '',
                 'days': t.days,
                 'start': t.start.isoformat(),
                 'end': t.end.isoformat(),
@@ -299,7 +301,7 @@ def my_tasks(request):
         assigned_to=user,
     ).exclude(status='resolved').select_related('project', 'stage').order_by('severity', 'status')
 
-    return render(request, 'my_tasks.html', {
+    ctx = {
         'ready': ready,
         'in_progress': in_progress,
         'blocked': blocked,
@@ -307,7 +309,8 @@ def my_tasks(request):
         'my_issues': my_issues,
         'today': date.today(),
         'active_my_tasks': True,
-    })
+    }
+    return _htmx(request, 'my_tasks_page.html', 'my_tasks.html', ctx)
 
 
 # ── Project Detail Tabs ──────────────────────────────────────────────────
@@ -410,9 +413,18 @@ def project_team(request, pk):
         return HttpResponseForbidden("You don't have permission to view this project.")
     members = project.team_members.all()
     for m in members:
-        m.task_count = project.tasks.filter(who__icontains=m.name).count()
-        if not m.task_count and m.company:
-            m.task_count = project.tasks.filter(who__icontains=m.company).count()
+        # For internal members, count tasks assigned to their user account
+        if m.member_type == 'internal' and m.user:
+            m.task_count = project.tasks.filter(assigned_to=m.user).count()
+            m.issue_count = project.issues.filter(assigned_to=m.user).count()
+        else:
+            # For external members, fall back to who/owner field matching
+            m.task_count = project.tasks.filter(who__icontains=m.name).count()
+            if not m.task_count and m.company:
+                m.task_count = project.tasks.filter(who__icontains=m.company).count()
+            m.issue_count = project.issues.filter(owner__icontains=m.name).count()
+            if not m.issue_count and m.company:
+                m.issue_count = project.issues.filter(owner__icontains=m.company).count()
     ctx = _project_ctx(project, 'team', {'members': members})
     return _htmx_tab(request, 'project/detail.html', 'project/_team.html', ctx)
 
@@ -603,6 +615,21 @@ def project_create(request):
     return render(request, 'forms/_project_form.html', {'form': form})
 
 
+@role_required('pm')
+def project_edit(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    if request.method == 'POST':
+        form = ProjectForm(request.POST, instance=project)
+        if form.is_valid():
+            form.save()
+            if request.htmx:
+                return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/stages/')})
+            return redirect('project-stages', pk=pk)
+    else:
+        form = ProjectForm(instance=project)
+    return render(request, 'forms/_project_form.html', {'form': form, 'project': project, 'is_edit': True})
+
+
 # ── Section CRUD ────────────────────────────────────────────────────────
 
 @role_required('pm')
@@ -686,6 +713,7 @@ def task_edit(request, pk, tid):
                     'days': task.days,
                     'status': task.status,
                     'who': task.who,
+                    'assigned_to': task.assigned_to.get_full_name() or task.assigned_to.username if task.assigned_to else '',
                     'remark': task.remark[:60] if task.remark else '',
                     'stage': task.stage.name if task.stage else '',
                     'stage_color': task.stage.color if task.stage else '',

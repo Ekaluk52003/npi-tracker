@@ -213,6 +213,7 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
       <div class="tc-cell tc-start tc-date" data-date="${t.start}">${startDisp}</div>
       <div class="tc-cell tc-end tc-date" data-date="${t.end}">${endDisp}</div>
       <div class="tc-cell tc-who"><span class="who-pill" title="${esc(t.who)}">${esc(t.who)}</span></div>
+      <div class="tc-cell tc-assigned"><span class="assigned-pill" title="${esc(t.assigned_to || '')}">${esc(t.assigned_to || '—')}</span></div>
       <div class="tc-cell tc-dur">${t.days}d</div>
       <div class="tc-cell tc-status"><span class="status-dot">${STATUS_LABELS[t.status] || t.status}</span></div>
       <div class="tc-cell tc-issues">${issChip}</div>
@@ -244,11 +245,17 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
 
     // Build overlay bar if comparison data has this task
     let overlayBar = '';
+    if (!t.id) {
+      console.warn('[Gantt] Task missing ID:', t.name);
+    }
     const overlayTask = overlayTaskMap[t.id];
     if (overlayTask) {
+      if (!t.id) {
+        console.warn('[Gantt] Creating overlay bar for task with undefined ID');
+      }
       const overlayLeft = (parseDate(overlayTask.start) - weeks[0]) / (7 * 86400000) * WK_W;
       const overlayWidth = Math.max(16, (parseDate(overlayTask.end) - parseDate(overlayTask.start)) / (7 * 86400000) * WK_W);
-      overlayBar = `<div class="gantt-bar ${overlayTask.status} compare-overlay" data-overlay-task-id="${t.id}" data-overlay-start="${overlayTask.start}" data-overlay-end="${overlayTask.end}" style="left:${overlayLeft}px;width:${overlayWidth}px;opacity:0.25;z-index:1;border:2px dashed rgba(255,255,255,0.4);background-clip:padding-box;cursor:pointer;" title="Click to restore to: ${esc(overlayTask.name)} ${overlayTask.start} → ${overlayTask.end}"></div>`;
+      overlayBar = `<div class="gantt-bar ${overlayTask.status} compare-overlay" data-overlay-task-id="${t.id}" data-overlay-start="${overlayTask.start}" data-overlay-end="${overlayTask.end}" data-overlay-start-date="${overlayTask.start}" style="left:${overlayLeft}px;width:${overlayWidth}px;opacity:0.5;z-index:1;border:2px dashed rgba(255,255,255,0.6);background-clip:padding-box;cursor:pointer;" title="Click to restore to: ${esc(overlayTask.name)} ${overlayTask.start} → ${overlayTask.end}"></div>`;
     }
 
     return `<div class="timeline-row" style="min-width:${weeks.length * WK_W}px;position:relative" data-section-idx="${row.secIdx}">
@@ -275,7 +282,8 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
             <div class="gh-cell gh-task" id="gh-task-col" style="position:relative">Task<span id="gh-task-resize" style="position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:col-resize;z-index:10;background:transparent" title="Drag to resize"></span></div>
             <div class="gh-cell gh-start">Start</div>
             <div class="gh-cell gh-end">End</div>
-            <div class="gh-cell gh-who">Assigned</div>
+            <div class="gh-cell gh-who">Who</div>
+            <div class="gh-cell gh-assigned">Assigned</div>
             <div class="gh-cell gh-dur">Days</div>
             <div class="gh-cell gh-status">Status</div>
             <div class="gh-cell gh-issues">\u26A0</div>
@@ -734,10 +742,18 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
         const taskId = overlayBar.dataset.overlayTaskId;
         const newStart = overlayBar.dataset.overlayStart;
         const newEnd = overlayBar.dataset.overlayEnd;
-        const taskName = overlayBar.getAttribute('title')?.replace('Click to restore to: ', '').split(' ')[0] || '';
+
+        // Validate taskId
+        if (!taskId || taskId === 'undefined' || taskId === 'null') {
+          console.error('[Gantt] Invalid taskId from overlay bar:', taskId);
+          return;
+        }
 
         const mainBar = taskBarMap[taskId];
-        if (!mainBar) return;
+        if (!mainBar) {
+          console.error('[Gantt] Main bar not found for taskId:', taskId);
+          return;
+        }
 
         // Update visual position immediately
         const newStartD = parseDate(newStart);
@@ -1378,6 +1394,8 @@ export function renderProjectGantt(containerId, dataId, compareDataId = null) {
       if (dc) dc.textContent = `${t.days}d`;
       const whoCell = taskRow.querySelector('.who-pill');
       if (whoCell) whoCell.textContent = t.who;
+      const assignedCell = taskRow.querySelector('.assigned-pill');
+      if (assignedCell) assignedCell.textContent = t.assigned_to || '—';
       const statusSpan = taskRow.querySelector('.status-dot');
       if (statusSpan) statusSpan.textContent = STATUS_LABELS[t.status] || t.status;
     }
