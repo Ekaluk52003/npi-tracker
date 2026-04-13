@@ -1418,7 +1418,7 @@ def project_history(request, pk):
         return forbidden_response(request, "You don't have permission to view this project.")
     versions = list(project.plan_versions.select_related('committed_by').all())
     versions_with_diff = [{'version': v, 'diff': v.diff_vs_previous} for v in versions]
-    ctx = _project_ctx(project, 'history', {'versions_with_diff': versions_with_diff})
+    ctx = _project_ctx(project, 'history', user=request.user, extra={'versions_with_diff': versions_with_diff})
     return _htmx_tab(request, 'project/detail.html', 'project/_history.html', ctx)
 
 

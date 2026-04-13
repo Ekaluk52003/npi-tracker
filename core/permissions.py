@@ -242,8 +242,9 @@ def can_view_project(user, project):
     if customer:
         return customer == project.customer
 
-    # Check if user has any permission for projects
-    return has_permission(user, 'project', 'view')
+    # Check if user has project view permission OR projectplanversion view permission
+    # (projectplanversion access implies need to view the project context)
+    return has_permission(user, 'project', 'view') or has_permission(user, 'projectplanversion', 'view')
 
 
 def can_edit_project(user):
