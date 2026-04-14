@@ -51,11 +51,11 @@
         </div>
         {% can_change_model 'project' None as can_edit_project %}
         {% if can_edit_project %}
-        <button hx-get="{% url 'project-edit' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
-                class="ml-4 px-3 py-1.5 text-sm bg-[var(--accent)] text-white rounded-lg hover:opacity-90 flex items-center gap-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-            Edit Project
-        </button>
+    <button hx-get="{% url 'project-edit' project.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+            class="ml-4 px-3 py-1.5 text-sm bg-[var(--accent)] text-white rounded-lg hover:opacity-90 flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+        Edit Project
+    </button>
         {% endif %}
     </div>
 </div>
@@ -106,8 +106,6 @@
             <div><span class="text-[var(--text-muted)]">Planned:</span> {{ stage.planned_date|date:"d M y"|default:"—" }}</div>
             <div><span class="text-[var(--text-muted)]">Actual:</span> {{ stage.actual_date|date:"d M y"|default:"—" }}</div>
             <div><span class="text-[var(--text-muted)]">Build Qty:</span> {{ stage.build_qty|default:"—" }}</div>
-            <div><span class="text-[var(--text-muted)]">Location:</span> {{ stage.build_location|default:"—" }}</div>
-            <div><span class="text-[var(--text-muted)]">BOM Rev:</span> {{ stage.bom_revision|default:"—" }}</div>
             <div><span class="text-[var(--text-muted)]">Tasks:</span> {{ stage.tasks_done }}/{{ stage.tasks_total }}</div>
         </div>
 
@@ -145,8 +143,6 @@
             <div class="text-xs font-semibold mb-1.5">Post-Build Results</div>
             <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                 <div><span class="text-[var(--text-muted)]">Produced:</span> {{ stage.qty_produced }}</div>
-                <div><span class="text-[var(--text-muted)]">Passed:</span> {{ stage.qty_passed }}</div>
-                <div><span class="text-[var(--text-muted)]">Yield:</span> {{ stage.yield_pct }}%</div>
                 <div>
                     <span class="text-[var(--text-muted)]">Approval:</span>
                     <span class="approval-badge approval-{{ stage.customer_approval }}">{{ stage.approval_label }}</span>

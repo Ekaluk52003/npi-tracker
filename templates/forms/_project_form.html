@@ -9,7 +9,7 @@
         <form hx-post="{% if is_edit %}{% url 'project-edit' project.pk %}{% else %}{% url 'project-create' %}{% endif %}" 
               hx-target="#modal-container" hx-swap="innerHTML" 
               x-data="{ get stagesJson() { return JSON.stringify(stages); } }"
-              hx-vals="js:{stages_json: document.querySelector('input[name=stages_json]').value}"
+              hx-vals="js:{stages_json: (document.querySelector('input[name=stages_json]') || {value: '[]'}).value}"
               class="p-5 space-y-4">
             {% csrf_token %}
             {% for field in form %}

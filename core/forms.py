@@ -274,8 +274,8 @@ class BuildStageForm(forms.ModelForm):
         model = BuildStage
         fields = [
             'name', 'full_name', 'color',
-            'status', 'planned_date', 'actual_date', 'build_qty', 'build_location',
-            'bom_revision', 'customer_approval', 'qty_produced', 'qty_passed',
+            'status', 'planned_date', 'actual_date', 'build_qty',
+            'customer_approval', 'qty_produced',
             'approval_notes', 'notes',
         ]
         widgets = {
@@ -286,11 +286,8 @@ class BuildStageForm(forms.ModelForm):
             'planned_date': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
             'actual_date': forms.DateInput(attrs={'class': input_cls, 'type': 'date'}),
             'build_qty': forms.NumberInput(attrs={'class': input_cls, 'min': 0}),
-            'build_location': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. SVI Thailand'}),
-            'bom_revision': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. R2.3'}),
             'customer_approval': forms.Select(attrs={'class': select_cls}),
             'qty_produced': forms.NumberInput(attrs={'class': input_cls, 'min': 0}),
-            'qty_passed': forms.NumberInput(attrs={'class': input_cls, 'min': 0}),
             'approval_notes': forms.TextInput(attrs={'class': input_cls, 'placeholder': 'e.g. Minor rework on 2 units'}),
             'notes': forms.Textarea(attrs={'class': textarea_cls, 'rows': 2}),
         }

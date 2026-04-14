@@ -26,10 +26,7 @@ class Command(BaseCommand):
         etb1.planned_date = date(2025, 11, 15)
         etb1.actual_date = date(2025, 11, 18)
         etb1.build_qty = 10
-        etb1.build_location = 'SVI Thailand'
-        etb1.bom_revision = 'R1.2'
         etb1.qty_produced = 10
-        etb1.qty_passed = 9
         etb1.customer_approval = 'approved'
         etb1.approval_notes = 'Minor rework on 1 unit accepted'
         etb1.save()
@@ -38,8 +35,6 @@ class Command(BaseCommand):
         ps1.status = 'in-progress'
         ps1.planned_date = date(2026, 2, 1)
         ps1.build_qty = 50
-        ps1.build_location = 'SVI Thailand'
-        ps1.bom_revision = 'R2.0'
         ps1.notes = 'Blocked by long-lead IC shortage'
         ps1.save()
 

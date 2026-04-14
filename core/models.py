@@ -152,12 +152,8 @@ class BuildStage(models.Model):
     planned_date = models.DateField(null=True, blank=True)
     actual_date = models.DateField(null=True, blank=True)
     build_qty = models.IntegerField(default=0)
-    build_location = models.CharField(max_length=200, blank=True)
-    bom_revision = models.CharField(max_length=50, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned')
     qty_produced = models.IntegerField(default=0)
-    qty_passed = models.IntegerField(default=0)
-    yield_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     customer_approval = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
     approval_notes = models.TextField(blank=True)
     notes = models.TextField(blank=True)
@@ -171,10 +167,6 @@ class BuildStage(models.Model):
         return f"{self.project.name} — {self.name}"
 
     def save(self, *args, **kwargs):
-        if self.qty_produced > 0:
-            self.yield_pct = round(self.qty_passed / self.qty_produced * 100, 2)
-        else:
-            self.yield_pct = 0
         super().save(*args, **kwargs)
 
     @property
