@@ -13,7 +13,7 @@ django.setup()
 
 from datetime import date, timedelta
 from django.contrib.auth import get_user_model
-from core.models import Project, Milestone, BuildStage, Task, TeamMember
+from core.models import Project, Milestone, BuildStage, Task, TeamMember, Issue
 
 User = get_user_model()
 
@@ -44,10 +44,20 @@ if not admin_user:
 
 # Create test users with different roles
 print("\n2. Creating test users...")
+def get_or_create_user(username, email, password, **kwargs):
+    user, created = User.objects.get_or_create(username=username, defaults={'email': email, **kwargs})
+    if not created:
+        for k, v in kwargs.items():
+            setattr(user, k, v)
+        user.save()
+    user.set_password(password)
+    user.save()
+    return user
+
 test_users = {
-    'engineer': User.objects.create_user('engineer', 'engineer@example.com', 'pass123', first_name='John', last_name='Engineer'),
-    'quality': User.objects.create_user('quality', 'quality@example.com', 'pass123', first_name='Sarah', last_name='Quality'),
-    'pm': User.objects.create_user('pm', 'pm@example.com', 'pass123', first_name='Mike', last_name='PM'),
+    'engineer': get_or_create_user('engineer', 'engineer@example.com', 'pass123', first_name='John', last_name='Engineer'),
+    'quality': get_or_create_user('quality', 'quality@example.com', 'pass123', first_name='Sarah', last_name='Quality'),
+    'pm': get_or_create_user('pm', 'pm@example.com', 'pass123', first_name='Mike', last_name='PM'),
 }
 print(f"   Created: engineer, quality, pm (password: pass123)")
 
@@ -401,7 +411,87 @@ def create_tasks_for_project(project, milestones, stages, base_date, users=None)
         )
         task_count += 1
     
-    return task_count
+    # === ISSUES LINKED TO TASKS ===
+    print(f"    Creating issues linked to tasks...")
+    issue_count = 0
+
+    # Get some leaf tasks to link issues to
+    leaf_tasks = list(Task.objects.filter(project=project, is_summary=False))
+
+    issues_data = [
+        {
+            'title': 'PCB silkscreen mismatch on rev B',
+            'desc': 'Component reference designators on silkscreen do not match BOM rev B. Needs ECO.',
+            'severity': 'critical',
+            'status': 'open',
+            'category': 'design',
+            'impact': 'Build cannot proceed until corrected gerber is released.',
+            'stage_key': 'ETB',
+            'task_indices': [0, 4],  # link to first couple of leaf tasks
+        },
+        {
+            'title': 'Supplier lead-time slip on connectors',
+            'desc': 'Molex connector P/N 5025780893 pushed from 4 wk to 8 wk.',
+            'severity': 'high',
+            'status': 'investigating',
+            'category': 'supplier',
+            'impact': 'May delay SMT start by 4 weeks.',
+            'stage_key': 'ETB',
+            'task_indices': [5, 8],
+        },
+        {
+            'title': 'SMT solder bridge on QFN pad',
+            'desc': 'Solder bridges found on U3 QFN-48 during AOI. Stencil aperture may need reduction.',
+            'severity': 'medium',
+            'status': 'open',
+            'category': 'quality',
+            'impact': 'Yield loss ~12%. Rework possible but adds cost.',
+            'stage_key': 'PreSeries',
+            'task_indices': [15, 18],
+        },
+        {
+            'title': 'Fixture alignment pin tolerance issue',
+            'desc': 'Boxbuild fixture pins are 0.05mm oversize causing tight fit.',
+            'severity': 'low',
+            'status': 'open',
+            'category': 'process',
+            'impact': 'Operators report difficulty loading. No rejects yet.',
+            'stage_key': 'PreSeries',
+            'task_indices': [20, 22],
+        },
+        {
+            'title': 'FAA test report template outdated',
+            'desc': 'Customer requires new test report format per rev 3.1 spec.',
+            'severity': 'medium',
+            'status': 'open',
+            'category': 'test',
+            'impact': 'FAA sign-off will be delayed if wrong format submitted.',
+            'stage_key': 'FAA',
+            'task_indices': [25, 27],
+        },
+    ]
+
+    for idata in issues_data:
+        issue = Issue.objects.create(
+            project=project,
+            title=idata['title'],
+            desc=idata['desc'],
+            severity=idata['severity'],
+            status=idata['status'],
+            category=idata['category'],
+            impact=idata['impact'],
+            stage=stages.get(idata['stage_key']),
+            reported_by=get_next_assignee(),
+            assigned_to=get_next_assignee(),
+        )
+        # Link to tasks (safely clamp indices)
+        for idx in idata['task_indices']:
+            if idx < len(leaf_tasks):
+                issue.linked_tasks.add(leaf_tasks[idx])
+        issue_count += 1
+
+    print(f"    Created {issue_count} issues")
+    return task_count, issue_count
 
 # Create 3 Camera Projects
 projects_data = [
@@ -411,27 +501,30 @@ projects_data = [
 ]
 
 total_tasks = 0
+total_issues = 0
 project_summaries = []
 
 for name, code, color, offset in projects_data:
     print(f"\n3. Creating {name}...")
     project, milestones, stages, base_date = create_camera_project(name, code, color, offset, test_users)
-    count = create_tasks_for_project(project, milestones, stages, base_date, test_users)
-    total_tasks += count
-    project_summaries.append((name, code, count))
-    print(f"   Created {count} tasks")
+    task_count, issue_count = create_tasks_for_project(project, milestones, stages, base_date, test_users)
+    total_tasks += task_count
+    total_issues += issue_count
+    project_summaries.append((name, code, task_count, issue_count))
+    print(f"   Created {task_count} tasks, {issue_count} issues")
 
 # Summary
 print("\n" + "=" * 60)
 print("SUMMARY - 3 AXIS CAMERA PROJECTS")
 print("=" * 60)
 
-for name, code, count in project_summaries:
+for name, code, t_count, i_count in project_summaries:
     print(f"\n{name} ({code})")
-    print(f"  Tasks: {count}")
+    print(f"  Tasks: {t_count}")
+    print(f"  Issues: {i_count} (linked to tasks)")
     print(f"  Stages: ETB | Pre-series | FAA")
 
-print(f"\nTOTAL: {total_tasks} tasks across 3 projects")
+print(f"\nTOTAL: {total_tasks} tasks, {total_issues} issues across 3 projects")
 print("\nTest Users Created:")
 print("  - engineer / pass123 (Engineer role)")
 print("  - quality / pass123 (Quality Manager role)")
