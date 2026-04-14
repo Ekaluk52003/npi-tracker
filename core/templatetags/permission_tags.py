@@ -83,3 +83,51 @@ def can_delete_model(context, model_name, project=None):
     if request.user.is_superuser:
         return True
     return can_delete(request.user, model_name, project)
+
+
+@register.filter
+def get_item(dictionary, key):
+    """Get item from dictionary by key.
+    
+    Usage: {{ my_dict|get_item:my_key }}
+    """
+    if dictionary is None:
+        return None
+    return dictionary.get(key)
+
+
+@register.filter
+def subtract_date(date1, date2):
+    """Subtract two dates and return days difference.
+    
+    Usage: {{ date1|subtract_date:date2 }}
+    """
+    if date1 is None or date2 is None:
+        return 0
+    return (date1 - date2).days
+
+
+@register.filter
+def div(numerator, denominator):
+    """Divide two numbers.
+    
+    Usage: {{ value|div:100 }}
+    """
+    try:
+        if denominator == 0:
+            return 0
+        return numerator / denominator
+    except (TypeError, ZeroDivisionError):
+        return 0
+
+
+@register.filter
+def multiply(value, multiplier):
+    """Multiply two numbers.
+    
+    Usage: {{ value|multiply:100 }}
+    """
+    try:
+        return value * multiplier
+    except TypeError:
+        return 0

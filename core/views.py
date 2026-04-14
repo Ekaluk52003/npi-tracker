@@ -335,37 +335,217 @@ def project_issues_modal(request, pk):
 @login_required
 def my_tasks(request):
     user = request.user
+    today = date.today()
 
-    # Tasks assigned to the current user that are not done
-    base_qs = Task.objects.filter(
+    # All tasks assigned to current user (not done)
+    all_tasks_qs = Task.objects.filter(
         assigned_to=user,
-    ).exclude(status='done').select_related('project', 'milestone', 'stage').prefetch_related('depends_on')
+    ).exclude(status='done').select_related(
+        'project', 'milestone', 'stage', 'parent'
+    ).prefetch_related(
+        'depends_on', 'due_date_changes', 'linked_issues', 'subtasks'
+    )
 
-    # "Ready to start": open, with no incomplete dependencies
-    has_pending_dep_ids = Task.objects.filter(
-        assigned_to=user,
-        status='open',
-        depends_on__status__in=['open', 'inprogress', 'blocked'],
-    ).values_list('id', flat=True).distinct()
+    # Calculate blocker info for each task
+    tasks_with_blockers = []
+    all_date_changes = []
+    overdue_count = 0
+    this_week_count = 0
 
-    ready = base_qs.filter(status='open').exclude(id__in=has_pending_dep_ids)
-    in_progress = base_qs.filter(status='inprogress')
-    blocked = base_qs.filter(status='blocked')
-    waiting = base_qs.filter(status='open').filter(id__in=has_pending_dep_ids)
+    for task in all_tasks_qs:
+        # Blocker info
+        incomplete_deps = [d for d in task.depends_on.all() if d.status != 'done']
+        open_issues = [i for i in task.linked_issues.all() if i.status != 'resolved']
+        critical_issues = [i for i in open_issues if i.severity == 'critical']
+        
+        # Date changes
+        unack_changes = [c for c in task.due_date_changes.all() if not c.acknowledged]
+        latest_change = max(unack_changes, key=lambda c: c.detected_at) if unack_changes else None
+        if latest_change:
+            all_date_changes.append(latest_change)
+        
+        # Count stats
+        if task.end < today:
+            overdue_count += 1
+        elif (task.end - today).days <= 7:
+            this_week_count += 1
 
-    # Issues assigned to the current user (not resolved)
-    my_issues = Issue.objects.filter(
-        assigned_to=user,
-    ).exclude(status='resolved').select_related('project', 'stage').order_by('severity', 'status')
+        # Status classification
+        if task.status == 'blocked':
+            status_category = 'blocked'
+        elif task.status == 'inprogress':
+            status_category = 'in_progress'
+        elif task.status == 'open' and incomplete_deps:
+            status_category = 'waiting'
+        else:
+            status_category = 'ready'
+
+        tasks_with_blockers.append({
+            'task': task,
+            'status_category': status_category,
+            'incomplete_deps': incomplete_deps,
+            'open_issues': open_issues,
+            'critical_issues': critical_issues,
+            'has_blockers': bool(incomplete_deps or critical_issues),
+            'date_change': latest_change,
+            'days_until_due': (task.end - today).days,
+        })
+
+    # Group by deliverable (parent) for Deliverable View
+    deliverables = {}
+    standalone_tasks = []
+    
+    for task_info in tasks_with_blockers:
+        task = task_info['task']
+        if task.parent:
+            parent_id = task.parent.id
+            if parent_id not in deliverables:
+                # Get parent with all its tasks
+                parent = task.parent
+                deliverables[parent_id] = {
+                    'parent': parent,
+                    'project': parent.project,
+                    'stage': parent.stage,
+                    'my_tasks': [],
+                    'all_subtasks': list(parent.subtasks.all()),
+                    'total_subtasks': parent.subtasks.count(),
+                    'done_subtasks': parent.subtasks.filter(status='done').count(),
+                }
+            deliverables[parent_id]['my_tasks'].append(task_info)
+        else:
+            standalone_tasks.append(task_info)
+
+    # Sort deliverables by project, then priority
+    deliverable_list = sorted(
+        deliverables.values(),
+        key=lambda d: (d['project'].name, d['parent'].name)
+    )
+
+    # Timeline data (min/max dates)
+    if tasks_with_blockers:
+        all_dates = [t['task'].start for t in tasks_with_blockers] + [t['task'].end for t in tasks_with_blockers]
+        timeline_start = min(all_dates)
+        timeline_end = max(all_dates)
+    else:
+        timeline_start = today
+        timeline_end = today + timedelta(days=30)
+
+    # Stats for header
+    stats = {
+        'total': len(tasks_with_blockers),
+        'overdue': overdue_count,
+        'this_week': this_week_count,
+        'blocked': sum(1 for t in tasks_with_blockers if t['status_category'] == 'blocked'),
+        'has_date_changes': len(all_date_changes),
+        'critical_issues': sum(len(t['critical_issues']) for t in tasks_with_blockers),
+    }
+
+    # Get distinct projects for filter (avoid duplicates from regroup)
+    filter_projects = list({t['task'].project.id: t['task'].project for t in tasks_with_blockers}.values())
+    filter_projects.sort(key=lambda p: p.name)
+
+    # ── Teammate Tasks ─────────────────────────────────────────────────────
+    # Find all projects where user is a team member
+    my_project_ids = TeamMember.objects.filter(
+        user=user
+    ).values_list('project_id', flat=True)
+
+    # Get all teammates (other users who are team members on the same projects)
+    teammate_members = TeamMember.objects.filter(
+        project_id__in=my_project_ids,
+        user__isnull=False
+    ).exclude(user=user).select_related('user', 'project')
+
+    # Get unique teammate users with their role info
+    teammate_user_ids = set(tm.user_id for tm in teammate_members)
+
+    # Fetch all tasks assigned to teammates (not done)
+    teammate_tasks_qs = Task.objects.filter(
+        assigned_to_id__in=teammate_user_ids,
+        project_id__in=my_project_ids
+    ).exclude(status='done').select_related(
+        'project', 'milestone', 'stage', 'parent', 'assigned_to'
+    )
+
+    # Build a map of user+project -> role for quick lookup
+    user_project_role = {}
+    for tm in teammate_members:
+        key = (tm.user_id, tm.project_id)
+        user_project_role[key] = tm.role or 'Unassigned'
+        # Store user info for display
+        if tm.user_id not in user_project_role:
+            user_project_role[tm.user_id] = {
+                'name': tm.display_name,
+                'initials': tm.initials,
+            }
+
+    # Build role-based structure
+    roles_map = defaultdict(lambda: {'users': set(), 'tasks': []})
+
+    for task in teammate_tasks_qs:
+        # Get role for this specific user+project combo
+        role_key = (task.assigned_to_id, task.project_id)
+        role = user_project_role.get(role_key, 'Unassigned')
+
+        # Get user display info
+        user_info = user_project_role.get(task.assigned_to_id, {'name': task.assigned_to.get_full_name() or task.assigned_to.username, 'initials': '??'})
+
+        roles_map[role]['users'].add(task.assigned_to_id)
+
+        # Add user info once per role
+        if not any(u['id'] == task.assigned_to_id for u in roles_map[role].get('user_info', [])):
+            if 'user_info' not in roles_map[role]:
+                roles_map[role]['user_info'] = []
+            roles_map[role]['user_info'].append({
+                'id': task.assigned_to_id,
+                'name': user_info['name'],
+                'initials': user_info['initials'],
+            })
+
+        # Add task with role info attached
+        task_info = {
+            'task': task,
+            'assignee': user_info['name'],
+            'assignee_initials': user_info['initials'],
+            'role': role,
+        }
+        if task_info not in roles_map[role]['tasks']:
+            roles_map[role]['tasks'].append(task_info)
+
+    # Group by user instead of role for collapsible sections
+    users_map = defaultdict(lambda: {'tasks': [], 'role': '', 'name': '', 'initials': ''})
+
+    for role_name, data in roles_map.items():
+        for user_info in data.get('user_info', []):
+            user_id = user_info['id']
+            if user_id not in users_map or not users_map[user_id]['name']:
+                users_map[user_id]['user_id'] = user_id
+                users_map[user_id]['name'] = user_info['name']
+                users_map[user_id]['initials'] = user_info['initials']
+                users_map[user_id]['role'] = role_name
+        for task_info in data['tasks']:
+            user_id = task_info['task'].assigned_to_id
+            if task_info not in users_map[user_id]['tasks']:
+                users_map[user_id]['tasks'].append(task_info)
+
+    # Convert to sorted list (by user name)
+    teammate_by_user = sorted(
+        [v for v in users_map.values() if v['tasks']],
+        key=lambda x: x['name']
+    )
 
     ctx = {
-        'ready': ready,
-        'in_progress': in_progress,
-        'blocked': blocked,
-        'waiting': waiting,
-        'my_issues': my_issues,
-        'today': date.today(),
+        'all_tasks': tasks_with_blockers,
+        'deliverables': deliverable_list,
+        'standalone_tasks': standalone_tasks,
+        'date_changes': all_date_changes,
+        'stats': stats,
+        'timeline_start': timeline_start,
+        'timeline_end': timeline_end,
+        'today': today,
         'active_my_tasks': True,
+        'filter_projects': filter_projects,
+        'teammate_by_user': teammate_by_user,
     }
     return _htmx(request, 'my_tasks_page.html', 'my_tasks.html', ctx)
 
@@ -624,130 +804,177 @@ W_DURATION = 1
 
 @login_required
 def project_critical_index(request, pk):
+    """Simplified Deliverable View: columns are parent tasks, simple progress bars."""
     project = get_object_or_404(
         Project.objects.prefetch_related(
-            'tasks__stage', 'tasks__milestone', 'tasks__linked_issues', 'stages',
+            'tasks__stage', 'tasks__milestone', 'tasks__linked_issues', 'tasks__parent', 'stages',
         ),
         pk=pk,
     )
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
 
-    # Filter tasks: show all by default, open only when ?open_tasks=1
-    open_tasks_only = request.GET.get('open_tasks') == '1'
-    task_query = project.tasks.select_related('stage', 'milestone')
-    if open_tasks_only:
-        task_query = task_query.exclude(status='done')
+    # Simple filters: my_work, blocked, all
+    filter_mode = request.GET.get('filter', 'all')  # all, my_work, blocked
+
+    # Get all leaf tasks (actual work units)
+    task_query = project.tasks.select_related('stage', 'milestone', 'parent').filter(is_summary=False)
+    if filter_mode == 'blocked':
+        # Will filter after we have issue data
+        pass
     tasks = list(filter_visible_items(task_query, request.user))
-    task_ids = {t.pk for t in tasks}
 
-    # Build adjacency from M2M through table in one query
-    through = Task.depends_on.through
-    edges = through.objects.filter(
-        from_task_id__in=task_ids, to_task_id__in=task_ids,
-    ).values_list('from_task_id', 'to_task_id')
+    # Build deliverables (parent tasks) with their subtasks
+    deliverables = []
+    all_issues_list = []  # All issues for the Issues column
+    seen_issue_ids = set()  # Track unique issues for deduplication
 
-    # from_task depends_on to_task  =>  to_task's dependents include from_task
-    dependents_map = defaultdict(set)
-    for from_id, to_id in edges:
-        dependents_map[to_id].add(from_id)
+    # First, separate into parented and unparented
+    parented = [t for t in tasks if t.parent_id]
+    unparented = [t for t in tasks if not t.parent_id]
 
-    def _total_downstream(tid):
-        visited = set()
-        queue = deque(dependents_map.get(tid, set()))
-        while queue:
-            curr = queue.popleft()
-            if curr in visited:
-                continue
-            visited.add(curr)
-            queue.extend(dependents_map.get(curr, set()) - visited)
-        return len(visited)
+    # Group by parent
+    by_parent = defaultdict(list)
+    for t in parented:
+        by_parent[t.parent_id].append(t)
 
-    # Compute raw scores
-    scored = []
-    for t in tasks:
-        d = len(dependents_map.get(t.pk, set()))
-        p = _total_downstream(t.pk)
-        dur = t.days
-        score = (d * W_DIRECT) + (p * W_DOWNSTREAM) + (dur * W_DURATION)
-        scored.append({
-            'task': t,
-            'd': d, 'p': p, 't': dur, 'score': score, 'cis': 0,
+    # Build deliverable objects
+    all_parents = {t.parent_id: t.parent for t in parented if t.parent}
+
+    for parent_id, subtasks in by_parent.items():
+        parent = all_parents.get(parent_id)
+        if not parent:
+            continue
+
+        # Calculate progress
+        total = len(subtasks)
+        done = sum(1 for t in subtasks if t.status == 'done')
+        progress_pct = round(done / total * 100) if total else 0
+
+        # Count issues per task and collect for Issues column
+        show_resolved = request.GET.get('show_resolved') == '1'
+        for t in subtasks:
+            all_linked = list(t.linked_issues.select_related('assigned_to', 'reported_by').all())
+            visible = [i for i in all_linked if i.visibility in ('all', 'customer') or is_internal_user(request.user)]
+            t._open_issues = [i for i in visible if i.status != 'resolved']
+            t._resolved_issues = [i for i in visible if i.status == 'resolved']
+            t.critical_count = sum(1 for i in t._open_issues if i.severity == 'critical')
+            t.issue_count = len(t._open_issues)
+            # Collect all visible issues (open + resolved if enabled) with task references
+            issues_to_show = visible if show_resolved else t._open_issues
+            for issue in issues_to_show:
+                if issue.pk not in seen_issue_ids:
+                    seen_issue_ids.add(issue.pk)
+                    issue.linked_tasks_info = []
+                    all_issues_list.append(issue)
+                # Add task reference to the issue
+                for existing in all_issues_list:
+                    if existing.pk == issue.pk:
+                        existing.linked_tasks_info.append({
+                            'task_id': t.pk,
+                            'task_name': t.name,
+                            'deliverable_name': parent.name,
+                            'deliverable_id': parent_id
+                        })
+                        break
+
+        # Deliverable-level stats
+        critical_issues = sum(t.critical_count for t in subtasks)
+
+        deliverable = {
+            'parent': parent,
+            'subtasks': subtasks,
+            'total': total,
+            'done': done,
+            'progress_pct': progress_pct,
+            'total_issues': sum(t.issue_count for t in subtasks),
+            'critical_issues': critical_issues,
+            'is_blocked': critical_issues > 0,
+        }
+        deliverables.append(deliverable)
+
+    # Handle unparented tasks as a pseudo-deliverable
+    if unparented:
+        for t in unparented:
+            all_linked = list(t.linked_issues.select_related('assigned_to', 'reported_by').all())
+            visible = [i for i in all_linked if i.visibility in ('all', 'customer') or is_internal_user(request.user)]
+            t._open_issues = [i for i in visible if i.status != 'resolved']
+            t._resolved_issues = [i for i in visible if i.status == 'resolved']
+            t.critical_count = sum(1 for i in t._open_issues if i.severity == 'critical')
+            t.issue_count = len(t._open_issues)
+            # Collect all visible issues (open + resolved if enabled) with task references
+            issues_to_show = visible if show_resolved else t._open_issues
+            for issue in issues_to_show:
+                if issue.pk not in seen_issue_ids:
+                    seen_issue_ids.add(issue.pk)
+                    issue.linked_tasks_info = []
+                    all_issues_list.append(issue)
+                # Add task reference to the issue
+                for existing in all_issues_list:
+                    if existing.pk == issue.pk:
+                        existing.linked_tasks_info.append({
+                            'task_id': t.pk,
+                            'task_name': t.name,
+                            'deliverable_name': 'Other Tasks',
+                            'deliverable_id': 0
+                        })
+                        break
+
+        critical_issues = sum(t.critical_count for t in unparented)
+
+        unparented_deliverable = {
+            'parent': None,
+            'subtasks': unparented,
+            'total': len(unparented),
+            'done': sum(1 for t in unparented if t.status == 'done'),
+            'progress_pct': round(sum(1 for t in unparented if t.status == 'done') / len(unparented) * 100) if unparented else 0,
+            'total_issues': sum(t.issue_count for t in unparented),
+            'critical_issues': critical_issues,
+            'is_blocked': critical_issues > 0,
+        }
+        deliverables.append(unparented_deliverable)
+
+    # Apply blocked filter
+    if filter_mode == 'blocked':
+        deliverables = [d for d in deliverables if d['is_blocked']]
+
+    # Apply my_work filter
+    if filter_mode == 'my_work':
+        for d in deliverables:
+            d['subtasks'] = [t for t in d['subtasks'] if t.assigned_to_id == request.user.pk]
+        deliverables = [d for d in deliverables if d['subtasks']]
+
+    # Sort by stage order, then by progress (ascending - struggling items first)
+    stage_order = {s.name: s.sort_order for s in project.stages.all()}
+    deliverables.sort(key=lambda d: (
+        stage_order.get(d['parent'].stage.name if d['parent'] and d['parent'].stage else '', 999),
+        -d['progress_pct'],  # Lower progress first (struggling)
+        -d['critical_issues'],  # More critical issues first
+    ))
+
+    # Build deliverable groups for headers
+    deliverable_groups = []
+    for d in deliverables:
+        name = d['parent'].name if d['parent'] else 'Other Tasks'
+        color = d['parent'].stage.color if d['parent'] and d['parent'].stage else '#666'
+        deliverable_groups.append({
+            'name': name,
+            'color': color,
+            'progress_pct': d['progress_pct'],
+            'is_blocked': d['is_blocked'],
         })
-
-    # Normalize CIS 1-5 per build stage
-    by_stage = defaultdict(list)
-    for s in scored:
-        stage_name = s['task'].stage.name if s['task'].stage else '__none__'
-        by_stage[stage_name].append(s)
-
-    stage_order_map = {}
-    for idx, stage in enumerate(project.stages.all()):
-        stage_order_map[stage.name] = idx
-
-    for stage_name, group in by_stage.items():
-        raw_scores = [g['score'] for g in group]
-        mn, mx = min(raw_scores), max(raw_scores)
-        for g in group:
-            if mx == mn:
-                g['cis'] = 3
-            else:
-                g['cis'] = round(1 + ((g['score'] - mn) / (mx - mn)) * 4)
-
-    # Sort: by stage order, then CIS desc within stage
-    scored.sort(key=lambda s: (
-        stage_order_map.get(s['task'].stage.name if s['task'].stage else '', 999),
-        -s['cis'],
-        -s['score'],
-    ))
-
-    # Build stage groups for the header band
-    stage_groups = []
-    prev_stage = None
-    for s in scored:
-        sname = s['task'].stage.name if s['task'].stage else 'No Stage'
-        scolor = s['task'].stage.color if s['task'].stage else '#666'
-        if sname != prev_stage:
-            stage_groups.append({'stage': sname, 'color': scolor, 'count': 1})
-            prev_stage = sname
-        else:
-            stage_groups[-1]['count'] += 1
-
-    # Attach open + resolved issues per task - filter by visibility
-    for s in scored:
-        all_linked = list(s['task'].linked_issues.select_related('assigned_to', 'reported_by').all())
-        visible = [i for i in all_linked if i.visibility in ('all', 'customer') or is_internal_user(request.user)]
-        s['open_issues'] = [i for i in visible if i.status != 'resolved']
-        s['resolved_issues'] = [i for i in visible if i.status == 'resolved']
-        s['issue_count'] = len(s['open_issues'])
-
-    # Unlinked open issues (not linked to any active task) - filter by visibility
-    all_open_issues = list(filter_visible_items(
-        project.issues.exclude(status='resolved').prefetch_related('linked_tasks'),
-        request.user
-    ))
-    unlinked = [i for i in all_open_issues if not i.linked_tasks.exclude(status='done').exists()]
-
-    # Unlinked resolved issues
-    all_resolved_issues = list(filter_visible_items(
-        project.issues.filter(status='resolved')
-            .select_related('assigned_to', 'reported_by')
-            .prefetch_related('linked_tasks'),
-        request.user
-    ))
-    unlinked_resolved = [i for i in all_resolved_issues if not i.linked_tasks.exclude(status='done').exists()]
 
     today = date.today()
 
     ctx = _project_ctx(project, 'critical-index', request.user, {
-        'scored_tasks': scored,
-        'stage_groups_json': json.dumps(stage_groups),
-        'unlinked_issues': unlinked,
-        'unlinked_resolved_issues': unlinked_resolved,
-        'total_issue_count': len(all_open_issues),
-        'unlinked_count': len(unlinked),
+        'deliverables': deliverables,
+        'deliverable_groups_json': json.dumps(deliverable_groups),
+        'all_issues': all_issues_list,
+        'total_issues': len([i for i in all_issues_list if i.status != 'resolved']),
+        'resolved_count': len([i for i in all_issues_list if i.status == 'resolved']),
         'today': today,
-        'open_tasks_only': open_tasks_only,
+        'filter_mode': filter_mode,
+        'show_resolved': show_resolved,
     })
     return _htmx_tab(request, 'project/detail.html', 'project/_critical_index.html', ctx)
 
@@ -1600,7 +1827,19 @@ def project_commit(request, pk):
     comment = form.cleaned_data['change_comment']
     with transaction.atomic():
         major, minor = ProjectPlanVersion.next_version(project, change_type)
-        ProjectPlanVersion.objects.create(
+        
+        # Get current tasks state before creating snapshot
+        current_tasks = {t.id: t for t in project.tasks.all()}
+        
+        # Get previous version for comparison
+        previous_version = project.plan_versions.first()
+        prev_task_dates = {}
+        if previous_version:
+            for t in previous_version.task_snapshot:
+                prev_task_dates[t['id']] = datetime.strptime(t['end'], '%Y-%m-%d').date()
+        
+        # Create the new version
+        version = ProjectPlanVersion.objects.create(
             project=project,
             version_major=major,
             version_minor=minor,
@@ -1610,6 +1849,20 @@ def project_commit(request, pk):
             committed_by=request.user,
             task_snapshot=ProjectPlanVersion.snapshot_project(project),
         )
+        
+        # Detect date changes and create records
+        from .models import TaskDueDateChange
+        for task_id, task in current_tasks.items():
+            if task_id in prev_task_dates:
+                prev_end = prev_task_dates[task_id]
+                if prev_end != task.end:
+                    TaskDueDateChange.objects.create(
+                        task=task,
+                        version=version,
+                        previous_end=prev_end,
+                        new_end=task.end,
+                    )
+    
     return HttpResponse(headers={'HX-Trigger-After-Settle': json.dumps({'versionCommitted': True})})
 
 
@@ -1920,3 +2173,56 @@ def inbound_webhook_regenerate(request, wid):
             'HX-Redirect': '/webhooks/inbound/',
         })
     return redirect('inbound-webhook-list')
+
+
+# ── Task Due Date Changes ────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def acknowledge_date_change(request, change_id):
+    """Mark a due date change as acknowledged by the current user."""
+    from .models import TaskDueDateChange
+    change = get_object_or_404(TaskDueDateChange, pk=change_id)
+    
+    # Only allow the assigned user or admin to acknowledge
+    if change.task.assigned_to != request.user and not request.user.is_staff:
+        return HttpResponseForbidden("You can only acknowledge changes for your assigned tasks.")
+    
+    change.acknowledged = True
+    change.acknowledged_at = timezone.now()
+    change.acknowledged_by = request.user
+    change.save(update_fields=['acknowledged', 'acknowledged_at', 'acknowledged_by'])
+    
+    if request.htmx:
+        return HttpResponse(headers={
+            'HX-Trigger': json.dumps({'show-toast': {'message': 'Date change acknowledged', 'type': 'success'}})
+        })
+    return redirect('my-tasks')
+
+
+@login_required
+@require_POST
+def acknowledge_all_date_changes(request):
+    """Mark all unacknowledged date changes for the current user as acknowledged."""
+    from .models import TaskDueDateChange
+    
+    # Get all unacknowledged date changes for tasks assigned to this user
+    changes = TaskDueDateChange.objects.filter(
+        task__assigned_to=request.user,
+        acknowledged=False
+    )
+    
+    count = changes.count()
+    now = timezone.now()
+    
+    for change in changes:
+        change.acknowledged = True
+        change.acknowledged_at = now
+        change.acknowledged_by = request.user
+        change.save(update_fields=['acknowledged', 'acknowledged_at', 'acknowledged_by'])
+    
+    if request.htmx:
+        return HttpResponse(headers={
+            'HX-Trigger': json.dumps({'show-toast': {'message': f'{count} date changes acknowledged', 'type': 'success'}})
+        })
+    return redirect('my-tasks')

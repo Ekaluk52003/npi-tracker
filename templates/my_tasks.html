@@ -1,393 +1,580 @@
-<div x-data="myTasksBoard()" class="-m-4 lg:-m-6">
+{% load permission_tags %}
+<div x-data="myTasksBoard()" x-init="init()" class="-m-4 lg:-m-6 space-y-4">
 
-<!-- ── Toolbar ─────────────────────────────────────────────────────── -->
-<div class="flex items-center gap-2 px-4 py-2 border-b border-[var(--border)] bg-[var(--surface)] flex-wrap">
-
-    <!-- Project filters (built from embedded JS data) -->
-    <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Project:</span>
-    <template x-for="proj in allProjects" :key="proj.id">
-        <button class="cis-filter-btn"
-                :class="{ 'cis-filter-active': projectFilter === proj.id }"
-                @click="projectFilter = (projectFilter === proj.id) ? '' : proj.id"
-                x-text="proj.name">
-        </button>
-    </template>
-
-    <div class="flex-1"></div>
-
-    <!-- Summary counts -->
-    <div class="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
-        <span><strong class="text-emerald-400">{{ ready|length }}</strong> ready</span>
-        <span><strong class="text-blue-400">{{ in_progress|length }}</strong> active</span>
-        <span><strong class="text-red-400">{{ blocked|length }}</strong> blocked</span>
-        <span><strong class="text-amber-400">{{ waiting|length }}</strong> waiting</span>
-        <span class="w-px h-4 bg-[var(--border)]"></span>
-        <span><strong class="text-orange-400">{{ my_issues|length }}</strong> issues</span>
+<!-- ════════════════════════════════════════════════════════════════════
+     SUMMARY HEADER - Stats & Date Change Alerts
+════════════════════════════════════════════════════════════════════ -->
+<div class="px-4 pt-4">
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-xl font-bold text-[var(--text)]">My Tasks</h1>
+        <div class="flex items-center gap-2">
+            <!-- View Toggle -->
+            <div class="flex items-center gap-0.5 bg-[var(--surface2)] rounded-md p-0.5 border border-[var(--border)]">
+                <button @click="viewMode = 'list'" :class="viewMode === 'list' ? 'bg-[var(--surface)] text-[var(--accent)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'" class="px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    List
+                </button>
+                <button @click="viewMode = 'deliverable'" :class="viewMode === 'deliverable' ? 'bg-[var(--surface)] text-[var(--accent)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'" class="px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    By Deliverable
+                </button>
+                <button @click="viewMode = 'timeline'" :class="viewMode === 'timeline' ? 'bg-[var(--surface)] text-[var(--accent)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'" class="px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    Timeline
+                </button>
+            </div>
+        </div>
     </div>
 
-    <span class="w-px h-4 bg-[var(--border)]"></span>
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
+        <!-- Total Tasks -->
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Total Tasks</p>
+                    <p class="text-2xl font-bold text-[var(--text)]">{{ stats.total }}</p>
+                </div>
+                <div class="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                </div>
+            </div>
+        </div>
 
-    <!-- View toggle -->
-    <div class="flex items-center gap-0.5 bg-[var(--surface2)] rounded-md p-0.5 border border-[var(--border)]">
-        <button @click="viewMode = 'column'"
-                :class="viewMode === 'column' ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
-                class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-all">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 4H5a1 1 0 00-1 1v14a1 1 0 001 1h4a1 1 0 001-1V5a1 1 0 00-1-1zm10 0h-4a1 1 0 00-1 1v14a1 1 0 001 1h4a1 1 0 001-1V5a1 1 0 00-1-1z"/>
-            </svg>
-            Columns
-        </button>
-        <button @click="viewMode = 'table'"
-                :class="viewMode === 'table' ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
-                class="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-all">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18M3 10h18M3 15h18M3 20h18M8 3v18M16 3v18M3 3h18v18H3z"/>
-            </svg>
-            Table
-        </button>
+        <!-- Overdue -->
+        <div class="bg-[var(--surface)] border {% if stats.overdue > 0 %}border-red-500/30{% else %}border-[var(--border)]{% endif %} rounded-lg p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Overdue</p>
+                    <p class="text-2xl font-bold {% if stats.overdue > 0 %}text-red-400{% else %}text-[var(--text)]{% endif %}">{{ stats.overdue }}</p>
+                </div>
+                <div class="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- This Week -->
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">This Week</p>
+                    <p class="text-2xl font-bold text-[var(--text)]">{{ stats.this_week }}</p>
+                </div>
+                <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Blocked -->
+        <div class="bg-[var(--surface)] border {% if stats.blocked > 0 %}border-orange-500/30{% else %}border-[var(--border)]{% endif %} rounded-lg p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Blocked</p>
+                    <p class="text-2xl font-bold {% if stats.blocked > 0 %}text-orange-400{% else %}text-[var(--text)]{% endif %}">{{ stats.blocked }}</p>
+                </div>
+                <div class="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Critical Issues -->
+        <div class="bg-[var(--surface)] border {% if stats.critical_issues > 0 %}border-red-500/30{% else %}border-[var(--border)]{% endif %} rounded-lg p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Critical Issues</p>
+                    <p class="text-2xl font-bold {% if stats.critical_issues > 0 %}text-red-400{% else %}text-[var(--text)]{% endif %}">{{ stats.critical_issues }}</p>
+                </div>
+                <div class="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Date Changes Alert -->
+        {% if date_changes %}
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-amber-400">Date Changes</p>
+                    <p class="text-2xl font-bold text-amber-400">{{ date_changes|length }}</p>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button class="text-[10px] px-2 py-1 rounded bg-[var(--surface)] text-amber-400 hover:bg-amber-500/20 transition-colors"
+                            hx-post="{% url 'acknowledge-all-date-changes' %}"
+                            hx-swap="none"
+                            title="Acknowledge all date changes">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
+
+    <!-- Project Filter -->
+    {% if filter_projects|length > 1 %}
+    <div class="flex items-center gap-2 flex-wrap mb-4">
+        <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Filter by Project:</span>
+        <button @click="projectFilter = ''" :class="projectFilter === '' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface2)] text-[var(--text-muted)] hover:text-[var(--text)]'" class="px-2.5 py-1 rounded text-[11px] font-medium transition-all">All</button>
+        {% for project in filter_projects %}
+        <button @click="projectFilter = '{{ project.id }}'" :class="projectFilter === '{{ project.id }}' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface2)] text-[var(--text-muted)] hover:text-[var(--text)]'" class="px-2.5 py-1 rounded text-[11px] font-medium transition-all">{{ project.name }}</button>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 
-<!-- ── Column View ─────────────────────────────────────────────────── -->
-<div x-show="viewMode === 'column'" class="overflow-x-auto">
-
-    <!-- Sticky column header band -->
-    <div class="flex sticky top-0 z-10">
-
-        <div class="flex-1 flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-[var(--surface)] border-b-2 border-emerald-500 border-r border-[var(--border)]">
-            <div class="flex items-center gap-2">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                Ready to Start
-            </div>
-            <span class="text-[10px] font-medium bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full">{{ ready|length }}</span>
-        </div>
-
-        <div class="flex-1 flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-blue-400 bg-[var(--surface)] border-b-2 border-blue-500 border-r border-[var(--border)]">
-            <div class="flex items-center gap-2">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                In Progress
-            </div>
-            <span class="text-[10px] font-medium bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">{{ in_progress|length }}</span>
-        </div>
-
-        <div class="flex-1 flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-red-400 bg-[var(--surface)] border-b-2 border-red-500 border-r border-[var(--border)]">
-            <div class="flex items-center gap-2">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                Blocked
-            </div>
-            <span class="text-[10px] font-medium bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full">{{ blocked|length }}</span>
-        </div>
-
-        <div class="flex-1 flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-amber-400 bg-[var(--surface)] border-b-2 border-amber-500 border-r border-[var(--border)]">
-            <div class="flex items-center gap-2">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                Waiting on Deps
-            </div>
-            <span class="text-[10px] font-medium bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full">{{ waiting|length }}</span>
-        </div>
-
-        <div class="flex-1 flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-orange-400 bg-[var(--surface)] border-b-2 border-orange-500 border-r border-[var(--border)]">
-            <div class="flex items-center gap-2">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
-                My Issues
-            </div>
-            <span class="text-[10px] font-medium bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full">{{ my_issues|length }}</span>
-        </div>
-
-    </div>
-
-    <!-- Column body grid -->
-    <div class="flex items-stretch" style="min-height: calc(100vh - 120px);">
-
-        <!-- ── Ready to Start ── -->
-        <div class="flex-1 flex flex-col border-r border-[var(--border)]" style="background:rgba(52,178,123,0.015)">
-            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
-                {% for task in ready %}
-                <div class="bg-[var(--surface)] border border-[var(--border)] rounded-md p-2.5 mb-1.5 transition-all hover:border-[var(--text-muted)] hover:shadow-md hover:-translate-y-px"
-                     style="border-left:3px solid #34B27B"
-                     x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
-                    <div class="flex items-center gap-1 mb-1">
-                        <span class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Task</span>
-                    </div>
-                    <div class="flex items-start justify-between gap-1.5 mb-1.5">
-                        <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
-                        {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
-                    </div>
-                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5 cursor-pointer hover:text-[var(--accent)]"
-                         hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
-                        {{ task.name }}
-                    </div>
-                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                        <span class="truncate mr-2">{{ task.milestone.name }}</span>
-                        <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
-                    </div>
-                </div>
-                {% empty %}
-                <div class="m-1.5 p-4 text-center text-[11px] text-emerald-500/40 border border-dashed border-emerald-500/20 rounded-md">All clear</div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- ── In Progress ── -->
-        <div class="flex-1 flex flex-col border-r border-[var(--border)]" style="background:rgba(59,130,246,0.015)">
-            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
-                {% for task in in_progress %}
-                <div class="bg-[var(--surface)] border border-[var(--border)] rounded-md p-2.5 mb-1.5 transition-all hover:border-[var(--text-muted)] hover:shadow-md hover:-translate-y-px"
-                     style="border-left:3px solid #3b82f6"
-                     x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
-                    <div class="flex items-center gap-1 mb-1">
-                        <span class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">Task</span>
-                    </div>
-                    <div class="flex items-start justify-between gap-1.5 mb-1.5">
-                        <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
-                        {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
-                    </div>
-                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5 cursor-pointer hover:text-[var(--accent)]"
-                         hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
-                        {{ task.name }}
-                    </div>
-                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                        <span class="truncate mr-2">{{ task.milestone.name }}</span>
-                        <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
-                    </div>
-                </div>
-                {% empty %}
-                <div class="m-1.5 p-4 text-center text-[11px] text-blue-500/40 border border-dashed border-blue-500/20 rounded-md">Nothing active</div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- ── Blocked ── -->
-        <div class="flex-1 flex flex-col border-r border-[var(--border)]" style="background:rgba(239,68,68,0.015)">
-            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
-                {% for task in blocked %}
-                <div class="bg-[var(--surface)] border border-[var(--border)] rounded-md p-2.5 mb-1.5 transition-all hover:border-[var(--text-muted)] hover:shadow-md hover:-translate-y-px"
-                     style="border-left:3px solid #ef4444"
-                     x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
-                    <div class="flex items-center gap-1 mb-1">
-                        <span class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">Task</span>
-                    </div>
-                    <div class="flex items-start justify-between gap-1.5 mb-1.5">
-                        <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
-                        {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
-                    </div>
-                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5 cursor-pointer hover:text-[var(--accent)]"
-                         hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
-                        {{ task.name }}
-                    </div>
-                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                        <span class="truncate mr-2">{{ task.milestone.name }}</span>
-                        <span class="shrink-0 {% if task.end < today %}text-red-400{% endif %}">{{ task.end|date:"d M y" }}</span>
-                    </div>
-                </div>
-                {% empty %}
-                <div class="m-1.5 p-4 text-center text-[11px] text-red-500/40 border border-dashed border-red-500/20 rounded-md">Nothing blocked</div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- ── Waiting on Dependencies ── -->
-        <div class="flex-1 flex flex-col border-r border-[var(--border)]" style="background:rgba(245,158,11,0.015)">
-            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
-                {% for task in waiting %}
-                <div class="bg-[var(--surface)] border border-[var(--border)] rounded-md p-2.5 mb-1.5 transition-all hover:border-[var(--text-muted)] hover:shadow-md"
-                     style="border-left:3px solid #f59e0b"
-                     x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
-                    <div class="flex items-center gap-1 mb-1">
-                        <span class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">Task</span>
-                    </div>
-                    <div class="flex items-start justify-between gap-1.5 mb-1.5">
-                        <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] font-semibold text-[var(--accent)] hover:underline leading-tight">{{ task.project.name }}</a>
-                        {% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% endif %}
-                    </div>
-                    <div class="text-[13px] font-semibold leading-snug text-[var(--text)] mb-1.5 cursor-pointer hover:text-[var(--accent)]"
-                         hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
-                        {{ task.name }}
-                    </div>
-                    {% for dep in task.depends_on.all %}{% if dep.status != 'done' %}
-                    <div class="flex items-center gap-1 text-[10px] text-amber-400/70 mb-0.5">
-                        <svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span class="truncate">{{ dep.name|truncatechars:30 }}</span>
-                    </div>
-                    {% endif %}{% endfor %}
-                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)] mt-1">
-                        <span class="truncate mr-2">{{ task.milestone.name }}</span>
-                        <span class="shrink-0">{{ task.end|date:"d M y" }}</span>
-                    </div>
-                </div>
-                {% empty %}
-                <div class="m-1.5 p-4 text-center text-[11px] text-amber-500/40 border border-dashed border-amber-500/20 rounded-md">No waiting tasks</div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- ── My Issues ── -->
-        <div class="flex-1 flex flex-col border-r border-[var(--border)]" style="background:rgba(251,146,60,0.015)">
-            <div class="flex-1 p-1.5 overflow-y-auto cis-col-body">
-                {% for issue in my_issues %}
-                <div class="cis-card cis-sev-{{ issue.severity }}"
-                     x-show="projectFilter === '' || projectFilter === {{ issue.project.pk }}">
-                    <div class="flex items-center gap-1 mb-1">
-                        <span class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">Issue</span>
-                        <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
-                        <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
-                        <span class="text-[10px] text-[var(--text-muted)] capitalize">{{ issue.status_label }}</span>
-                    </div>
-                    <div class="text-xs font-medium leading-snug mb-1.5 cursor-pointer hover:text-[var(--accent)]"
-                         hx-get="{% url 'issue-edit' issue.project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
-                        {{ issue.title }}
-                    </div>
-                    <div class="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                        <a href="{% url 'project-detail' issue.project.pk %}" class="text-[var(--accent)] hover:underline font-medium" @click.stop>{{ issue.project.name }}</a>
-                        <span {% if issue.due and issue.due < today %}class="text-red-500"{% endif %}>
-                            {% if issue.due %}{{ issue.due|date:"d M" }}{% else %}—{% endif %}
+<!-- ════════════════════════════════════════════════════════════════════
+     LIST VIEW - Single Table with All Tasks
+════════════════════════════════════════════════════════════════════ -->
+<div x-show="viewMode === 'list'" class="px-4 pb-4">
+    {% if all_tasks %}
+    <div class="bg-[var(--surface)] border border-[var(--border)] rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-[var(--surface2)] border-b border-[var(--border)]">
+                <tr class="text-[11px] uppercase tracking-wider text-[var(--text-muted)]">
+                    <th class="px-4 py-3 text-left font-semibold">Status</th>
+                    <th class="px-4 py-3 text-left font-semibold">Task</th>
+                    <th class="px-4 py-3 text-left font-semibold">Project</th>
+                    <th class="px-4 py-3 text-left font-semibold">Deliverable</th>
+                    <th class="px-4 py-3 text-left font-semibold">Due Date</th>
+                    <th class="px-4 py-3 text-left font-semibold">Blockers</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[var(--border)]">
+                {% for task_info in all_tasks %}
+                {% with task=task_info.task %}
+                <tr class="hover:bg-[var(--surface2)]/50 transition-colors" x-show="projectFilter === '' || projectFilter == {{ task.project.id }}">
+                    <!-- Status -->
+                    <td class="px-4 py-3">
+                        {% if task_info.status_category == 'ready' %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Ready</span>
+                        {% elif task_info.status_category == 'in_progress' %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-400"><span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>In Progress</span>
+                        {% elif task_info.status_category == 'blocked' %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-red-400"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Blocked</span>
+                        {% else %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-amber-400"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Waiting</span>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Task Name -->
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)] transition-colors"
+                             hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                            {{ task.name }}
+                        </div>
+                        {% if task_info.date_change %}
+                        <div class="mt-1 text-[10px] text-amber-400 flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            {{ task_info.date_change.previous_end|date:"d M" }} → {{ task_info.date_change.new_end|date:"d M" }}
+                            <button class="ml-1 text-[var(--text-muted)] hover:text-amber-400"
+                                    hx-post="{% url 'acknowledge-date-change' task_info.date_change.id %}"
+                                    hx-swap="none" title="Acknowledge">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Project -->
+                    <td class="px-4 py-3">
+                        <a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline text-xs">{{ task.project.name }}</a>
+                    </td>
+                    
+                    <!-- Deliverable -->
+                    <td class="px-4 py-3">
+                        {% if task.parent %}
+                        <span class="text-xs text-[var(--text-muted)] bg-[var(--surface2)] px-2 py-1 rounded">{{ task.parent.name }}</span>
+                        {% else %}
+                        <span class="text-xs text-[var(--text-muted)]">—</span>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Due Date -->
+                    <td class="px-4 py-3">
+                        <span class="text-xs {% if task.end < today %}text-red-400 font-semibold{% else %}text-[var(--text-muted)]{% endif %}">
+                            {{ task.end|date:"d M Y" }}
+                            {% if task_info.days_until_due <= 0 %}
+                                <span class="text-red-400 ml-1">(Overdue)</span>
+                            {% elif task_info.days_until_due <= 7 %}
+                                <span class="text-amber-400 ml-1">({{ task_info.days_until_due }}d)</span>
+                            {% endif %}
                         </span>
+                    </td>
+                    
+                    <!-- Blockers -->
+                    <td class="px-4 py-3">
+                        <div class="flex flex-wrap gap-1">
+                            {% if task_info.critical_issues %}
+                            <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">
+                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                {{ task_info.critical_issues|length }} critical
+                            </span>
+                            {% elif task_info.open_issues %}
+                            <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded">{{ task_info.open_issues|length }} issues</span>
+                            {% endif %}
+                            {% if task_info.incomplete_deps %}
+                            <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded">
+                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                {{ task_info.incomplete_deps|length }} waiting
+                            </span>
+                            {% endif %}
+                            {% if not task_info.has_blockers and not task_info.date_change %}
+                            <span class="text-[9px] text-emerald-500/60">—</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-12 text-[var(--text-muted)]">
+        <svg class="w-12 h-12 mx-auto mb-4 text-[var(--text-muted)]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        <p class="text-sm">No active tasks assigned to you</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     DELIVERABLE VIEW - Grouped by Parent/Deliverable
+════════════════════════════════════════════════════════════════════ -->
+<div x-show="viewMode === 'deliverable'" class="px-4 pb-4 space-y-4">
+    {% if deliverables %}
+        {% for deliverable in deliverables %}
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-lg overflow-hidden" x-show="projectFilter === '' || projectFilter == {{ deliverable.project.id }}">
+            <div class="px-4 py-3 bg-[var(--surface2)] border-b border-[var(--border)]">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-semibold text-[var(--text)]">{{ deliverable.parent.name }}</h3>
+                        <div class="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                            <span>{{ deliverable.project.name }}</span>
+                            {% if deliverable.stage %}
+                            <span class="px-1.5 py-0.5 rounded" style="background:{{ deliverable.stage.color }}22;color:{{ deliverable.stage.color }}">{{ deliverable.stage.name }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs">
+                        <span class="text-[var(--text-muted)]">{{ deliverable.done_subtasks }}/{{ deliverable.total_subtasks }} done</span>
+                        <div class="w-24 h-2 bg-[var(--border)] rounded-full overflow-hidden">
+                            <div class="h-full bg-emerald-400 rounded-full" style="width: {% if deliverable.total_subtasks %}{{ deliverable.done_subtasks|div:deliverable.total_subtasks|multiply:100 }}{% else %}0{% endif %}%"></div>
+                        </div>
                     </div>
                 </div>
-                {% empty %}
-                <div class="m-1.5 p-4 text-center text-[11px] text-orange-500/40 border border-dashed border-orange-500/20 rounded-md">No open issues</div>
+            </div>
+            <div class="divide-y divide-[var(--border)]">
+                {% for task_info in deliverable.my_tasks %}
+                {% with task=task_info.task %}
+                <div class="px-4 py-3 hover:bg-[var(--surface2)]/30 transition-colors">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                {% if task_info.status_category == 'ready' %}
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Ready</span>
+                                {% elif task_info.status_category == 'in_progress' %}
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-400"><span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>In Progress</span>
+                                {% elif task_info.status_category == 'blocked' %}
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-red-400"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Blocked</span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Waiting</span>
+                                {% endif %}
+                                <span class="text-[10px] text-[var(--text-muted)]">{{ task.milestone.name }}</span>
+                            </div>
+                            <div class="font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
+                                 hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                                {{ task.name }}
+                            </div>
+                            {% if task_info.has_blockers %}
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                {% if task_info.critical_issues %}
+                                <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">
+                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    {{ task_info.critical_issues|length }} critical
+                                </span>
+                                {% elif task_info.open_issues %}
+                                <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded">{{ task_info.open_issues|length }} issues</span>
+                                {% endif %}
+                                {% if task_info.incomplete_deps %}
+                                <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded">
+                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    Waiting on {{ task_info.incomplete_deps|length }}
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if task_info.date_change %}
+                            <div class="mt-2 text-[10px] text-amber-400 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Due: {{ task_info.date_change.previous_end|date:"d M" }} → {{ task_info.date_change.new_end|date:"d M" }}
+                                <button class="ml-1 text-[var(--text-muted)] hover:text-amber-400" hx-post="{% url 'acknowledge-date-change' task_info.date_change.id %}" hx-swap="none">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs {% if task.end < today %}text-red-400 font-semibold{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M" }}</span>
+                            {% if task_info.days_until_due <= 0 %}
+                                <div class="text-[9px] text-red-400">Overdue</div>
+                            {% elif task_info.days_until_due <= 7 %}
+                                <div class="text-[9px] text-amber-400">{{ task_info.days_until_due }} days</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endwith %}
                 {% endfor %}
             </div>
         </div>
+        {% endfor %}
+    {% endif %}
+    
+    {% if standalone_tasks %}
+    <div class="bg-[var(--surface)] border border-[var(--border)] rounded-lg overflow-hidden">
+        <div class="px-4 py-3 bg-[var(--surface2)] border-b border-[var(--border)]">
+            <h3 class="font-semibold text-[var(--text)]">Other Tasks</h3>
+        </div>
+        <div class="divide-y divide-[var(--border)]">
+            {% for task_info in standalone_tasks %}
+            {% with task=task_info.task %}
+            <div class="px-4 py-3 hover:bg-[var(--surface2)]/30 transition-colors" x-show="projectFilter === '' || projectFilter == {{ task.project.id }}">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            {% if task_info.status_category == 'ready' %}
+                                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Ready</span>
+                            {% elif task_info.status_category == 'in_progress' %}
+                                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-400"><span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>In Progress</span>
+                            {% elif task_info.status_category == 'blocked' %}
+                                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-red-400"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Blocked</span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Waiting</span>
+                            {% endif %}
+                            <a href="{% url 'project-detail' task.project.pk %}" class="text-[10px] text-[var(--accent)] hover:underline">{{ task.project.name }}</a>
+                        </div>
+                        <div class="font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
+                             hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                            {{ task.name }}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M" }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if not deliverables and not standalone_tasks %}
+    <div class="text-center py-12 text-[var(--text-muted)]">
+        <svg class="w-12 h-12 mx-auto mb-4 text-[var(--text-muted)]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        <p class="text-sm">No active tasks with deliverables</p>
+    </div>
+    {% endif %}
+</div>
 
+<!-- ════════════════════════════════════════════════════════════════════
+     TIMELINE VIEW - Calendar Visualization
+════════════════════════════════════════════════════════════════════ -->
+<div x-show="viewMode === 'timeline'" class="px-4 pb-4">
+    {% if all_tasks %}
+    <div class="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4">
+        <div class="flex items-center justify-between mb-4">
+            <div class="text-xs text-[var(--text-muted)]">{{ timeline_start|date:"d M Y" }} - {{ timeline_end|date:"d M Y" }}</div>
+            <div class="flex items-center gap-4 text-[10px]">
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-400/30 border border-emerald-400"></span> Ready</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-400/30 border border-blue-400"></span> In Progress</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-400/30 border border-red-400"></span> Blocked</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-400/30 border border-amber-400"></span> Waiting</span>
+            </div>
+        </div>
+        <div class="space-y-2">
+            {% for task_info in all_tasks %}
+            {% with task=task_info.task %}
+            <div class="flex items-center gap-3" x-show="projectFilter === '' || projectFilter == {{ task.project.id }}">
+                <div class="w-48 shrink-0 text-xs truncate" title="{{ task.name }}">
+                    <div class="font-medium text-[var(--text)] truncate">{{ task.name }}</div>
+                    <div class="text-[10px] text-[var(--text-muted)]">{{ task.project.name }}</div>
+                </div>
+                <div class="flex-1 h-8 bg-[var(--surface2)] rounded-md relative overflow-hidden">
+                    {% if timeline_end > timeline_start %}
+                        {% with total_days=timeline_end|subtract_date:timeline_start start_offset=task.start|subtract_date:timeline_start duration_days=task.end|subtract_date:task.start|add:1 %}
+                        <div class="absolute h-full rounded-md cursor-pointer hover:brightness-110 transition-all {% if task_info.status_category == 'ready' %}bg-emerald-400/30 border border-emerald-400{% elif task_info.status_category == 'in_progress' %}bg-blue-400/30 border border-blue-400{% elif task_info.status_category == 'blocked' %}bg-red-400/30 border border-red-400{% else %}bg-amber-400/30 border border-amber-400{% endif %}"
+                             style="left: calc({{ start_offset }} / {{ total_days }} * 100%); width: calc({{ duration_days }} / {{ total_days }} * 100%); min-width: 4px;"
+                             hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML"
+                             title="{{ task.name }} ({{ task.start|date:'d M' }} - {{ task.end|date:'d M' }})">
+                            {% if task_info.date_change %}
+                            <div class="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full"></div>
+                            {% endif %}
+                        </div>
+                        {% endwith %}
+                    {% endif %}
+                    {% if today >= timeline_start and today <= timeline_end %}
+                        {% with today_offset=today|subtract_date:timeline_start %}
+                        <div class="absolute top-0 bottom-0 w-px bg-red-400 z-10" style="left: calc({{ today_offset }} / {{ timeline_end|subtract_date:timeline_start }} * 100%);"></div>
+                        {% endwith %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-12 text-[var(--text-muted)]">
+        <svg class="w-12 h-12 mx-auto mb-4 text-[var(--text-muted)]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <p class="text-sm">No tasks to display on timeline</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     MY TEAMMATE TASKS - Grouped by User with Toggle
+════════════════════════════════════════════════════════════════════ -->
+{% if teammate_by_user %}
+<div class="px-4 pb-4 mt-8" x-data="{ expandedUsers: {}, roleFilter: '' }">
+    <h2 class="text-lg font-bold text-[var(--text)] mb-4">My Teammate Tasks</h2>
+
+    <!-- Role Filter Buttons -->
+    {% regroup teammate_by_user by role as role_groups %}
+    <div class="flex items-center gap-2 flex-wrap mb-4">
+        <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Filter by Role:</span>
+        <button @click="roleFilter = ''"
+                :class="roleFilter === '' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface2)] text-[var(--text-muted)] hover:text-[var(--text)]'"
+                class="px-2.5 py-1 rounded text-[11px] font-medium transition-all">
+            All
+        </button>
+        {% for role in role_groups %}
+        <button @click="roleFilter = '{{ role.grouper|escapejs }}'"
+                :class="roleFilter === '{{ role.grouper|escapejs }}' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface2)] text-[var(--text-muted)] hover:text-[var(--text)]'"
+                class="px-2.5 py-1 rounded text-[11px] font-medium transition-all">
+            {{ role.grouper }} ({{ role.list|length }})
+        </button>
+        {% endfor %}
+    </div>
+
+    <!-- User Sections -->
+    <div class="space-y-3">
+        {% for user_data in teammate_by_user %}
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-lg overflow-hidden"
+             x-show="roleFilter === '' || roleFilter === '{{ user_data.role|escapejs }}'">
+            <!-- User Header / Toggle -->
+            <button @click="expandedUsers['user{{ user_data.user_id }}'] = !expandedUsers['user{{ user_data.user_id }}']"
+                    class="w-full px-4 py-3 bg-[var(--surface2)] border-b border-[var(--border)] flex items-center justify-between hover:bg-[var(--surface2)]/70 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-semibold flex items-center justify-center">
+                        {{ user_data.initials }}
+                    </span>
+                    <div class="text-left">
+                        <div class="font-medium text-[var(--text)] text-sm">{{ user_data.name }}</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">{{ user_data.role }}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-[var(--text-muted)]">{{ user_data.tasks|length }} tasks</span>
+                    <svg class="w-4 h-4 text-[var(--text-muted)] transition-transform"
+                         :class="expandedUsers['user{{ user_data.user_id }}'] ? 'rotate-180' : ''"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </div>
+            </button>
+
+            <!-- User Tasks Table (Collapsible) -->
+            <div x-show="expandedUsers['user{{ user_data.user_id }}']" x-transition>
+                <table class="w-full text-sm">
+                    <thead class="bg-[var(--surface)] border-b border-[var(--border)]">
+                        <tr class="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+                            <th class="px-4 py-2 text-left font-medium">Status</th>
+                            <th class="px-4 py-2 text-left font-medium">Task</th>
+                            <th class="px-4 py-2 text-left font-medium">Project</th>
+                            <th class="px-4 py-2 text-left font-medium">Deliverable</th>
+                            <th class="px-4 py-2 text-left font-medium">Due Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[var(--border)]">
+                        {% for task_info in user_data.tasks %}
+                        {% with task=task_info.task %}
+                        <tr class="hover:bg-[var(--surface2)]/30 transition-colors">
+                            <!-- Status -->
+                            <td class="px-4 py-2">
+                                {% if task.status == 'blocked' %}
+                                    <span class="inline-flex items-center gap-1.5 text-[10px] font-medium text-red-400"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Blocked</span>
+                                {% elif task.status == 'inprogress' %}
+                                    <span class="inline-flex items-center gap-1.5 text-[10px] font-medium text-blue-400"><span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>In Progress</span>
+                                {% elif task.status == 'done' %}
+                                    <span class="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Done</span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1.5 text-[10px] font-medium text-amber-400"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Open</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Task Name -->
+                            <td class="px-4 py-2">
+                                <div class="font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)] transition-colors text-xs"
+                                     hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                                    {{ task.name }}
+                                </div>
+                            </td>
+
+                            <!-- Project -->
+                            <td class="px-4 py-2">
+                                <a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline text-xs">{{ task.project.name }}</a>
+                            </td>
+
+                            <!-- Deliverable -->
+                            <td class="px-4 py-2">
+                                {% if task.parent %}
+                                <span class="text-[10px] text-[var(--text-muted)] bg-[var(--surface2)] px-2 py-0.5 rounded">{{ task.parent.name }}</span>
+                                {% else %}
+                                <span class="text-[10px] text-[var(--text-muted)]">—</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Due Date -->
+                            <td class="px-4 py-2">
+                                <span class="text-xs {% if task.end < today %}text-red-400 font-medium{% else %}text-[var(--text-muted)]{% endif %}">
+                                    {{ task.end|date:"d M Y" }}
+                                    {% if task.end < today %}
+                                        <span class="text-red-400 ml-1">(Overdue)</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endwith %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
     </div>
 </div>
-
-<!-- ── Table View ──────────────────────────────────────────────────── -->
-<div x-show="viewMode === 'table'" class="overflow-x-auto">
-    <table class="w-full text-xs border-collapse">
-        <thead>
-            <tr class="sticky top-0 z-10 bg-[var(--surface)] border-b-2 border-[var(--border)] text-[var(--text-muted)] text-[10px] uppercase tracking-wider">
-                <th class="px-3 py-2.5 text-left font-semibold w-28">Status</th>
-                <th class="px-3 py-2.5 text-left font-semibold">Task / Issue</th>
-                <th class="px-3 py-2.5 text-left font-semibold">Project</th>
-                <th class="px-3 py-2.5 text-left font-semibold">Milestone</th>
-                <th class="px-3 py-2.5 text-left font-semibold">Stage</th>
-                <th class="px-3 py-2.5 text-left font-semibold">End Date</th>
-            </tr>
-        </thead>
-        <tbody>
-
-            {% for task in ready %}
-            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
-                x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
-                <td class="px-3 py-2.5">
-                    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>Ready
-                    </span>
-                </td>
-                <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
-                    hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
-                <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
-                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.milestone.name }}</td>
-                <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
-                <td class="px-3 py-2.5 {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M y" }}</td>
-            </tr>
-            {% endfor %}
-
-            {% for task in in_progress %}
-            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
-                x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
-                <td class="px-3 py-2.5">
-                    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-400">
-                        <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>In Progress
-                    </span>
-                </td>
-                <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
-                    hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
-                <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
-                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.milestone.name }}</td>
-                <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
-                <td class="px-3 py-2.5 {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M y" }}</td>
-            </tr>
-            {% endfor %}
-
-            {% for task in blocked %}
-            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
-                x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
-                <td class="px-3 py-2.5">
-                    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-red-400">
-                        <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>Blocked
-                    </span>
-                </td>
-                <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
-                    hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
-                <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
-                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.milestone.name }}</td>
-                <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
-                <td class="px-3 py-2.5 {% if task.end < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">{{ task.end|date:"d M y" }}</td>
-            </tr>
-            {% endfor %}
-
-            {% for task in waiting %}
-            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors"
-                x-show="projectFilter === '' || projectFilter === {{ task.project.pk }}">
-                <td class="px-3 py-2.5">
-                    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-amber-400">
-                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>Waiting
-                    </span>
-                </td>
-                <td class="px-3 py-2.5 font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)]"
-                    hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">{{ task.name }}</td>
-                <td class="px-3 py-2.5"><a href="{% url 'project-detail' task.project.pk %}" class="text-[var(--accent)] hover:underline">{{ task.project.name }}</a></td>
-                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.milestone.name }}</td>
-                <td class="px-3 py-2.5">{% if task.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ task.stage.color }}22;color:{{ task.stage.color }}">{{ task.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
-                <td class="px-3 py-2.5 text-[var(--text-muted)]">{{ task.end|date:"d M y" }}</td>
-            </tr>
-            {% endfor %}
-
-            {% if my_issues %}
-            <tr class="bg-[var(--surface)] border-b-2 border-[var(--border)]">
-                <td colspan="6" class="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-orange-400">Issues</td>
-            </tr>
-            {% for issue in my_issues %}
-            <tr class="border-b border-[var(--border)] hover:bg-[var(--surface2)] transition-colors cursor-pointer"
-                x-show="projectFilter === '' || projectFilter === {{ issue.project.pk }}"
-                hx-get="{% url 'issue-edit' issue.project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
-                <td class="px-3 py-2.5">
-                    <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
-                </td>
-                <td class="px-3 py-2.5 font-medium text-[var(--text)] hover:text-[var(--accent)]">{{ issue.title }}</td>
-                <td class="px-3 py-2.5"><a href="{% url 'project-detail' issue.project.pk %}" class="text-[var(--accent)] hover:underline" @click.stop>{{ issue.project.name }}</a></td>
-                <td class="px-3 py-2.5">
-                    <div class="flex items-center gap-1.5">
-                        <span class="cis-status-dot cis-st-{{ issue.status }}"></span>
-                        <span class="text-[var(--text-muted)] capitalize">{{ issue.status_label }}</span>
-                    </div>
-                </td>
-                <td class="px-3 py-2.5">{% if issue.stage %}<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:{{ issue.stage.color }}22;color:{{ issue.stage.color }}">{{ issue.stage.name }}</span>{% else %}<span class="text-[var(--text-muted)]">—</span>{% endif %}</td>
-                <td class="px-3 py-2.5 {% if issue.due and issue.due < today %}text-red-400{% else %}text-[var(--text-muted)]{% endif %}">
-                    {% if issue.due %}{{ issue.due|date:"d M y" }}{% else %}—{% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-            {% endif %}
-
-        </tbody>
-    </table>
-</div>
+{% endif %}
 
 </div>
 
 <script>
-(function () {
-    const raw = [
-        {% for task in ready %}{ id: {{ task.project.pk }}, name: '{{ task.project.name|escapejs }}' },{% endfor %}
-        {% for task in in_progress %}{ id: {{ task.project.pk }}, name: '{{ task.project.name|escapejs }}' },{% endfor %}
-        {% for task in blocked %}{ id: {{ task.project.pk }}, name: '{{ task.project.name|escapejs }}' },{% endfor %}
-        {% for task in waiting %}{ id: {{ task.project.pk }}, name: '{{ task.project.name|escapejs }}' },{% endfor %}
-        {% for issue in my_issues %}{ id: {{ issue.project.pk }}, name: '{{ issue.project.name|escapejs }}' },{% endfor %}
-    ];
-    const map = {};
-    raw.forEach(p => { map[p.id] = p; });
-    window._myTasksProjects = Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
-})();
-
 function myTasksBoard() {
     return {
-        viewMode: 'column',
+        viewMode: 'list',
         projectFilter: '',
-        allProjects: window._myTasksProjects,
+        allProjects: [],
+        init() {
+            const projects = new Map();
+            {% for task_info in all_tasks %}
+            projects.set({{ task_info.task.project.id }}, '{{ task_info.task.project.name|escapejs }}');
+            {% endfor %}
+            this.allProjects = Array.from(projects.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+        }
     };
 }
 </script>

@@ -8,6 +8,8 @@ urlpatterns = [
 
     # My Tasks
     path('my-tasks/', views.my_tasks, name='my-tasks'),
+    path('my-tasks/date-change/<int:change_id>/acknowledge/', views.acknowledge_date_change, name='acknowledge-date-change'),
+    path('my-tasks/date-changes/acknowledge-all/', views.acknowledge_all_date_changes, name='acknowledge-all-date-changes'),
 
     # Project detail tabs
     path('project/<int:pk>/', views.project_detail, name='project-detail'),

@@ -903,3 +903,41 @@ class UserRoleAssignment(models.Model):
         if self.customer:
             scope += f' [Customer: {self.customer.name}]'
         return f'{self.user.username}: {self.role.name} ({scope})'
+
+
+class TaskDueDateChange(models.Model):
+    """Tracks due date changes so assigned users are notified."""
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='due_date_changes')
+    version = models.ForeignKey(ProjectPlanVersion, on_delete=models.CASCADE, related_name='date_changes')
+    previous_end = models.DateField()
+    new_end = models.DateField()
+    detected_at = models.DateTimeField(auto_now_add=True)
+    acknowledged = models.BooleanField(default=False)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    acknowledged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='acknowledged_date_changes',
+    )
+
+    class Meta:
+        ordering = ['-detected_at']
+        unique_together = ['task', 'version']
+
+    def __str__(self):
+        return f'{self.task.name}: {self.previous_end} → {self.new_end} (v{self.version.version_label})'
+
+    @property
+    def days_shifted(self):
+        """Returns positive if extended, negative if shortened."""
+        return (self.new_end - self.previous_end).days
+
+    @property
+    def shift_display(self):
+        days = self.days_shifted
+        if days > 0:
+            return f'+{days} days'
+        elif days < 0:
+            return f'{days} days'
+        return 'No change'
