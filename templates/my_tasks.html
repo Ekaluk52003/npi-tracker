@@ -162,9 +162,29 @@
                     
                     <!-- Task Name -->
                     <td class="px-4 py-3">
-                        <div class="font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)] transition-colors"
-                             hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
-                            {{ task.name }}
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="font-medium text-[var(--text)] cursor-pointer hover:text-[var(--accent)] transition-colors"
+                                 hx-get="{% url 'task-edit' task.project.pk task.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                                {{ task.name }}
+                            </div>
+                            <!-- Blockers inline with task name -->
+                            <div class="flex flex-wrap gap-1 shrink-0">
+                                {% if task_info.critical_issues %}
+                                <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">
+                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    {{ task_info.critical_issues|length }}
+                                </span>
+                                {% elif task_info.open_issues %}
+                                <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded">{{ task_info.open_issues|length }}</span>
+                                {% endif %}
+                                {% if task_info.incomplete_deps %}
+                                <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded"
+                                      title="Waiting on: {% for dep in task_info.incomplete_deps %}{{ dep.name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    {{ task_info.incomplete_deps|length }}
+                                </span>
+                                {% endif %}
+                            </div>
                         </div>
                         {% if task_info.date_change %}
                         <div class="mt-1 text-[10px] text-amber-400 flex items-center gap-1">
@@ -209,15 +229,18 @@
                     <td class="px-4 py-3">
                         <div class="flex flex-wrap gap-1">
                             {% if task_info.critical_issues %}
-                            <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">
+                            <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded"
+                                  title="{% for issue in task_info.critical_issues %}{{ issue.title }}{% if not forloop.last %}, {% endif %}{% endfor %}">
                                 <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                                 {{ task_info.critical_issues|length }} critical
                             </span>
                             {% elif task_info.open_issues %}
-                            <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded">{{ task_info.open_issues|length }} issues</span>
+                            <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded"
+                                  title="{% for issue in task_info.open_issues %}{{ issue.title }}{% if not forloop.last %}, {% endif %}{% endfor %}">{{ task_info.open_issues|length }} issues</span>
                             {% endif %}
                             {% if task_info.incomplete_deps %}
-                            <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded">
+                            <span class="inline-flex items-center gap-1 text-[9px] font-medium bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded"
+                                  title="Waiting on: {% for dep in task_info.incomplete_deps %}{{ dep.name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
                                 <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                 {{ task_info.incomplete_deps|length }} waiting
                             </span>

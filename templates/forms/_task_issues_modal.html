@@ -10,7 +10,7 @@
             {% for issue in issues %}
             <div class="p-3 rounded-lg bg-[var(--surface2)] border-l-4 cursor-pointer hover:opacity-80 transition
                 {% if issue.severity == 'critical' %}border-red-500{% elif issue.severity == 'high' %}border-amber-500{% elif issue.severity == 'medium' %}border-blue-500{% else %}border-gray-500{% endif %}"
-                 hx-get="{% url 'issue-edit' project.pk issue.pk %}" hx-target="#modal-container" hx-swap="innerHTML">
+                 hx-get="{% url 'issue-edit' project.pk issue.pk %}?return_to=task-modal" hx-target="#modal-container" hx-swap="innerHTML">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="severity-badge severity-{{ issue.severity }}">{{ issue.severity_label }}</span>
                     <span class="status-badge status-{{ issue.status }}">{{ issue.status_label }}</span>
@@ -28,7 +28,7 @@
             {% endfor %}
         </div>
         <div class="sticky bottom-0 bg-[var(--surface)] border-t border-[var(--border)] px-5 py-3 flex items-center justify-between">
-            <button hx-get="{% url 'issue-create' project.pk %}?task_id={{ task.pk }}"
+            <button hx-get="{% url 'issue-create' project.pk %}?task_id={{ task.pk }}&return_to=task-modal"
                     hx-target="#modal-container" hx-swap="innerHTML"
                     class="action-btn text-sm">+ Add Issue</button>
             <button @click="open = false; document.getElementById('modal-container').innerHTML=''" class="btn-secondary">Close</button>

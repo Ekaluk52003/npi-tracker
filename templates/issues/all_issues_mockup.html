@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Issue Tracker - NPI Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        :root, [data-theme="dark"] {
+            --bg: #0a0a0a; --surface: #121212; --surface2: #1a1a1a;
+            --border: #282828; --text: #f5f5f5; --text-muted: #999999;
+            --accent: #34B27B; --accent-hover: #2d9b6e;
+            --danger: #cc3333; --success: #34B27B; --warning: #b8860b;
+        }
+        body { font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+        h1,h2,h3,h4,h5,h6 { font-weight: 700; letter-spacing: -0.5px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2.5px; }
+        .severity-badge { display:inline-flex;align-items:center;padding:0.25rem 0.75rem;font-size:0.75rem;font-weight:600;border-radius:0.25rem;text-transform:capitalize;letter-spacing:0.3px;background:var(--surface2); }
+        .severity-critical { color: var(--danger); }
+        .severity-high { color: var(--warning); }
+        .severity-medium { color: var(--accent); }
+        .severity-low { color: var(--text-muted); }
+        .status-badge { display:inline-flex;align-items:center;padding:0.25rem 0.75rem;font-size:0.75rem;font-weight:600;border-radius:0.25rem;text-transform:capitalize;letter-spacing:0.4px;background:var(--surface2);color:var(--text-muted); }
+        .status-open { color: var(--text-muted); }
+        .status-investigating { color: var(--warning); }
+        .status-resolved { color: var(--success); }
+        .action-btn { display:inline-flex;align-items:center;gap:0.5rem;padding:0.625rem 1.25rem;font-size:0.85rem;font-weight:600;color:#fff;background:var(--accent);border-radius:0.375rem;border:none;cursor:pointer;letter-spacing:0.3px;transition:all 0.2s; }
+        .action-btn:hover { background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(45,155,132,0.2); }
+        .filter-chip { display:inline-flex;align-items:center;gap:0.375rem;padding:0.35rem 0.75rem;font-size:0.75rem;font-weight:500;color:var(--text-muted);background:transparent;border:1px solid var(--border);border-radius:0.375rem;cursor:pointer;transition:all 0.15s; }
+        .filter-chip:hover { border-color:var(--text-muted);color:var(--text); }
+        .filter-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(52,178,123,0.08); }
+        /* Heatmap squares */
+        .hm-cell { width:13px;height:13px;border-radius:2px;flex-shrink:0; }
+        .hm-0 { background:#1a1a1a; }
+        .hm-1 { background:#0e4429; }
+        .hm-2 { background:#006d32; }
+        .hm-3 { background:#26a641; }
+        .hm-4 { background:#39d353; }
+    </style>
+</head>
+<body class="min-h-screen" x-data="{
+    activeFilter: 'all',
+    severityFilter: 'all',
+    categoryFilter: 'all',
+    showResolved: false,
+    ageFilter: 'all'
+}" x-cloak>
+
+<!-- Simulated sidebar -->
+<div class="fixed top-0 left-0 w-[220px] h-screen bg-[var(--surface)] border-r border-[var(--border)] flex flex-col z-50">
+    <div class="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
+        <svg class="w-6 h-6 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
+        <span class="text-sm font-bold text-[var(--accent)]">PJM MASTER</span>
+    </div>
+    <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-[var(--text-muted)] hover:bg-[var(--surface2)]">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        All Projects
+    </a>
+    <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-[var(--text-muted)] hover:bg-[var(--surface2)]">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        My Tasks
+    </a>
+    <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium bg-[var(--surface2)] text-[var(--accent)]">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        Issue Tracker
+        <span class="ml-auto text-[10px] font-bold bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">12</span>
+    </a>
+    <div class="px-4 py-1 mt-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Projects</div>
+    <a href="#" class="flex items-center gap-2.5 px-4 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface2)]"><span class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">A</span>AXIS Camera Q6225</a>
+    <a href="#" class="flex items-center gap-2.5 px-4 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface2)]"><span class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">B</span>BorgWarner ECU v3</a>
+    <a href="#" class="flex items-center gap-2.5 px-4 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface2)]"><span class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">D</span>Delta Inverter PCB</a>
+    <a href="#" class="flex items-center gap-2.5 px-4 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface2)]"><span class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">S</span>Schneider Smart Panel</a>
+    <a href="#" class="flex items-center gap-2.5 px-4 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface2)]"><span class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">H</span>Honeywell Sensor Hub</a>
+    <a href="#" class="flex items-center gap-2.5 px-4 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface2)]"><span class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">S</span>Siemens IoT Gateway</a>
+</div>
+
+<!-- Main content area -->
+<div class="ml-[220px] p-6">
+
+    <!-- PAGE HEADER -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-xl font-bold">Issue Tracker</h1>
+            <p class="text-sm text-[var(--text-muted)] mt-0.5">All open issues across your NPI projects</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="action-btn text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Export CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- CHARTS ROW 1: Status Distribution + Aging Distribution             -->
+    <!-- ================================================================== -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
+        <!-- Issue Status Distribution (% stacked bar per project) -->
+        <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-4">Issue Status Distribution</h3>
+            <!-- Legend -->
+            <div class="flex items-center gap-4 mb-4 text-[11px]">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#999999] inline-block"></span> Open</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#b8860b] inline-block"></span> Investigating</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#34B27B] inline-block"></span> Resolved</span>
+            </div>
+            <!-- AXIS Camera -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#34B27B] inline-block"></span>AXIS Camera Q6225</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">4 open &middot; 2 resolved</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#999999] h-full" style="width:33%" title="Open 33%"></div>
+                    <div class="bg-[#b8860b] h-full" style="width:17%" title="Investigating 17%"></div>
+                    <div class="bg-[#34B27B] h-full" style="width:33%" title="Resolved 33%"></div>
+                </div>
+            </div>
+            <!-- BorgWarner -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#8b5cf6] inline-block"></span>BorgWarner ECU v3</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">2 open &middot; 1 resolved</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#999999] h-full" style="width:50%" title="Open 50%"></div>
+                    <div class="bg-[#b8860b] h-full" style="width:17%" title="Investigating 17%"></div>
+                    <div class="bg-[#34B27B] h-full" style="width:33%" title="Resolved 33%"></div>
+                </div>
+            </div>
+            <!-- Delta -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#06b6d4] inline-block"></span>Delta Inverter PCB</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">2 open &middot; 0 resolved</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#999999] h-full" style="width:50%" title="Open 50%"></div>
+                    <div class="bg-[#b8860b] h-full" style="width:50%" title="Investigating 50%"></div>
+                </div>
+            </div>
+            <!-- Schneider -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#f59e0b] inline-block"></span>Schneider Smart Panel</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">2 open &middot; 3 resolved</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#999999] h-full" style="width:20%" title="Open 20%"></div>
+                    <div class="bg-[#b8860b] h-full" style="width:20%" title="Investigating 20%"></div>
+                    <div class="bg-[#34B27B] h-full" style="width:60%" title="Resolved 60%"></div>
+                </div>
+            </div>
+            <!-- Honeywell -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#ec4899] inline-block"></span>Honeywell Sensor Hub</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">1 open &middot; 1 resolved</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#999999] h-full" style="width:25%" title="Open 25%"></div>
+                    <div class="bg-[#b8860b] h-full" style="width:25%" title="Investigating 25%"></div>
+                    <div class="bg-[#34B27B] h-full" style="width:50%" title="Resolved 50%"></div>
+                </div>
+            </div>
+            <!-- Siemens -->
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#14b8a6] inline-block"></span>Siemens IoT Gateway</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">1 open &middot; 0 resolved</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#999999] h-full" style="width:100%" title="Open 100%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Issue Aging Distribution (by day range, per project) -->
+        <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-4">Issue Aging Distribution</h3>
+            <!-- Legend -->
+            <div class="flex items-center gap-4 mb-4 text-[11px]">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#4ade80] inline-block"></span> 0-7d</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#facc15] inline-block"></span> 8-14d</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#f97316] inline-block"></span> 15-30d</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#ef4444] inline-block"></span> >30d</span>
+            </div>
+            <!-- AXIS -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#34B27B] inline-block"></span>AXIS Camera Q6225</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">4 open issues</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#4ade80] h-full" style="width:50%" title="0-7d: 2"></div>
+                    <div class="bg-[#f97316] h-full" style="width:25%" title="15-30d: 1"></div>
+                    <div class="bg-[#ef4444] h-full" style="width:25%" title=">30d: 1"></div>
+                </div>
+            </div>
+            <!-- BorgWarner -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#8b5cf6] inline-block"></span>BorgWarner ECU v3</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">2 open issues</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#facc15] h-full" style="width:50%" title="8-14d: 1"></div>
+                    <div class="bg-[#f97316] h-full" style="width:50%" title="15-30d: 1"></div>
+                </div>
+            </div>
+            <!-- Delta -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#06b6d4] inline-block"></span>Delta Inverter PCB</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">2 open issues</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#4ade80] h-full" style="width:50%" title="0-7d: 1"></div>
+                    <div class="bg-[#f97316] h-full" style="width:50%" title="15-30d: 1"></div>
+                </div>
+            </div>
+            <!-- Schneider -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#f59e0b] inline-block"></span>Schneider Smart Panel</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">2 open issues</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#4ade80] h-full" style="width:50%" title="0-7d: 1"></div>
+                    <div class="bg-[#f97316] h-full" style="width:50%" title="15-30d: 1"></div>
+                </div>
+            </div>
+            <!-- Honeywell -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#ec4899] inline-block"></span>Honeywell Sensor Hub</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">1 open issue</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#facc15] h-full" style="width:100%" title="8-14d: 1"></div>
+                </div>
+            </div>
+            <!-- Siemens -->
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#14b8a6] inline-block"></span>Siemens IoT Gateway</span>
+                    <span class="text-[10px] text-[var(--text-muted)]">1 open issue</span>
+                </div>
+                <div class="flex h-5 rounded-md overflow-hidden bg-[var(--surface2)]">
+                    <div class="bg-[#4ade80] h-full" style="width:100%" title="0-7d: 1"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- CHARTS ROW 2: Project Progress + Open vs Closed Trend              -->
+    <!-- ================================================================== -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
+        <!-- Project Progress % -->
+        <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-4">Project Task Progress</h3>
+            <!-- AXIS -->
+            <div class="mb-3.5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#34B27B] inline-block"></span>AXIS Camera Q6225</span>
+                    <span class="text-xs font-bold text-[var(--accent)]">72%</span>
+                </div>
+                <div class="h-3 rounded-full overflow-hidden bg-[var(--surface2)]">
+                    <div class="h-full rounded-full bg-gradient-to-r from-[#34B27B] to-[#4ade80]" style="width:72%"></div>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10px] text-[var(--text-muted)]">
+                    <span>36 / 50 tasks done</span>
+                    <span>ETB stage</span>
+                </div>
+            </div>
+            <!-- BorgWarner -->
+            <div class="mb-3.5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#8b5cf6] inline-block"></span>BorgWarner ECU v3</span>
+                    <span class="text-xs font-bold text-[#facc15]">45%</span>
+                </div>
+                <div class="h-3 rounded-full overflow-hidden bg-[var(--surface2)]">
+                    <div class="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#a78bfa]" style="width:45%"></div>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10px] text-[var(--text-muted)]">
+                    <span>18 / 40 tasks done</span>
+                    <span>PS stage</span>
+                </div>
+            </div>
+            <!-- Delta -->
+            <div class="mb-3.5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#06b6d4] inline-block"></span>Delta Inverter PCB</span>
+                    <span class="text-xs font-bold text-[#f97316]">28%</span>
+                </div>
+                <div class="h-3 rounded-full overflow-hidden bg-[var(--surface2)]">
+                    <div class="h-full rounded-full bg-gradient-to-r from-[#06b6d4] to-[#22d3ee]" style="width:28%"></div>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10px] text-[var(--text-muted)]">
+                    <span>8 / 29 tasks done</span>
+                    <span>ETB stage</span>
+                </div>
+            </div>
+            <!-- Schneider -->
+            <div class="mb-3.5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#f59e0b] inline-block"></span>Schneider Smart Panel</span>
+                    <span class="text-xs font-bold text-[var(--accent)]">88%</span>
+                </div>
+                <div class="h-3 rounded-full overflow-hidden bg-[var(--surface2)]">
+                    <div class="h-full rounded-full bg-gradient-to-r from-[#f59e0b] to-[#fbbf24]" style="width:88%"></div>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10px] text-[var(--text-muted)]">
+                    <span>35 / 40 tasks done</span>
+                    <span>FAS stage</span>
+                </div>
+            </div>
+            <!-- Honeywell -->
+            <div class="mb-3.5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#ec4899] inline-block"></span>Honeywell Sensor Hub</span>
+                    <span class="text-xs font-bold text-[#facc15]">55%</span>
+                </div>
+                <div class="h-3 rounded-full overflow-hidden bg-[var(--surface2)]">
+                    <div class="h-full rounded-full bg-gradient-to-r from-[#ec4899] to-[#f472b6]" style="width:55%"></div>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10px] text-[var(--text-muted)]">
+                    <span>22 / 40 tasks done</span>
+                    <span>PS stage</span>
+                </div>
+            </div>
+            <!-- Siemens -->
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-medium flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#14b8a6] inline-block"></span>Siemens IoT Gateway</span>
+                    <span class="text-xs font-bold text-[#f97316]">15%</span>
+                </div>
+                <div class="h-3 rounded-full overflow-hidden bg-[var(--surface2)]">
+                    <div class="h-full rounded-full bg-gradient-to-r from-[#14b8a6] to-[#2dd4bf]" style="width:15%"></div>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10px] text-[var(--text-muted)]">
+                    <span>5 / 34 tasks done</span>
+                    <span>ETB stage</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Open vs Closed Trend by Week (per project) -->
+        <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-4">Open vs Resolved Trend (Last 8 Weeks)</h3>
+            <!-- Legend -->
+            <div class="flex items-center gap-4 mb-4 text-[11px]">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#ef4444] inline-block"></span> Opened</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[#34B27B] inline-block"></span> Resolved</span>
+            </div>
+            <!-- Week headers -->
+            <div class="flex items-end gap-0 mb-1">
+                <div class="w-[140px] flex-shrink-0"></div>
+                <div class="flex-1 grid grid-cols-8 gap-1 text-[9px] text-[var(--text-muted)] text-center">
+                    <span>W7</span><span>W8</span><span>W9</span><span>W10</span><span>W11</span><span>W12</span><span>W13</span><span>W14</span>
+                </div>
+            </div>
+            <!-- AXIS -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[140px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-2 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#34B27B] inline-block flex-shrink-0"></span>AXIS
+                </div>
+                <div class="flex-1 grid grid-cols-8 gap-1">
+                    <!-- Each cell: stacked mini-bar (opened on top in red, resolved below in green) -->
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/30"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/30"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-3 rounded-sm bg-[#ef4444]/50"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/30"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-2 rounded-sm bg-[#34B27B]/50"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-4 rounded-sm bg-[#ef4444]/70"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/30"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-3 rounded-sm bg-[#34B27B]/70"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/40"></div><div class="w-full h-2 rounded-sm bg-[#34B27B]/40"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-3 rounded-sm bg-[#ef4444]/60"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/30"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]"></div><div class="w-full h-0 rounded-sm"></div></div>
+                </div>
+            </div>
+            <!-- BorgWarner -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[140px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-2 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#8b5cf6] inline-block flex-shrink-0"></span>BorgWarner
+                </div>
+                <div class="flex-1 grid grid-cols-8 gap-1">
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/50"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-2 rounded-sm bg-[#34B27B]/50"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-3 rounded-sm bg-[#ef4444]/60"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/30"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/40"></div><div class="w-full h-2 rounded-sm bg-[#34B27B]/50"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/30"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                </div>
+            </div>
+            <!-- Delta -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[140px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-2 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#06b6d4] inline-block flex-shrink-0"></span>Delta
+                </div>
+                <div class="flex-1 grid grid-cols-8 gap-1">
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/30"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/50"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/30"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/50"></div><div class="w-full h-0 rounded-sm"></div></div>
+                </div>
+            </div>
+            <!-- Schneider -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[140px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-2 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#f59e0b] inline-block flex-shrink-0"></span>Schneider
+                </div>
+                <div class="flex-1 grid grid-cols-8 gap-1">
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/40"></div><div class="w-full h-2 rounded-sm bg-[#34B27B]/50"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-3 rounded-sm bg-[#34B27B]/60"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-2 rounded-sm bg-[#34B27B]/50"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/30"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/40"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/30"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-2 rounded-sm bg-[#34B27B]/50"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/30"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/30"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                </div>
+            </div>
+            <!-- Honeywell -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[140px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-2 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#ec4899] inline-block flex-shrink-0"></span>Honeywell
+                </div>
+                <div class="flex-1 grid grid-cols-8 gap-1">
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/40"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-2 rounded-sm bg-[#34B27B]/50"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/30"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/30"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/40"></div><div class="w-full h-0 rounded-sm"></div></div>
+                </div>
+            </div>
+            <!-- Siemens -->
+            <div class="flex items-center gap-0">
+                <div class="w-[140px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-2 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#14b8a6] inline-block flex-shrink-0"></span>Siemens
+                </div>
+                <div class="flex-1 grid grid-cols-8 gap-1">
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-1 rounded-sm bg-[#ef4444]/20"></div><div class="w-full h-1 rounded-sm bg-[#34B27B]/20"></div></div>
+                    <div class="flex flex-col items-center gap-px"><div class="w-full h-2 rounded-sm bg-[#ef4444]/50"></div><div class="w-full h-0 rounded-sm"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- HEATMAP: Issue Activity (GitHub-style contribution graph)           -->
+    <!-- ================================================================== -->
+    <section class="mb-6">
+        <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">Issue Activity Heatmap</h3>
+                <div class="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                    <span>Less</span>
+                    <div class="flex gap-0.5"><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-3"></span><span class="hm-cell hm-4"></span></div>
+                    <span>More</span>
+                </div>
+            </div>
+            <!-- Week column labels -->
+            <div class="flex items-start gap-0 mb-1">
+                <div class="w-[160px] flex-shrink-0"></div>
+                <div class="flex-1 overflow-x-auto">
+                    <div class="flex gap-[3px] min-w-max">
+                        <!-- 26 weeks of labels (6 months) -->
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]">Nov</div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]">Dec</div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]">Jan</div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]">Feb</div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]">Mar</div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]">Apr</div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                        <div class="w-[13px] text-center text-[8px] text-[var(--text-muted)]"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AXIS heatmap row -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[160px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-3 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#34B27B] inline-block flex-shrink-0"></span>AXIS Camera Q6225
+                </div>
+                <div class="flex-1 overflow-x-auto">
+                    <div class="flex gap-[3px] min-w-max">
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-3"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span>
+                        <span class="hm-cell hm-3"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-2"></span>
+                        <span class="hm-cell hm-4"></span><span class="hm-cell hm-3"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-3"></span><span class="hm-cell hm-4"></span>
+                        <span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BorgWarner heatmap row -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[160px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-3 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#8b5cf6] inline-block flex-shrink-0"></span>BorgWarner ECU v3
+                </div>
+                <div class="flex-1 overflow-x-auto">
+                    <div class="flex gap-[3px] min-w-max">
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-3"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-3"></span><span class="hm-cell hm-4"></span>
+                        <span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-2"></span><span class="hm-cell hm-3"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delta heatmap row -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[160px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-3 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#06b6d4] inline-block flex-shrink-0"></span>Delta Inverter PCB
+                </div>
+                <div class="flex-1 overflow-x-auto">
+                    <div class="flex gap-[3px] min-w-max">
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-2"></span><span class="hm-cell hm-3"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span>
+                        <span class="hm-cell hm-3"></span><span class="hm-cell hm-1"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schneider heatmap row -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[160px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-3 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#f59e0b] inline-block flex-shrink-0"></span>Schneider Smart Panel
+                </div>
+                <div class="flex-1 overflow-x-auto">
+                    <div class="flex gap-[3px] min-w-max">
+                        <span class="hm-cell hm-2"></span><span class="hm-cell hm-3"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-3"></span>
+                        <span class="hm-cell hm-4"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Honeywell heatmap row -->
+            <div class="flex items-center gap-0 mb-2">
+                <div class="w-[160px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-3 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#ec4899] inline-block flex-shrink-0"></span>Honeywell Sensor Hub
+                </div>
+                <div class="flex-1 overflow-x-auto">
+                    <div class="flex gap-[3px] min-w-max">
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-3"></span><span class="hm-cell hm-4"></span>
+                        <span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Siemens heatmap row -->
+            <div class="flex items-center gap-0">
+                <div class="w-[160px] flex-shrink-0 text-xs font-medium flex items-center gap-1.5 pr-3 truncate">
+                    <span class="w-2 h-2 rounded-full bg-[#14b8a6] inline-block flex-shrink-0"></span>Siemens IoT Gateway
+                </div>
+                <div class="flex-1 overflow-x-auto">
+                    <div class="flex gap-[3px] min-w-max">
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span>
+                        <span class="hm-cell hm-1"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-0"></span><span class="hm-cell hm-1"></span>
+                        <span class="hm-cell hm-2"></span><span class="hm-cell hm-1"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- ALL ISSUES TABLE                                                    -->
+    <!-- ================================================================== -->
+    <section>
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                All Issues
+            </h2>
+        </div>
+
+        <!-- Filters Row -->
+        <div class="flex flex-wrap items-center gap-2 mb-4">
+            <!-- Project Filter -->
+            <button class="filter-chip" :class="activeFilter === 'all' && 'active'" @click="activeFilter = 'all'">All Projects</button>
+            <button class="filter-chip" :class="activeFilter === 'axis' && 'active'" @click="activeFilter = 'axis'">
+                <span class="w-2 h-2 rounded-full bg-[#34B27B] inline-block"></span> AXIS Camera
+            </button>
+            <button class="filter-chip" :class="activeFilter === 'borg' && 'active'" @click="activeFilter = 'borg'">
+                <span class="w-2 h-2 rounded-full bg-[#8b5cf6] inline-block"></span> BorgWarner
+            </button>
+            <button class="filter-chip" :class="activeFilter === 'delta' && 'active'" @click="activeFilter = 'delta'">
+                <span class="w-2 h-2 rounded-full bg-[#06b6d4] inline-block"></span> Delta
+            </button>
+            <button class="filter-chip" :class="activeFilter === 'schneider' && 'active'" @click="activeFilter = 'schneider'">
+                <span class="w-2 h-2 rounded-full bg-[#f59e0b] inline-block"></span> Schneider
+            </button>
+            <button class="filter-chip" :class="activeFilter === 'honeywell' && 'active'" @click="activeFilter = 'honeywell'">
+                <span class="w-2 h-2 rounded-full bg-[#ec4899] inline-block"></span> Honeywell
+            </button>
+            <button class="filter-chip" :class="activeFilter === 'siemens' && 'active'" @click="activeFilter = 'siemens'">
+                <span class="w-2 h-2 rounded-full bg-[#14b8a6] inline-block"></span> Siemens
+            </button>
+
+            <span class="text-[var(--border)]">|</span>
+
+            <!-- Severity Filter -->
+            <button class="filter-chip" :class="severityFilter === 'critical' && 'active'" @click="severityFilter = severityFilter === 'critical' ? 'all' : 'critical'">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Critical
+            </button>
+            <button class="filter-chip" :class="severityFilter === 'high' && 'active'" @click="severityFilter = severityFilter === 'high' ? 'all' : 'high'">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> High
+            </button>
+
+            <span class="text-[var(--border)]">|</span>
+
+            <!-- Age Filter -->
+            <button class="filter-chip" :class="ageFilter === '7' && 'active'" @click="ageFilter = ageFilter === '7' ? 'all' : '7'">> 7 days</button>
+            <button class="filter-chip" :class="ageFilter === '14' && 'active'" @click="ageFilter = ageFilter === '14' ? 'all' : '14'">> 14 days</button>
+            <button class="filter-chip" :class="ageFilter === '30' && 'active'" @click="ageFilter = ageFilter === '30' ? 'all' : '30'">> 30 days</button>
+
+            <span class="text-[var(--border)]">|</span>
+
+            <!-- Show Resolved Toggle -->
+            <button class="filter-chip" :class="showResolved && 'active'" @click="showResolved = !showResolved">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Show Resolved
+            </button>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">
+            <!-- Header -->
+            <div class="hidden lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)] bg-[var(--surface2)]">
+                <div class="px-4 py-2.5">Project</div>
+                <div class="px-3 py-2.5">Issue</div>
+                <div class="px-3 py-2.5">Severity</div>
+                <div class="px-3 py-2.5">Category</div>
+                <div class="px-3 py-2.5">Status</div>
+                <div class="px-3 py-2.5">Owner</div>
+                <div class="px-3 py-2.5">Due</div>
+                <div class="px-3 py-2.5 text-right">Age</div>
+            </div>
+
+            <!-- Row 1 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#34B27B] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">AXIS Camera Q6225</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">AXIS Communications</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-red-500 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">SMT reflow profile causing solder bridging on QFN</div>
+                            <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span class="text-[10px] px-1.5 py-0.5 rounded" style="background:#f59e0b22;color:#f59e0b">ETB</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">Blocks: #42 Reflow setup</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-critical">Critical</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Process</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-investigating">Investigating</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Somchai T.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-red-400 font-semibold">01 Apr</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-red-400">32d</span></div>
+            </div>
+
+            <!-- Row 2 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#8b5cf6] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">BorgWarner ECU v3</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">BorgWarner</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-red-500 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">Power supply module failing thermal test at 85C</div>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="text-[10px] px-1.5 py-0.5 rounded" style="background:#8b5cf622;color:#8b5cf6">PS</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-critical">Critical</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Test</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-open">Open</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Napat K.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-red-400 font-semibold">10 Apr</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-red-400">21d</span></div>
+            </div>
+
+            <!-- Row 3 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#06b6d4] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">Delta Inverter PCB</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">Delta Electronics</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-amber-500 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">Connector footprint mismatch on main board rev B</div>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="text-[10px] px-1.5 py-0.5 rounded" style="background:#06b6d422;color:#06b6d4">ETB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-high">High</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Design</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-open">Open</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-amber-400 italic">Unassigned</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-[var(--text-muted)]">20 Apr</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-orange-400">18d</span></div>
+            </div>
+
+            <!-- Row 4 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#f59e0b] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">Schneider Smart Panel</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">Schneider Electric</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-amber-500 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">Supplier lead time increased from 4 to 12 weeks for IC U7</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-high">High</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Supplier</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-investigating">Investigating</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Priya S.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-[var(--text-muted)]">25 Apr</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-orange-400">16d</span></div>
+            </div>
+
+            <!-- Row 5 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#34B27B] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">AXIS Camera Q6225</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">AXIS Communications</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-red-500 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">AOI false reject rate exceeding 15% on BGA inspection</div>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="text-[10px] px-1.5 py-0.5 rounded" style="background:#f59e0b22;color:#f59e0b">ETB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-critical">Critical</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Quality</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-open">Open</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Kittisak P.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-red-400 font-semibold">12 Apr</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-[var(--text-muted)]">3d</span></div>
+            </div>
+
+            <!-- Row 6 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#ec4899] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">Honeywell Sensor Hub</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">Honeywell</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-amber-500 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">Alternate supplier qualification pending for pressure sensor</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-high">High</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Supplier</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-investigating">Investigating</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Rattana M.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-[var(--text-muted)]">30 Apr</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-[var(--text-muted)]">8d</span></div>
+            </div>
+
+            <!-- Row 7 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#34B27B] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">AXIS Camera Q6225</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">AXIS Communications</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-blue-400 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">Lens bracket supplier delivery delayed 2 weeks</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-medium">Medium</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Supplier</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-open">Open</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Somchai T.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-[var(--text-muted)]">18 Apr</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-[var(--text-muted)]">5d</span></div>
+            </div>
+
+            <!-- Row 8 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#14b8a6] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">Siemens IoT Gateway</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">Siemens</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-blue-400 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">ICT test coverage below 95% target on analog section</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-medium">Medium</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Quality</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-open">Open</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-amber-400 italic">Unassigned</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-[var(--text-muted)]">—</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-[var(--text-muted)]">6d</span></div>
+            </div>
+
+            <!-- Row 9 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#ec4899] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">Honeywell Sensor Hub</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">Honeywell</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-gray-500 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">Silk screen legend readability issue on small components</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-low">Low</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Design</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-open">Open</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Tanapat W.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-[var(--text-muted)]">—</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-[var(--text-muted)]">4d</span></div>
+            </div>
+
+            <!-- Row 10 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#8b5cf6] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">BorgWarner ECU v3</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">BorgWarner</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-blue-400 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">CAN bus connector sourcing from single supplier risk</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-medium">Medium</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Supplier</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-open">Open</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Napat K.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-[var(--text-muted)]">—</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-orange-400">14d</span></div>
+            </div>
+
+            <!-- Row 11 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#06b6d4] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">Delta Inverter PCB</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">Delta Electronics</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-blue-400 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">Capacitor derating concern on high-voltage section</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-medium">Medium</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Quality</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-investigating">Investigating</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Wichai S.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-[var(--text-muted)]">28 Apr</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-[var(--text-muted)]">7d</span></div>
+            </div>
+
+            <!-- Row 12 -->
+            <div class="lg:grid lg:grid-cols-[200px_minmax(0,1fr)_90px_100px_90px_100px_70px_70px] gap-0 border-b border-[var(--border)] hover:bg-[var(--surface2)]/50 transition-colors group">
+                <div class="px-4 py-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[#f59e0b] flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-[var(--text)] truncate">Schneider Smart Panel</div>
+                        <div class="text-[10px] text-[var(--text-muted)]">Schneider Electric</div>
+                    </div>
+                </div>
+                <div class="px-3 py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 self-stretch rounded-full bg-gray-500 flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm truncate">Label placement specification not finalized by customer</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-3 flex items-center"><span class="severity-badge severity-low">Low</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)]">Other</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="status-badge status-open">Open</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs truncate">Priya S.</span></div>
+                <div class="px-3 py-3 flex items-center"><span class="text-xs text-[var(--text-muted)]">—</span></div>
+                <div class="px-3 py-3 flex items-center justify-end"><span class="text-xs font-bold text-[var(--text-muted)]">2d</span></div>
+            </div>
+
+        </div>
+
+        <!-- Table Footer / Summary -->
+        <div class="mt-3 text-xs text-[var(--text-muted)] flex items-center justify-between">
+            <span>Showing 12 open issues across 6 projects</span>
+            <span>Sorted by severity, then age (oldest first)</span>
+        </div>
+    </section>
+
+    <!-- Bottom padding -->
+    <div class="h-12"></div>
+
+</div>
+
+</body>
+</html>

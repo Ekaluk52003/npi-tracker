@@ -1986,8 +1986,8 @@ export function renderPortfolioGantt(containerId, dataId) {
   let data;
   try { data = JSON.parse(dataEl.textContent); } catch { return; }
 
-  const { rows: projRows, min_date, max_date, today } = data;
-  if (!projRows || projRows.length === 0) {
+  const { rows: stageRows, min_date, max_date, today } = data;
+  if (!stageRows || stageRows.length === 0) {
     el.innerHTML = '';
     return;
   }
@@ -2023,41 +2023,46 @@ export function renderPortfolioGantt(containerId, dataId) {
     return `<div style="min-width:${PCELL_W}px;width:${PCELL_W}px;text-align:center;font-size:10px;color:${isCur ? 'var(--accent)' : 'var(--text-muted)'};padding:4px 0 2px;border-right:1px solid var(--border);font-weight:${isCur ? 700 : 400}">Wk${getISOWeek(w)}<br><span style="font-size:8px;opacity:0.7;font-weight:400">${fmtDateShort(w)}</span><div style="display:flex;justify-content:space-around;margin-top:1px">${dayNums}</div></div>`;
   }).join('');
 
-  // Build rows
+  // Build rows - each row is a stage with milestones as date-range bars
   const STATUS_LABEL = { 'in-progress': 'Active', ready: 'Ready', planned: 'Planned', completed: 'Complete', 'on-hold': 'On Hold' };
-  const rowsHtml = projRows.map(p => {
-    const currentStage = p.stages.find(s => s.status === 'in-progress')
-      || p.stages.find(s => s.status === 'ready')
-      || p.stages.find(s => s.status === 'planned');
-    const csLabel = currentStage
-      ? `${currentStage.name} \u00b7 ${STATUS_LABEL[currentStage.status] || currentStage.status}`
-      : 'All complete';
+  const MS_COLOR = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
+  
+  const rowsHtml = stageRows.map((row, idx) => {
+    const statusLabel = STATUS_LABEL[row.stage_status] || row.stage_status;
+    const rowLabel = `${row.project_name} — ${row.stage_name} · ${statusLabel}`;
 
     // Background cells per week
     const bgCells = weeks.map((w, i) =>
       `<div style="position:absolute;left:${i * PCELL_W}px;top:0;width:${PCELL_W}px;height:${rowH}px;border-right:1px solid var(--border);box-sizing:border-box;${i === todayWkIdx ? 'background:rgba(79,126,248,0.06)' : ''}"></div>`
     ).join('');
 
-    // Stage bars — use stage color from data, fall back to status-based color
-    const bars = p.stages.map(stg => {
-      if (!stg.date) return '';
-      const stDate = parseDate(stg.date);
-      const endDate = new Date(stDate);
-      endDate.setDate(endDate.getDate() + 5);
-      const barLeft = (stDate - weeks[0]) / (7 * 86400000) * PCELL_W;
-      const barWidth = Math.max(PCELL_W * 0.7, (endDate - stDate) / (7 * 86400000) * PCELL_W);
-      const col = stg.color || PG_STAGE_COLOR[stg.status] || '#3b82f6';
+    // Milestone bars with date ranges
+    const barHeight = row.milestones.length > 1 ? Math.max(14, (rowH - 16) / row.milestones.length) : 22;
+    const barGap = row.milestones.length > 1 ? 2 : 0;
+    const bars = row.milestones.map((ms, msIdx) => {
+      const startDate = parseDate(ms.start);
+      const endDate = parseDate(ms.end);
+      if (!startDate || !endDate) return '';
+      
+      const barLeft = (startDate - weeks[0]) / (7 * 86400000) * PCELL_W;
+      const barWidth = Math.max(PCELL_W * 0.5, (endDate - startDate) / (7 * 86400000) * PCELL_W + PCELL_W * 0.3);
+      const col = MS_COLOR[msIdx % MS_COLOR.length];
       const bg = col + '2e';
-      const isCurrent = currentStage && stg.stage_id === currentStage.stage_id;
-      return `<div style="position:absolute;left:${barLeft}px;top:7px;height:22px;width:${barWidth}px;background:${bg};border:${isCurrent ? 2 : 1}px solid ${col};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${col};overflow:hidden;white-space:nowrap;z-index:2;${isCurrent ? 'box-shadow:0 0 0 3px ' + col + '33' : ''}" title="${esc(stg.name)}: ${stg.date}">${esc(stg.name)}${isCurrent ? ' \u25cf' : ''}</div>`;
+      const top = 8 + msIdx * (barHeight + barGap);
+      
+      return `<div style="position:absolute;left:${barLeft}px;top:${top}px;height:${barHeight}px;width:${barWidth}px;background:${bg};border:1px solid ${col};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:${col};overflow:hidden;white-space:nowrap;z-index:2;padding:0 4px" title="${esc(ms.name)}: ${ms.start} to ${ms.end}">${esc(ms.name)}</div>`;
     }).join('');
 
+    const projectLabel = row.show_project_name
+      ? `<div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${esc(row.project_name)}</div>`
+      : '';
+    const stageLabel = `<div style="font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(row.stage_name)} · ${esc(statusLabel)}</div>`;
+    
     return `<div style="display:flex;border-bottom:1px solid var(--border);height:${rowH}px;min-width:${LEFT_W + weeks.length * PCELL_W}px">
-      <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;background:var(--surface);z-index:3;border-right:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="window.location='/project/${p.id}/'">
-        <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></span>
+      <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;background:var(--surface);z-index:3;border-right:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="window.location='/project/${row.project_id}/'">
+        <span style="width:8px;height:8px;border-radius:50%;background:${row.stage_color};flex-shrink:0"></span>
         <div style="overflow:hidden;min-width:0">
-          <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${esc(p.name)}</div>
-          <div style="font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${csLabel}</div>
+          ${projectLabel}${stageLabel}
         </div>
       </div>
       <div style="position:relative;width:${weeks.length * PCELL_W}px;min-width:${weeks.length * PCELL_W}px;height:${rowH}px">
@@ -2072,12 +2077,12 @@ export function renderPortfolioGantt(containerId, dataId) {
     : '';
 
   el.innerHTML = `
-    <div style="overflow:auto;position:relative;border-radius:0.5rem">
-      <div id="pg-month-hdr" style="display:flex;position:sticky;top:0;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
+    <div style="overflow:auto;position:relative;border-radius:0.5rem;max-height:70vh;overflow-y:auto">
+      <div id="pg-month-hdr" style="display:flex;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--border);background:var(--surface)">
         <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;z-index:4;background:var(--surface);border-right:1px solid var(--border);padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);display:flex;align-items:center">Project / Stage</div>
         <div style="display:flex;width:${weeks.length * PCELL_W}px;min-width:${weeks.length * PCELL_W}px">${monthHeader}</div>
       </div>
-      <div id="pg-week-hdr" style="display:flex;position:sticky;top:48px;z-index:3;border-bottom:1px solid var(--border);background:var(--surface)">
+      <div id="pg-week-hdr" style="display:flex;position:sticky;top:48px;z-index:5;border-bottom:1px solid var(--border);background:var(--surface)">
         <div style="position:sticky;left:0;width:${LEFT_W}px;min-width:${LEFT_W}px;z-index:4;background:var(--surface);border-right:1px solid var(--border)"></div>
         <div style="display:flex;width:${weeks.length * PCELL_W}px;min-width:${weeks.length * PCELL_W}px">${wkHeader}</div>
       </div>
@@ -2098,3 +2103,6 @@ function esc(s) {
   if (!s) return '';
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+// Make renderPortfolioGantt globally available for Alpine.js
+window.renderPortfolioGantt = renderPortfolioGantt;

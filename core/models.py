@@ -160,7 +160,7 @@ class BuildStage(models.Model):
     sort_order = models.IntegerField(default=0)
 
     class Meta:
-        ordering = ['actual_date', 'planned_date']
+        ordering = ['sort_order', 'id']
         unique_together = ['project', 'name']
 
     def __str__(self):

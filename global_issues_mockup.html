@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Issue Command Center — NPI Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:   #0c1526;
+    --navy2:  #142038;
+    --accent: #3b82f6;
+    --accent2:#60a5fa;
+    --amber:  #f59e0b;
+    --amber2: #fef3c7;
+    --red:    #ef4444;
+    --red2:   #fee2e2;
+    --orange: #f97316;
+    --orange2:#ffedd5;
+    --yellow: #eab308;
+    --yellow2:#fefce8;
+    --green:  #22c55e;
+    --green2: #dcfce7;
+    --teal:   #14b8a6;
+    --teal2:  #ccfbf1;
+    --purple: #a855f7;
+    --purple2:#f3e8ff;
+    --border: #e5e7eb;
+    --text:   #111827;
+    --text2:  #374151;
+    --text3:  #6b7280;
+    --bg:     #f1f5f9;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+  /* ── NAV ── */
+  nav {
+    background: var(--navy); padding: 0 24px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .nav-left { display: flex; align-items: center; gap: 20px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; color: #fff; letter-spacing: -0.3px; }
+  .brand-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+  .brand-icon svg { width: 16px; height: 16px; }
+  .nav-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.15); }
+  .page-title { font-size: 13px; color: rgba(255,255,255,0.55); font-weight: 400; }
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+  .nav-date { font-size: 12px; color: rgba(255,255,255,0.4); font-family: 'DM Mono', monospace; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; }
+
+  /* ── BREADCRUMB ── */
+  .breadcrumb { padding: 11px 24px; background: var(--navy2); display: flex; align-items: center; gap: 6px; font-size: 12px; color: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .breadcrumb a { color: rgba(255,255,255,0.5); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--accent2); }
+  .breadcrumb span { color: rgba(255,255,255,0.7); font-weight: 500; }
+
+  /* ── MAIN ── */
+  main { max-width: 1440px; margin: 0 auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* ── SHARED CARD ── */
+  .card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .card-header { padding: 13px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .card-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+  /* ── PATTERN ALERTS ── */
+  .pattern-section {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1.5px solid #fcd34d; border-radius: 10px; padding: 14px 18px;
+    position: relative; overflow: hidden;
+  }
+  .pattern-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #f59e0b, #f97316, #f59e0b); }
+  .pattern-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .pattern-pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); animation: pulse 1.8s ease-in-out infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.5)} 50%{box-shadow:0 0 0 7px rgba(245,158,11,0)} }
+  .pattern-top-label { font-size: 12px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.4px; }
+  .pattern-top-chip { margin-left: auto; font-size: 11px; color: #b45309; background: rgba(245,158,11,.18); padding: 2px 10px; border-radius: 20px; font-weight: 600; }
+  .pattern-items { display: flex; flex-direction: column; gap: 7px; }
+  .pattern-item { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.65); border: 1px solid rgba(245,158,11,.25); border-radius: 7px; padding: 8px 12px; }
+  .pattern-count { font-size: 18px; font-weight: 700; color: #d97706; font-family: 'DM Mono', monospace; min-width: 28px; text-align: center; flex-shrink: 0; }
+  .pattern-count small { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #b45309; font-family: 'DM Sans', sans-serif; font-weight: 600; }
+  .pattern-desc { font-size: 12px; color: #78350f; flex: 1; }
+  .pattern-projects { display: flex; flex-wrap: wrap; gap: 4px; }
+  .proj-chip { font-size: 11px; background: rgba(245,158,11,.18); color: #92400e; padding: 2px 8px; border-radius: 4px; font-weight: 500; cursor: pointer; }
+  .proj-chip:hover { background: rgba(245,158,11,.35); }
+  .cat-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: .4px; flex-shrink: 0; }
+  .cat-quality  { background: #fee2e2; color: #991b1b; }
+  .cat-supplier { background: #ffedd5; color: #9a3412; }
+  .cat-design   { background: #ede9fe; color: #5b21b6; }
+  .cat-process  { background: #e0f2fe; color: #075985; }
+  .cat-test     { background: #d1fae5; color: #065f46; }
+  .cat-other    { background: #f3f4f6; color: #374151; }
+
+  /* ── VISUAL KPI ROW ── */
+  .vis-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .vis-kpi-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .vis-kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.07); }
+  .vis-kpi-header { padding: 11px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .vis-kpi-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); }
+  .vis-kpi-body { padding: 14px 16px; }
+  .vis-kpi-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text3); }
+
+  /* Card 1 — Aging Distribution */
+  .aging-rows { display: flex; flex-direction: column; gap: 10px; }
+  .aging-row { display: flex; align-items: center; gap: 9px; }
+  .aging-label { font-size: 11px; font-weight: 700; font-family: 'DM Mono', monospace; min-width: 48px; flex-shrink: 0; }
+  .aging-bar-track { flex: 1; height: 22px; background: #f3f4f6; border-radius: 5px; overflow: hidden; display: flex; }
+  .aging-seg { height: 100%; }
+  .aging-count { font-size: 13px; font-weight: 700; font-family: 'DM Mono', monospace; min-width: 20px; text-align: right; }
+  .aging-sev-legend { display: flex; gap: 10px; flex-wrap: wrap; }
+  .aging-sev-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text3); }
+  .aging-sev-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Card 2 — Severity × Status Heatmap */
+  .heat-grid { display: grid; grid-template-columns: 72px repeat(3, 1fr); gap: 4px; }
+  .heat-col-hdr { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: 4px 0; text-align: center; }
+  .heat-row-lbl { display: flex; align-items: center; padding: 4px 0; }
+  .heat-cell {
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 700; height: 46px;
+    transition: transform .12s;
+  }
+  .heat-cell:hover { transform: scale(1.06); cursor: default; }
+  .heat-zero { background: #f9fafb; color: #d1d5db; font-size: 14px; }
+
+  /* Card 3 — Accountability & Stale */
+  .acct-dot-grid { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+  .acct-dot {
+    width: 22px; height: 22px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; cursor: default;
+    transition: transform .12s;
+  }
+  .acct-dot:hover { transform: scale(1.15); }
+  .acct-ok   { background: var(--green2); color: #15803d; }
+  .acct-warn { background: var(--amber2); color: #92400e; }
+  .acct-gap  { background: var(--red2);   color: #991b1b; }
+  .acct-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .acct-leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
+  .acct-leg-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .stale-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--text3); margin-bottom: 8px; }
+  .stale-list { display: flex; flex-direction: column; gap: 7px; }
+  .stale-item { display: flex; align-items: center; gap: 8px; }
+  .stale-proj { font-size: 11px; font-weight: 600; color: var(--accent); min-width: 96px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .stale-bar-track { flex: 1; height: 6px; background: #f3f4f6; border-radius: 3px; overflow: hidden; }
+  .stale-bar-fill  { height: 100%; border-radius: 3px; }
+  .stale-days { font-size: 11px; font-family: 'DM Mono', monospace; font-weight: 700; min-width: 28px; text-align: right; }
+
+  /* ── MIDDLE ROW: STATUS DIST + PROJECT HEALTH ── */
+  .mid-row { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
+
+  /* Status Distribution */
+  .status-dist-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .donut-wrap { display: flex; align-items: center; gap: 20px; }
+  .donut-svg { flex-shrink: 0; }
+  .donut-legend { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .donut-leg-item { display: flex; align-items: center; gap: 9px; }
+  .donut-leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .donut-leg-label { font-size: 12px; color: var(--text2); flex: 1; }
+  .donut-leg-val { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600; }
+  .donut-leg-pct { font-size: 11px; color: var(--text3); min-width: 36px; text-align: right; }
+  .status-week-trend { background: var(--bg); border-radius: 8px; padding: 12px; }
+  .trend-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+  .trend-bars { display: flex; align-items: flex-end; gap: 4px; height: 48px; }
+  .trend-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+  .trend-bar-wrap { width: 100%; display: flex; flex-direction: column; justify-content: flex-end; height: 40px; gap: 2px; }
+  .tbar { border-radius: 2px 2px 0 0; width: 100%; transition: opacity .15s; }
+  .tbar:hover { opacity: .8; }
+  .trend-week-label { font-size: 9px; color: var(--text3); font-family: 'DM Mono', monospace; }
+  .trend-legend { display: flex; gap: 12px; margin-top: 8px; }
+  .trend-leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
+  .trend-leg-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* Project Health Grid */
+  .proj-health-body { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .health-row {
+    display: grid; grid-template-columns: 180px 1fr 110px 80px 80px;
+    align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--border); transition: background .12s;
+  }
+  .health-row:hover { background: #f8fafc; }
+  .health-proj-name { font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .health-proj-cust { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .progress-col { display: flex; flex-direction: column; gap: 4px; }
+  .progress-bar-wrap { background: #e5e7eb; border-radius: 4px; height: 7px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+  .progress-label { font-size: 11px; color: var(--text3); display: flex; justify-content: space-between; }
+  .progress-label strong { color: var(--text2); font-weight: 600; }
+  .issue-summary { display: flex; gap: 5px; flex-wrap: wrap; }
+  .iss-badge { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; display: flex; align-items: center; gap: 3px; }
+  .iss-critical { background: var(--red2);   color: #991b1b; }
+  .iss-high     { background: var(--orange2); color: #9a3412; }
+  .iss-medium   { background: var(--yellow2); color: #854d0e; }
+  .iss-low      { background: #f3f4f6; color: #374151; }
+  .health-badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; text-align: center; white-space: nowrap; }
+  .hb-critical  { background: var(--red2); color: #991b1b; }
+  .hb-atrisk    { background: #ffedd5; color: #9a3412; }
+  .hb-monitor   { background: var(--amber2); color: #92400e; }
+  .hb-healthy   { background: var(--green2); color: #15803d; }
+  .quadrant-dot { width: 10px; height: 10px; border-radius: 50%; margin: auto; }
+  .q-critical { background: var(--red); }
+  .q-atrisk   { background: var(--orange); }
+  .q-monitor  { background: var(--yellow); }
+  .q-healthy  { background: var(--green); }
+
+  /* ── FILTER BAR ── */
+  .filter-bar { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 11px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .filter-select { font-family: 'DM Sans', sans-serif; font-size: 13px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; background: var(--bg); color: var(--text2); cursor: pointer; outline: none; }
+  .filter-select:focus { border-color: var(--accent); }
+  .search-box { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; background: var(--bg); flex: 1; min-width: 180px; }
+  .search-box svg { width: 13px; height: 13px; stroke: var(--text3); flex-shrink: 0; }
+  .search-box input { border: none; background: transparent; outline: none; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); width: 100%; }
+  .search-box input::placeholder { color: var(--text3); }
+  .filter-divider { width: 1px; height: 24px; background: var(--border); }
+  .toggle-wrap { display: flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+  .toggle-label { font-size: 12px; color: var(--text2); font-weight: 500; white-space: nowrap; }
+  .toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--border); position: relative; cursor: pointer; transition: background .2s; }
+  .toggle.on { background: var(--accent); }
+  .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .toggle.on::after { transform: translateX(16px); }
+  .filter-count { margin-left: auto; font-size: 12px; color: var(--text3); white-space: nowrap; }
+  .filter-count strong { color: var(--text); font-weight: 600; }
+
+  /* ── TABLE ── */
+  .table-wrap { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .table-header-bar { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .table-actions { display: flex; gap: 8px; }
+  .btn-sm { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: all .15s; border: 1px solid var(--border); background: var(--bg); color: var(--text2); }
+  .btn-sm:hover { background: #e5e7eb; }
+  .btn-sm.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-sm.primary:hover { background: #2563eb; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: #f8fafc; border-bottom: 1px solid var(--border); }
+  thead th { padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); white-space: nowrap; cursor: pointer; user-select: none; }
+  thead th:hover { color: var(--text2); }
+  tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f8fafc; }
+  tbody tr.resolved { opacity: .5; }
+  tbody tr.age-critical { background: #fff5f5; }
+  tbody tr.age-critical:hover { background: #fee2e2; }
+  tbody tr.age-warning  { background: #fffbeb; }
+  tbody tr.age-warning:hover  { background: #fef3c7; }
+  td { padding: 10px 14px; vertical-align: middle; }
+  .proj-link { color: var(--accent); font-weight: 600; text-decoration: none; font-size: 13px; }
+  .proj-link:hover { text-decoration: underline; }
+  .proj-customer { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; letter-spacing: .3px; }
+  .sev-critical { background: var(--red);   color: #fff; }
+  .sev-high     { background: #fed7aa; color: #9a3412; }
+  .sev-medium   { background: var(--yellow2); color: #854d0e; }
+  .sev-low      { background: #f3f4f6; color: var(--text2); }
+  .status-open          { background: #dbeafe; color: #1d4ed8; }
+  .status-investigating { background: var(--purple2); color: #7e22ce; }
+  .status-resolved      { background: var(--green2); color: #15803d; }
+  .age-badge { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 4px; }
+  .age-ok   { background: var(--green2); color: #15803d; }
+  .age-warn { background: #fef3c7; color: #92400e; }
+  .age-crit { background: var(--red2); color: #991b1b; }
+  .due-overdue { color: var(--red); font-weight: 600; }
+  .due-soon    { color: var(--orange); font-weight: 500; }
+  .due-ok      { color: var(--text2); }
+  .issue-title { font-weight: 500; color: var(--text); max-width: 260px; }
+  .issue-title small { display: block; font-size: 11px; color: var(--text3); font-weight: 400; margin-top: 1px; }
+  .owner-cell { color: var(--text2); white-space: nowrap; font-size: 12px; }
+  .stale-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); margin-right: 4px; vertical-align: middle; }
+
+  /* ── FOOTER ── */
+  footer { padding: 0 4px; display: flex; align-items: center; justify-content: space-between; }
+  .footer-note { font-size: 11px; color: var(--text3); }
+  .legend { display: flex; align-items: center; gap: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  @media (max-width: 1100px) {
+    .vis-kpi-grid { grid-template-columns: 1fr 1fr; }
+    .mid-row  { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 700px) {
+    main { padding: 12px; }
+    .vis-kpi-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-left">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg fill="none" stroke="#fff" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6h6v6M3 21h18M5 21V7l7-4 7 4v14"/></svg>
+      </div>
+      NPI Tracker
+    </div>
+    <div class="nav-divider"></div>
+    <span class="page-title">Issue Command Center</span>
+  </div>
+  <div class="nav-right">
+    <span class="nav-date" id="nav-date"></span>
+    <div class="avatar">PL</div>
+  </div>
+</nav>
+
+<!-- BREADCRUMB -->
+<div class="breadcrumb">
+  <a href="#">Portfolio</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+  <span>Issue Command Center</span>
+</div>
+
+<main>
+
+  <!-- ① PATTERN ALERTS -->
+  <div class="pattern-section">
+    <div class="pattern-top">
+      <div class="pattern-pulse"></div>
+      <span class="pattern-top-label">⚠ Systemic Patterns Detected</span>
+      <span class="pattern-top-chip">3 patterns across portfolio</span>
+    </div>
+    <div class="pattern-items">
+      <div class="pattern-item">
+        <div class="pattern-count">4<small>proj</small></div>
+        <span class="cat-badge cat-quality">Quality</span>
+        <span class="pattern-desc">Quality issues open simultaneously across</span>
+        <div class="pattern-projects">
+          <span class="proj-chip">Cust-Alpha</span><span class="proj-chip">Cust-Beta</span><span class="proj-chip">Cust-Delta</span><span class="proj-chip">Cust-Gamma</span>
+        </div>
+      </div>
+      <div class="pattern-item">
+        <div class="pattern-count">3<small>proj</small></div>
+        <span class="cat-badge cat-supplier">Supplier</span>
+        <span class="pattern-desc">Supplier-related issues open across</span>
+        <div class="pattern-projects">
+          <span class="proj-chip">Cust-Beta</span><span class="proj-chip">Cust-Delta</span><span class="proj-chip">Cust-Epsilon</span>
+        </div>
+      </div>
+      <div class="pattern-item">
+        <div class="pattern-count">2<small>proj</small></div>
+        <span class="cat-badge cat-design">Design</span>
+        <span class="pattern-desc">Design issues prolonged &gt;30 days across</span>
+        <div class="pattern-projects">
+          <span class="proj-chip">Cust-Alpha</span><span class="proj-chip">Cust-Gamma</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② VISUAL KPI ROW -->
+  <div class="vis-kpi-grid">
+
+    <!-- ── Card 1: Issue Aging Distribution ── -->
+    <div class="vis-kpi-card">
+      <div class="vis-kpi-header">
+        <span class="vis-kpi-title">Issue Aging Distribution</span>
+        <span style="font-size:11px;color:var(--text3);">14 open issues</span>
+      </div>
+      <div class="vis-kpi-body">
+        <div class="aging-rows">
+
+          <!-- >30d: 3 issues — 2 Critical, 1 High (bars scaled to max bucket=6) -->
+          <div class="aging-row">
+            <span class="aging-label" style="color:#991b1b;">&gt;30d</span>
+            <div class="aging-bar-track">
+              <div class="aging-seg" style="width:33%;background:#ef4444;" title="2 Critical"></div>
+              <div class="aging-seg" style="width:17%;background:#f97316;" title="1 High"></div>
+            </div>
+            <span class="aging-count" style="color:#991b1b;">3</span>
+          </div>
+
+          <!-- 14–30d: 6 issues — 3 Critical, 2 High, 1 Medium -->
+          <div class="aging-row">
+            <span class="aging-label" style="color:#92400e;">14–30d</span>
+            <div class="aging-bar-track">
+              <div class="aging-seg" style="width:50%;background:#ef4444;" title="3 Critical"></div>
+              <div class="aging-seg" style="width:33%;background:#f97316;" title="2 High"></div>
+              <div class="aging-seg" style="width:17%;background:#eab308;" title="1 Medium"></div>
+            </div>
+            <span class="aging-count" style="color:#92400e;">6</span>
+          </div>
+
+          <!-- 7–14d: 2 issues — 2 Medium -->
+          <div class="aging-row">
+            <span class="aging-label" style="color:#854d0e;">7–14d</span>
+            <div class="aging-bar-track">
+              <div class="aging-seg" style="width:33%;background:#eab308;" title="2 Medium"></div>
+            </div>
+            <span class="aging-count" style="color:#854d0e;">2</span>
+          </div>
+
+          <!-- <7d: 3 issues — 1 Medium, 2 Low -->
+          <div class="aging-row">
+            <span class="aging-label" style="color:#15803d;">&lt;7d</span>
+            <div class="aging-bar-track">
+              <div class="aging-seg" style="width:17%;background:#eab308;" title="1 Medium"></div>
+              <div class="aging-seg" style="width:33%;background:#9ca3af;" title="2 Low"></div>
+            </div>
+            <span class="aging-count" style="color:#15803d;">3</span>
+          </div>
+
+        </div>
+        <div class="vis-kpi-footer">
+          <div class="aging-sev-legend">
+            <div class="aging-sev-item"><div class="aging-sev-dot" style="background:#ef4444"></div>Critical</div>
+            <div class="aging-sev-item"><div class="aging-sev-dot" style="background:#f97316"></div>High</div>
+            <div class="aging-sev-item"><div class="aging-sev-dot" style="background:#eab308"></div>Medium</div>
+            <div class="aging-sev-item"><div class="aging-sev-dot" style="background:#9ca3af"></div>Low</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Card 2: Severity × Status Heatmap ── -->
+    <div class="vis-kpi-card">
+      <div class="vis-kpi-header">
+        <span class="vis-kpi-title">Severity × Status Matrix</span>
+        <span style="font-size:11px;color:var(--text3);">issue count per cell</span>
+      </div>
+      <div class="vis-kpi-body">
+        <div class="heat-grid">
+          <!-- Column headers -->
+          <div class="heat-col-hdr"></div>
+          <div class="heat-col-hdr" style="color:#1d4ed8;">Open</div>
+          <div class="heat-col-hdr" style="color:#7e22ce;">Invest.</div>
+          <div class="heat-col-hdr" style="color:#15803d;">Resolved</div>
+
+          <!-- Critical: Open=4, Invest=1, Resolved=0 -->
+          <div class="heat-row-lbl"><span class="badge sev-critical" style="font-size:10px;padding:2px 6px;">Critical</span></div>
+          <div class="heat-cell" style="background:#fecaca;color:#991b1b;" title="4 Critical Open">4</div>
+          <div class="heat-cell" style="background:#fce7f3;color:#9d174d;" title="1 Critical Investigating">1</div>
+          <div class="heat-cell heat-zero" title="0">—</div>
+
+          <!-- High: Open=2, Invest=2, Resolved=0 -->
+          <div class="heat-row-lbl"><span class="badge sev-high" style="font-size:10px;padding:2px 6px;">High</span></div>
+          <div class="heat-cell" style="background:#fed7aa;color:#9a3412;" title="2 High Open">2</div>
+          <div class="heat-cell" style="background:#ede9fe;color:#5b21b6;" title="2 High Investigating">2</div>
+          <div class="heat-cell heat-zero" title="0">—</div>
+
+          <!-- Medium: Open=2, Invest=1, Resolved=1 -->
+          <div class="heat-row-lbl"><span class="badge sev-medium" style="font-size:10px;padding:2px 6px;">Medium</span></div>
+          <div class="heat-cell" style="background:#fef9c3;color:#854d0e;" title="2 Medium Open">2</div>
+          <div class="heat-cell" style="background:#f3e8ff;color:#6b21a8;" title="1 Medium Investigating">1</div>
+          <div class="heat-cell" style="background:#bbf7d0;color:#15803d;" title="1 Medium Resolved">1</div>
+
+          <!-- Low: Open=2, Invest=0, Resolved=0 -->
+          <div class="heat-row-lbl"><span class="badge sev-low" style="font-size:10px;padding:2px 6px;">Low</span></div>
+          <div class="heat-cell" style="background:#f3f4f6;color:#374151;" title="2 Low Open">2</div>
+          <div class="heat-cell heat-zero" title="0">—</div>
+          <div class="heat-cell heat-zero" title="0">—</div>
+        </div>
+        <div class="vis-kpi-footer">
+          ⚠ <strong style="color:#991b1b;">4 Critical</strong> issues still Open — not moved to Investigating
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Card 3: Accountability & Stale Issues ── -->
+    <div class="vis-kpi-card">
+      <div class="vis-kpi-header">
+        <span class="vis-kpi-title">Accountability &amp; Stale Issues</span>
+        <span style="font-size:11px;color:var(--red);font-weight:600;">2 unowned · 5 stale</span>
+      </div>
+      <div class="vis-kpi-body">
+
+        <!-- Dot grid: 14 dots = 14 open issues -->
+        <div class="stale-section-label" style="margin-bottom:6px;">Ownership status — each dot = 1 open issue</div>
+        <div class="acct-dot-grid">
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-ok"   title="Has owner + due date">✓</div>
+          <div class="acct-dot acct-warn" title="Has owner, no due date">!</div>
+          <div class="acct-dot acct-warn" title="Has owner, no due date">!</div>
+          <div class="acct-dot acct-gap"  title="No owner assigned">✗</div>
+          <div class="acct-dot acct-gap"  title="No owner assigned">✗</div>
+        </div>
+        <div class="acct-legend">
+          <div class="acct-leg-item"><div class="acct-leg-dot" style="background:#bbf7d0;"></div>Assigned (10)</div>
+          <div class="acct-leg-item"><div class="acct-leg-dot" style="background:#fef3c7;"></div>No due date (2)</div>
+          <div class="acct-leg-item"><div class="acct-leg-dot" style="background:#fecaca;"></div>No owner (2)</div>
+        </div>
+
+        <!-- Stale issues mini bar list -->
+        <div class="stale-section-label">Stale — days since last update</div>
+        <div class="stale-list">
+          <div class="stale-item">
+            <span class="stale-proj">Gamma Short-ckt</span>
+            <div class="stale-bar-track"><div class="stale-bar-fill" style="width:67%;background:#ef4444;"></div></div>
+            <span class="stale-days" style="color:#991b1b;">10d</span>
+          </div>
+          <div class="stale-item">
+            <span class="stale-proj">Alpha PCB</span>
+            <div class="stale-bar-track"><div class="stale-bar-fill" style="width:60%;background:#ef4444;"></div></div>
+            <span class="stale-days" style="color:#991b1b;">9d</span>
+          </div>
+          <div class="stale-item">
+            <span class="stale-proj">Beta ESD</span>
+            <div class="stale-bar-track"><div class="stale-bar-fill" style="width:53%;background:#f59e0b;"></div></div>
+            <span class="stale-days" style="color:#92400e;">8d</span>
+          </div>
+          <div class="stale-item">
+            <span class="stale-proj">Delta Fixture</span>
+            <div class="stale-bar-track"><div class="stale-bar-fill" style="width:47%;background:#f59e0b;"></div></div>
+            <span class="stale-days" style="color:#92400e;">7d</span>
+          </div>
+          <div class="stale-item">
+            <span class="stale-proj">Alpha BGA</span>
+            <div class="stale-bar-track"><div class="stale-bar-fill" style="width:47%;background:#f59e0b;"></div></div>
+            <span class="stale-days" style="color:#92400e;">7d</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ③ MIDDLE ROW: STATUS DIST + PROJECT HEALTH -->
+  <div class="mid-row">
+
+    <!-- Status Distribution -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Issue Status Distribution</div>
+          <div class="card-sub">19 total issues this period</div>
+        </div>
+      </div>
+      <div class="status-dist-body">
+
+        <!-- Donut + Legend -->
+        <div class="donut-wrap">
+          <svg class="donut-svg" width="110" height="110" viewBox="0 0 110 110">
+            <circle cx="55" cy="55" r="40" fill="none" stroke="#f3f4f6" stroke-width="14"/>
+            <!-- Resolved: 21% = 52.8 of 251.3 -->
+            <circle cx="55" cy="55" r="40" fill="none" stroke="#22c55e" stroke-width="14"
+              stroke-dasharray="52.8 198.5" stroke-dashoffset="62.8"
+              stroke-linecap="butt" transform="rotate(-90 55 55)"/>
+            <!-- Investigating: 26% = 65.3 -->
+            <circle cx="55" cy="55" r="40" fill="none" stroke="#a855f7" stroke-width="14"
+              stroke-dasharray="65.3 185.9" stroke-dashoffset="0"
+              stroke-linecap="butt" transform="rotate(-90 55 55)" style="stroke-dashoffset: calc(251.3 - 52.8)"/>
+            <!-- Open: 53% = 133.2 -->
+            <circle cx="55" cy="55" r="40" fill="none" stroke="#3b82f6" stroke-width="14"
+              stroke-dasharray="133.2 118.1" stroke-dashoffset="0"
+              stroke-linecap="butt" transform="rotate(-90 55 55)" style="stroke-dashoffset: calc(251.3 - 52.8 - 65.3)"/>
+            <text x="55" y="51" text-anchor="middle" font-family="DM Mono" font-size="16" font-weight="700" fill="#111827">19</text>
+            <text x="55" y="64" text-anchor="middle" font-family="DM Sans" font-size="9" fill="#6b7280">total</text>
+          </svg>
+          <div class="donut-legend">
+            <div class="donut-leg-item">
+              <div class="donut-leg-dot" style="background:#3b82f6"></div>
+              <span class="donut-leg-label">Open</span>
+              <span class="donut-leg-val" style="color:#1d4ed8">10</span>
+              <span class="donut-leg-pct">53%</span>
+            </div>
+            <div class="donut-leg-item">
+              <div class="donut-leg-dot" style="background:#a855f7"></div>
+              <span class="donut-leg-label">Investigating</span>
+              <span class="donut-leg-val" style="color:#7e22ce">5</span>
+              <span class="donut-leg-pct">26%</span>
+            </div>
+            <div class="donut-leg-item">
+              <div class="donut-leg-dot" style="background:#22c55e"></div>
+              <span class="donut-leg-label">Resolved</span>
+              <span class="donut-leg-val" style="color:#15803d">4</span>
+              <span class="donut-leg-pct">21%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4-week trend mini bar chart -->
+        <div class="status-week-trend">
+          <div class="trend-title">4-Week Open vs Closed Trend</div>
+          <div class="trend-bars">
+            <div class="trend-col">
+              <div class="trend-bar-wrap">
+                <div class="tbar" style="height:22px;background:#fee2e2;"></div>
+                <div class="tbar" style="height:14px;background:#22c55e;"></div>
+              </div>
+              <span class="trend-week-label">W1</span>
+            </div>
+            <div class="trend-col">
+              <div class="trend-bar-wrap">
+                <div class="tbar" style="height:18px;background:#fee2e2;"></div>
+                <div class="tbar" style="height:16px;background:#22c55e;"></div>
+              </div>
+              <span class="trend-week-label">W2</span>
+            </div>
+            <div class="trend-col">
+              <div class="trend-bar-wrap">
+                <div class="tbar" style="height:24px;background:#fee2e2;"></div>
+                <div class="tbar" style="height:12px;background:#22c55e;"></div>
+              </div>
+              <span class="trend-week-label">W3</span>
+            </div>
+            <div class="trend-col">
+              <div class="trend-bar-wrap">
+                <div class="tbar" style="height:28px;background:#fee2e2;"></div>
+                <div class="tbar" style="height:16px;background:#22c55e;"></div>
+              </div>
+              <span class="trend-week-label">W4</span>
+            </div>
+          </div>
+          <div class="trend-legend">
+            <div class="trend-leg"><div class="trend-leg-dot" style="background:#fee2e2;border:1px solid #fca5a5"></div>Opened</div>
+            <div class="trend-leg"><div class="trend-leg-dot" style="background:#22c55e"></div>Closed</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Project Health Matrix -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Project Health — Task Progress × Issue Load</div>
+          <div class="card-sub">Task completion rate and open issue severity per project</div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px;align-items:center;color:var(--text3);">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span>Critical</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--orange);display:inline-block"></span>At Risk</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--yellow);display:inline-block"></span>Monitor</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span>Healthy</span>
+        </div>
+      </div>
+      <div class="proj-health-body">
+
+        <!-- Header row -->
+        <div style="display:grid;grid-template-columns:180px 1fr 110px 80px 80px;gap:12px;padding:0 12px;margin-bottom:2px;">
+          <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;">Project</span>
+          <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;">Task Progress</span>
+          <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;">Open Issues</span>
+          <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;">Health</span>
+          <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;">Quadrant</span>
+        </div>
+
+        <!-- Alpha: 65% progress, 3 issues (2 critical, 1 high) → HIGH progress / HIGH issues = At Risk -->
+        <div class="health-row">
+          <div><div class="health-proj-name">NPI-Alpha-01</div><div class="health-proj-cust">Cust-Alpha</div></div>
+          <div class="progress-col">
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:65%;background:#3b82f6;"></div></div>
+            <div class="progress-label"><span>Task completion</span><strong>65%</strong></div>
+          </div>
+          <div class="issue-summary">
+            <span class="iss-badge iss-critical">●● 2 Crit</span>
+            <span class="iss-badge iss-high">● 1 High</span>
+          </div>
+          <span class="health-badge hb-atrisk">At Risk</span>
+          <div><div class="quadrant-dot q-atrisk" title="High progress, high issues"></div></div>
+        </div>
+
+        <!-- Beta: 45% progress, 4 issues (2 critical, 1 high, 1 med) → LOW progress / HIGH issues = Critical -->
+        <div class="health-row">
+          <div><div class="health-proj-name">NPI-Beta-03</div><div class="health-proj-cust">Cust-Beta</div></div>
+          <div class="progress-col">
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:45%;background:#f97316;"></div></div>
+            <div class="progress-label"><span>Task completion</span><strong>45%</strong></div>
+          </div>
+          <div class="issue-summary">
+            <span class="iss-badge iss-critical">●● 2 Crit</span>
+            <span class="iss-badge iss-high">● 1 High</span>
+            <span class="iss-badge iss-medium">● 1 Med</span>
+          </div>
+          <span class="health-badge hb-critical">Critical</span>
+          <div><div class="quadrant-dot q-critical" title="Low progress, high issues"></div></div>
+        </div>
+
+        <!-- Gamma: 55% progress, 3 issues (1 critical, 2 high) → LOW-MID / HIGH = Critical -->
+        <div class="health-row">
+          <div><div class="health-proj-name">NPI-Gamma-02</div><div class="health-proj-cust">Cust-Gamma</div></div>
+          <div class="progress-col">
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:55%;background:#f97316;"></div></div>
+            <div class="progress-label"><span>Task completion</span><strong>55%</strong></div>
+          </div>
+          <div class="issue-summary">
+            <span class="iss-badge iss-critical">● 1 Crit</span>
+            <span class="iss-badge iss-high">●● 2 High</span>
+          </div>
+          <span class="health-badge hb-critical">Critical</span>
+          <div><div class="quadrant-dot q-critical" title="Low progress, high issues"></div></div>
+        </div>
+
+        <!-- Delta: 70% progress, 3 issues (1 critical, 1 high, 1 med) → HIGH / MED-HIGH = At Risk -->
+        <div class="health-row">
+          <div><div class="health-proj-name">NPI-Delta-05</div><div class="health-proj-cust">Cust-Delta</div></div>
+          <div class="progress-col">
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:70%;background:#3b82f6;"></div></div>
+            <div class="progress-label"><span>Task completion</span><strong>70%</strong></div>
+          </div>
+          <div class="issue-summary">
+            <span class="iss-badge iss-critical">● 1 Crit</span>
+            <span class="iss-badge iss-high">● 1 High</span>
+            <span class="iss-badge iss-medium">● 1 Med</span>
+          </div>
+          <span class="health-badge hb-atrisk">At Risk</span>
+          <div><div class="quadrant-dot q-atrisk" title="High progress, medium issues"></div></div>
+        </div>
+
+        <!-- Epsilon: 30% progress, 2 issues (0 critical, 1 high, 1 low) → LOW / LOW = Monitor -->
+        <div class="health-row">
+          <div><div class="health-proj-name">NPI-Epsilon-07</div><div class="health-proj-cust">Cust-Epsilon</div></div>
+          <div class="progress-col">
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:30%;background:#eab308;"></div></div>
+            <div class="progress-label"><span>Task completion</span><strong>30%</strong></div>
+          </div>
+          <div class="issue-summary">
+            <span class="iss-badge iss-high">● 1 High</span>
+            <span class="iss-badge iss-low">● 1 Low</span>
+          </div>
+          <span class="health-badge hb-monitor">Monitor</span>
+          <div><div class="quadrant-dot q-monitor" title="Low progress, low issues — early stage"></div></div>
+        </div>
+
+        <!-- Zeta: 80% progress, 2 issues (0 critical, 1 med, 1 low) → HIGH / LOW = Healthy -->
+        <div class="health-row">
+          <div><div class="health-proj-name">NPI-Zeta-09</div><div class="health-proj-cust">Cust-Zeta</div></div>
+          <div class="progress-col">
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:80%;background:#22c55e;"></div></div>
+            <div class="progress-label"><span>Task completion</span><strong>80%</strong></div>
+          </div>
+          <div class="issue-summary">
+            <span class="iss-badge iss-medium">● 1 Med</span>
+            <span class="iss-badge iss-low">● 1 Low</span>
+          </div>
+          <span class="health-badge hb-healthy">Healthy</span>
+          <div><div class="quadrant-dot q-healthy" title="High progress, low issues"></div></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ FILTER BAR -->
+  <div class="filter-bar">
+    <select class="filter-select" id="fil-sev" onchange="filterTable()">
+      <option value="">All Severities</option>
+      <option value="critical">Critical</option>
+      <option value="high">High</option>
+      <option value="medium">Medium</option>
+      <option value="low">Low</option>
+    </select>
+    <select class="filter-select" id="fil-cat" onchange="filterTable()">
+      <option value="">All Categories</option>
+      <option value="quality">Quality</option>
+      <option value="supplier">Supplier</option>
+      <option value="design">Design</option>
+      <option value="process">Process</option>
+      <option value="test">Test</option>
+    </select>
+    <select class="filter-select" id="fil-proj" onchange="filterTable()">
+      <option value="">All Projects</option>
+      <option value="alpha">Cust-Alpha</option>
+      <option value="beta">Cust-Beta</option>
+      <option value="delta">Cust-Delta</option>
+      <option value="gamma">Cust-Gamma</option>
+      <option value="epsilon">Cust-Epsilon</option>
+      <option value="zeta">Cust-Zeta</option>
+    </select>
+    <div class="filter-divider"></div>
+    <div class="search-box">
+      <svg fill="none" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="fil-search" placeholder="Search issues…" oninput="filterTable()">
+    </div>
+    <div class="filter-divider"></div>
+    <div class="toggle-wrap" onclick="toggleResolved()">
+      <div class="toggle" id="resolved-toggle"></div>
+      <span class="toggle-label">Show Resolved</span>
+    </div>
+    <span class="filter-count"><strong id="vis-count">14</strong> issues shown</span>
+  </div>
+
+  <!-- ⑤ ISSUE TABLE -->
+  <div class="table-wrap">
+    <div class="table-header-bar">
+      <span class="card-title">All Issues — Detail View</span>
+      <div class="table-actions">
+        <button class="btn-sm">Export CSV</button>
+        <button class="btn-sm primary">+ New Issue</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table id="issues-table">
+        <thead>
+          <tr>
+            <th>Project ↕</th>
+            <th>Severity ↕</th>
+            <th>Category ↕</th>
+            <th>Issue Title</th>
+            <th>Owner ↕</th>
+            <th>Days Open ↕</th>
+            <th>Due Date ↕</th>
+            <th>Status ↕</th>
+          </tr>
+        </thead>
+        <tbody id="issue-rows">
+
+          <tr class="age-critical" data-sev="critical" data-cat="quality" data-proj="alpha" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Alpha-01</a><div class="proj-customer">Cust-Alpha · PS Stage</div></td>
+            <td><span class="badge sev-critical">Critical</span></td>
+            <td><span class="badge cat-quality">Quality</span></td>
+            <td class="issue-title">Solder joint failures on BGA package<small>Impacts ETB build qualification</small></td>
+            <td class="owner-cell">J. Wiriya</td>
+            <td><span class="age-badge age-crit">45d ⚠</span></td>
+            <td class="due-overdue">14 Mar 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <tr class="age-critical" data-sev="critical" data-cat="design" data-proj="alpha" data-status="investigating">
+            <td><a href="#" class="proj-link">NPI-Alpha-01</a><div class="proj-customer">Cust-Alpha · Design</div></td>
+            <td><span class="badge sev-critical">Critical</span></td>
+            <td><span class="badge cat-design">Design</span></td>
+            <td class="issue-title">PCB trace impedance mismatch at &gt;2 GHz<small><span class="stale-dot"></span>No update in 9 days — stale</small></td>
+            <td class="owner-cell">S. Thanakrit</td>
+            <td><span class="age-badge age-crit">38d ⚠</span></td>
+            <td class="due-overdue">20 Mar 2026</td>
+            <td><span class="badge status-investigating">Investigating</span></td>
+          </tr>
+
+          <tr class="age-warning" data-sev="high" data-cat="supplier" data-proj="beta" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Beta-03</a><div class="proj-customer">Cust-Beta · FAS Stage</div></td>
+            <td><span class="badge sev-high">High</span></td>
+            <td><span class="badge cat-supplier">Supplier</span></td>
+            <td class="issue-title">Connector housing lead time extended 8 weeks<small>Alt supplier being sourced</small></td>
+            <td class="owner-cell">P. Natnicha</td>
+            <td><span class="age-badge age-warn">27d</span></td>
+            <td class="due-overdue">25 Mar 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <tr class="age-warning" data-sev="critical" data-cat="quality" data-proj="beta" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Beta-03</a><div class="proj-customer">Cust-Beta · PS Stage</div></td>
+            <td><span class="badge sev-critical">Critical</span></td>
+            <td><span class="badge cat-quality">Quality</span></td>
+            <td class="issue-title">ESD failure on power rail during functional test<small><span class="stale-dot"></span>No update in 8 days — stale</small></td>
+            <td class="owner-cell">J. Wiriya</td>
+            <td><span class="age-badge age-warn">22d</span></td>
+            <td class="due-soon">18 Apr 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <tr class="age-critical" data-sev="high" data-cat="design" data-proj="gamma" data-status="investigating">
+            <td><a href="#" class="proj-link">NPI-Gamma-02</a><div class="proj-customer">Cust-Gamma · ETB Stage</div></td>
+            <td><span class="badge sev-high">High</span></td>
+            <td><span class="badge cat-design">Design</span></td>
+            <td class="issue-title">Thermal runaway in corner voltage conditions<small>Simulation mismatch with hardware</small></td>
+            <td class="owner-cell">W. Suchart</td>
+            <td><span class="age-badge age-crit">33d ⚠</span></td>
+            <td class="due-overdue">28 Mar 2026</td>
+            <td><span class="badge status-investigating">Investigating</span></td>
+          </tr>
+
+          <tr data-sev="medium" data-cat="process" data-proj="delta" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Delta-05</a><div class="proj-customer">Cust-Delta · FAS Stage</div></td>
+            <td><span class="badge sev-medium">Medium</span></td>
+            <td><span class="badge cat-process">Process</span></td>
+            <td class="issue-title">Assembly yield below 95% target at SMT line<small>Paste volume profile needs adjustment</small></td>
+            <td class="owner-cell">N. Chaiwat</td>
+            <td><span class="age-badge age-ok">8d</span></td>
+            <td class="due-ok">30 Apr 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <tr class="age-warning" data-sev="high" data-cat="supplier" data-proj="delta" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Delta-05</a><div class="proj-customer">Cust-Delta · NRE</div></td>
+            <td><span class="badge sev-high">High</span></td>
+            <td><span class="badge cat-supplier">Supplier</span></td>
+            <td class="issue-title">Test fixture vendor missed delivery milestone<small>PO-1192 — 2 weeks overdue</small></td>
+            <td class="owner-cell" style="color:var(--red);font-weight:600;">— No Owner</td>
+            <td><span class="age-badge age-warn">19d</span></td>
+            <td class="due-overdue">1 Apr 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <tr data-sev="medium" data-cat="test" data-proj="gamma" data-status="investigating">
+            <td><a href="#" class="proj-link">NPI-Gamma-02</a><div class="proj-customer">Cust-Gamma · Test</div></td>
+            <td><span class="badge sev-medium">Medium</span></td>
+            <td><span class="badge cat-test">Test</span></td>
+            <td class="issue-title">ICT coverage gap on power sequencing nets<small>Manual probe workaround in place</small></td>
+            <td class="owner-cell">A. Kittiphat</td>
+            <td><span class="age-badge age-ok">11d</span></td>
+            <td class="due-ok">25 Apr 2026</td>
+            <td><span class="badge status-investigating">Investigating</span></td>
+          </tr>
+
+          <tr class="age-warning" data-sev="critical" data-cat="quality" data-proj="delta" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Delta-05</a><div class="proj-customer">Cust-Delta · PS Stage</div></td>
+            <td><span class="badge sev-critical">Critical</span></td>
+            <td><span class="badge cat-quality">Quality</span></td>
+            <td class="issue-title">Conformal coating delamination in humidity test<small>Accelerated life test failed IPC criteria</small></td>
+            <td class="owner-cell">J. Wiriya</td>
+            <td><span class="age-badge age-warn">16d</span></td>
+            <td class="due-soon">20 Apr 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <tr data-sev="low" data-cat="process" data-proj="epsilon" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Epsilon-07</a><div class="proj-customer">Cust-Epsilon · ETB Stage</div></td>
+            <td><span class="badge sev-low">Low</span></td>
+            <td><span class="badge cat-process">Process</span></td>
+            <td class="issue-title">Label placement inconsistency on PCB silkscreen<small>Cosmetic — customer approval needed</small></td>
+            <td class="owner-cell" style="color:var(--red);font-weight:600;">— No Owner</td>
+            <td><span class="age-badge age-ok">4d</span></td>
+            <td class="due-ok">10 May 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <tr class="age-warning" data-sev="high" data-cat="supplier" data-proj="epsilon" data-status="investigating">
+            <td><a href="#" class="proj-link">NPI-Epsilon-07</a><div class="proj-customer">Cust-Epsilon · NRE</div></td>
+            <td><span class="badge sev-high">High</span></td>
+            <td><span class="badge cat-supplier">Supplier</span></td>
+            <td class="issue-title">BOM component EOL — IC replacement required<small>Alternate part qualification in progress</small></td>
+            <td class="owner-cell">W. Suchart</td>
+            <td><span class="age-badge age-warn">24d</span></td>
+            <td class="due-soon">22 Apr 2026</td>
+            <td><span class="badge status-investigating">Investigating</span></td>
+          </tr>
+
+          <tr data-sev="medium" data-cat="test" data-proj="zeta" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Zeta-09</a><div class="proj-customer">Cust-Zeta · FAS Stage</div></td>
+            <td><span class="badge sev-medium">Medium</span></td>
+            <td><span class="badge cat-test">Test</span></td>
+            <td class="issue-title">Firmware flashing failure on 3 of 20 units<small>USB power draw inconsistency suspected</small></td>
+            <td class="owner-cell">A. Kittiphat</td>
+            <td><span class="age-badge age-ok">6d</span></td>
+            <td class="due-ok">5 May 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <tr class="age-warning" data-sev="critical" data-cat="quality" data-proj="gamma" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Gamma-02</a><div class="proj-customer">Cust-Gamma · PS Stage</div></td>
+            <td><span class="badge sev-critical">Critical</span></td>
+            <td><span class="badge cat-quality">Quality</span></td>
+            <td class="issue-title">Short circuit on DC-DC converter under load<small><span class="stale-dot"></span>Build on hold — no update 10 days</small></td>
+            <td class="owner-cell">W. Suchart</td>
+            <td><span class="age-badge age-warn">18d</span></td>
+            <td class="due-overdue">5 Apr 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <tr data-sev="low" data-cat="design" data-proj="zeta" data-status="open">
+            <td><a href="#" class="proj-link">NPI-Zeta-09</a><div class="proj-customer">Cust-Zeta · Design</div></td>
+            <td><span class="badge sev-low">Low</span></td>
+            <td><span class="badge cat-design">Design</span></td>
+            <td class="issue-title">Mechanical standoff hole diameter tolerance<small>Requires DXF revision — cosmetic</small></td>
+            <td class="owner-cell">S. Thanakrit</td>
+            <td><span class="age-badge age-ok">2d</span></td>
+            <td class="due-ok">1 May 2026</td>
+            <td><span class="badge status-open">Open</span></td>
+          </tr>
+
+          <!-- RESOLVED (hidden by default) -->
+          <tr class="resolved" data-sev="medium" data-cat="process" data-proj="alpha" data-status="resolved">
+            <td><a href="#" class="proj-link">NPI-Alpha-01</a><div class="proj-customer">Cust-Alpha · ETB Stage</div></td>
+            <td><span class="badge sev-medium">Medium</span></td>
+            <td><span class="badge cat-process">Process</span></td>
+            <td class="issue-title">Reflow oven temperature profile drift<small>Resolved — profile recalibrated 8 Apr</small></td>
+            <td class="owner-cell">N. Chaiwat</td>
+            <td><span class="age-badge">12d</span></td>
+            <td class="due-ok">—</td>
+            <td><span class="badge status-resolved">Resolved</span></td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <span class="footer-note">Click project name to open project detail. <span class="stale-dot"></span> = stale issue (no update &gt;7 days). Aging: red &gt;30d · amber 14–30d · green &lt;14d</span>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#fee2e2;border:1px solid #fca5a5"></div>&gt;30d</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fef3c7;border:1px solid #fcd34d"></div>14–30d</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#dcfce7;border:1px solid #86efac"></div>&lt;14d</div>
+    </div>
+  </footer>
+
+</main>
+
+<script>
+  document.getElementById('nav-date').textContent =
+    new Date().toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+
+  let showResolved = false;
+
+  function toggleResolved() {
+    showResolved = !showResolved;
+    document.getElementById('resolved-toggle').classList.toggle('on', showResolved);
+    filterTable();
+  }
+
+  function filterTable() {
+    const sev    = document.getElementById('fil-sev').value.toLowerCase();
+    const cat    = document.getElementById('fil-cat').value.toLowerCase();
+    const proj   = document.getElementById('fil-proj').value.toLowerCase();
+    const search = document.getElementById('fil-search').value.toLowerCase();
+    const rows   = document.querySelectorAll('#issue-rows tr');
+    let visible  = 0;
+
+    rows.forEach(row => {
+      const rowSev    = (row.dataset.sev    || '').toLowerCase();
+      const rowCat    = (row.dataset.cat    || '').toLowerCase();
+      const rowProj   = (row.dataset.proj   || '').toLowerCase();
+      const rowStatus = (row.dataset.status || '').toLowerCase();
+      const rowText   = row.textContent.toLowerCase();
+
+      const resolvedOk = showResolved || rowStatus !== 'resolved';
+      const sevOk    = !sev   || rowSev  === sev;
+      const catOk    = !cat   || rowCat  === cat;
+      const projOk   = !proj  || rowProj === proj;
+      const searchOk = !search || rowText.includes(search);
+
+      const show = resolvedOk && sevOk && catOk && projOk && searchOk;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    document.getElementById('vis-count').textContent = visible;
+  }
+
+  filterTable();
+</script>
+</body>
+</html>

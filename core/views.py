@@ -12,6 +12,7 @@ def forbidden_response(request, message="You don't have permission to access thi
     return render(request, '403.html', {'error_message': message}, status=403)
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.timesince import timesince
 from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_protect, csrf_exempt
 from django.contrib.auth.decorators import login_required
@@ -188,13 +189,14 @@ def _gantt_data_for_project(project, user, stage_filter=''):
     if stage_filter and stage_filter.isdigit():
         tasks = tasks.filter(stage_id=int(stage_filter))
     sections = []
+    user_is_internal = is_internal_user(user)
     for milestone_id, group in groupby(tasks, key=lambda t: t.milestone_id):
         task_list = list(group)
         if not task_list:
             continue  # Skip sections with no visible tasks
         milestone = task_list[0].milestone
         # Also check if milestone itself is internal-only
-        if milestone.visibility == 'internal' and not is_internal_user(user):
+        if milestone.visibility == 'internal' and not user_is_internal:
             continue  # Skip internal-only milestones for external users
         sections.append({
             'milestone': milestone.name,
@@ -210,7 +212,7 @@ def _gantt_data_for_project(project, user, stage_filter=''):
                 'stage': t.stage.name if t.stage else '',
                 'stage_color': t.stage.color if t.stage else '',
                 'remark': t.remark[:60] if t.remark else '',
-                'open_issues': t.linked_issues.exclude(status='resolved').count(),
+                'open_issues': sum(1 for i in t.linked_issues.all() if i.status != 'resolved' and (i.visibility in ('all', 'customer') or user_is_internal)),
                 'nre_count': t.linked_nre.count(),
                 'depends_on': list(t.depends_on.values_list('id', flat=True)),
                 'visibility': t.visibility,
@@ -245,32 +247,58 @@ def _gantt_data_for_project(project, user, stage_filter=''):
     }
 
 
-def _portfolio_gantt_data(projects):
+def _portfolio_gantt_data(projects, milestone_filter=None):
     rows = []
     all_dates = []
     for p in projects:
-        stages = []
-        for s in p.stages.all():
-            d = s.actual_date or s.planned_date
-            if d:
-                all_dates.append(d)
-            stages.append({
+        # Group tasks by stage and milestone
+        tasks = list(p.tasks.select_related('stage', 'milestone').all())
+        stages = list(p.stages.all())
+        
+        for idx, s in enumerate(stages):
+            stage_tasks = [t for t in tasks if t.stage_id == s.pk and not t.is_summary]
+            
+            # Group tasks by milestone, then find task with latest end date for each
+            milestone_tasks = {}
+            for t in stage_tasks:
+                ms_id = t.milestone_id
+                if ms_id not in milestone_tasks:
+                    milestone_tasks[ms_id] = {'name': t.milestone.name, 'tasks': []}
+                milestone_tasks[ms_id]['tasks'].append(t)
+            
+            # For each milestone, use the task with latest end date
+            milestones = []
+            for ms_id, data in milestone_tasks.items():
+                # Apply milestone filter by name if provided
+                if milestone_filter and data['name'] not in milestone_filter:
+                    continue
+                tasks_with_end = [t for t in data['tasks'] if t.end and not t.is_summary]
+                if tasks_with_end:
+                    latest_task = max(tasks_with_end, key=lambda t: t.end)
+                    if latest_task.start and latest_task.end:
+                        all_dates.extend([latest_task.start, latest_task.end])
+                        milestones.append({
+                            'milestone_id': ms_id,
+                            'name': data['name'],
+                            'start': latest_task.start.isoformat(),
+                            'end': latest_task.end.isoformat(),
+                        })
+            
+            # Only show project name on first stage of this project
+            show_project = idx == 0
+            
+            rows.append({
+                'project_id': p.pk,
+                'project_name': p.name if show_project else '',
+                'project_color': p.color,
                 'stage_id': s.pk,
-                'name': s.name,
-                'color': s.color,
-                'status': s.status,
-                'date': d.isoformat() if d else None,
+                'stage_name': s.name,
+                'stage_color': s.color,
+                'stage_status': s.status,
+                'show_project_name': show_project,
+                'milestones': milestones,
             })
-        current = p.current_stage
-        rows.append({
-            'id': p.pk,
-            'name': p.name,
-            'color': p.color,
-            'current_stage': current.pk if current else None,
-            'current_stage_label': current.name if current else '—',
-            'status': p.overall_status,
-            'stages': stages,
-        })
+    
     if not all_dates:
         all_dates = [date.today()]
     return {
@@ -286,8 +314,23 @@ def _portfolio_gantt_data(projects):
 @login_required
 def portfolio(request):
     # Filter projects based on user role (customers see only their projects)
-    all_projects = Project.objects.prefetch_related('stages', 'tasks', 'issues', 'nre_items').all()
+    all_projects = Project.objects.prefetch_related('stages', 'stages__tasks', 'stages__tasks__milestone', 'tasks', 'tasks__milestone', 'issues', 'nre_items').all()
     projects = get_project_queryset(request.user, all_projects)
+    
+    # Get milestone filter from query params (filter by name, not ID)
+    milestone_filter = None
+    if request.GET.get('milestones'):
+        milestone_filter = set(x.strip() for x in request.GET.get('milestones').split(',') if x.strip())
+    
+    # Get all available milestone names (distinct across all projects)
+    all_milestone_names = Milestone.objects.filter(
+        project__in=projects
+    ).values_list('name', flat=True).distinct().order_by('name')
+    
+    # Get all available stage names (distinct across all projects)
+    all_stage_names = BuildStage.objects.filter(
+        project__in=projects
+    ).values_list('name', flat=True).distinct().order_by('name')
     
     # Example of programmatic permission checks (new system)
     # You can check permissions in views like this:
@@ -312,11 +355,14 @@ def portfolio(request):
             'has_critical': p.has_critical_issue,
             'task_progress': p.task_progress,
         })
-    gantt_data = _portfolio_gantt_data(projects)
+    gantt_data = _portfolio_gantt_data(projects, milestone_filter=milestone_filter)
     ctx = {
         'page_title': 'Portfolio',
         'project_rows': project_rows,
         'portfolio_gantt_data': gantt_data,
+        'all_milestones': list(all_milestone_names),
+        'selected_milestones': list(milestone_filter) if milestone_filter else [],
+        'all_stages': list(all_stage_names),
     }
     return _htmx(request, 'portfolio/portfolio.html', 'portfolio/_content.html', ctx)
 
@@ -814,14 +860,14 @@ def project_critical_index(request, pk):
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
 
-    # Simple filters: my_work, blocked, all
-    filter_mode = request.GET.get('filter', 'all')  # all, my_work, blocked
+    # Issue filters
+    stage_filter = request.GET.get('stage', '')
+    assigned_only = request.GET.get('assigned') == 'me'
 
     # Get all leaf tasks (actual work units)
     task_query = project.tasks.select_related('stage', 'milestone', 'parent').filter(is_summary=False)
-    if filter_mode == 'blocked':
-        # Will filter after we have issue data
-        pass
+    if stage_filter and stage_filter.isdigit():
+        task_query = task_query.filter(stage_id=int(stage_filter))
     tasks = list(filter_visible_items(task_query, request.user))
 
     # Build deliverables (parent tasks) with their subtasks
@@ -934,15 +980,6 @@ def project_critical_index(request, pk):
         }
         deliverables.append(unparented_deliverable)
 
-    # Apply blocked filter
-    if filter_mode == 'blocked':
-        deliverables = [d for d in deliverables if d['is_blocked']]
-
-    # Apply my_work filter
-    if filter_mode == 'my_work':
-        for d in deliverables:
-            d['subtasks'] = [t for t in d['subtasks'] if t.assigned_to_id == request.user.pk]
-        deliverables = [d for d in deliverables if d['subtasks']]
 
     # Sort by stage order, then by progress (ascending - struggling items first)
     stage_order = {s.name: s.sort_order for s in project.stages.all()}
@@ -964,17 +1001,66 @@ def project_critical_index(request, pk):
             'is_blocked': d['is_blocked'],
         })
 
+    # Collect project-level issues (not linked to any task)
+    project_issues = project.issues.select_related('assigned_to', 'reported_by', 'stage').filter(linked_tasks__isnull=True)
+    if stage_filter and stage_filter.isdigit():
+        project_issues = project_issues.filter(stage_id=int(stage_filter))
+    if assigned_only:
+        project_issues = project_issues.filter(assigned_to=request.user)
+    for issue in project_issues:
+        if issue.pk not in seen_issue_ids:
+            # Check visibility
+            if issue.visibility in ('all', 'customer') or is_internal_user(request.user):
+                if show_resolved or issue.status != 'resolved':
+                    seen_issue_ids.add(issue.pk)
+                    issue.linked_tasks_info = []  # No linked tasks
+                    all_issues_list.append(issue)
+
+    # Apply stage and assigned filters to task-linked issues
+    if stage_filter and stage_filter.isdigit():
+        all_issues_list = [i for i in all_issues_list if i.stage_id == int(stage_filter) or (not i.stage_id and i.linked_tasks_info)]
+    if assigned_only:
+        all_issues_list = [i for i in all_issues_list if i.assigned_to_id == request.user.pk]
+
     today = date.today()
+
+    # Prepare issues data for client-side rendering
+    def issue_to_dict(issue):
+        data = {
+            'pk': issue.pk,
+            'title': issue.title,
+            'desc': issue.desc,
+            'desc_truncated': issue.desc[:100] + '...' if issue.desc and len(issue.desc) > 100 else issue.desc,
+            'severity': issue.severity,
+            'status': issue.status,
+            'status_label': issue.get_status_display(),
+            'category_label': issue.get_category_display(),
+            'created_at': issue.created_at.isoformat() if issue.created_at else None,
+            'due': issue.due.isoformat() if issue.due else None,
+            'due_label': issue.due.strftime('%d %b') if issue.due else None,
+            'time_since': timesince(issue.created_at) + ' ago' if issue.created_at else 'Unknown',
+            'resolution': issue.resolution,
+            'resolution_truncated': issue.resolution[:80] + '...' if issue.resolution and len(issue.resolution) > 80 else issue.resolution,
+            'assigned_to': issue.assigned_to.get_full_name() if issue.assigned_to else None,
+            'assigned_to_name': issue.assigned_to.get_full_name() or issue.assigned_to.username if issue.assigned_to else None,
+            'stage': {'pk': issue.stage.pk, 'name': issue.stage.name, 'color': issue.stage.color} if issue.stage else None,
+            'linked_tasks_info': issue.linked_tasks_info,
+        }
+        return data
+
+    all_issues_data = [issue_to_dict(i) for i in all_issues_list]
 
     ctx = _project_ctx(project, 'critical-index', request.user, {
         'deliverables': deliverables,
         'deliverable_groups_json': json.dumps(deliverable_groups),
-        'all_issues': all_issues_list,
+        'all_issues': all_issues_data,
         'total_issues': len([i for i in all_issues_list if i.status != 'resolved']),
         'resolved_count': len([i for i in all_issues_list if i.status == 'resolved']),
         'today': today,
-        'filter_mode': filter_mode,
         'show_resolved': show_resolved,
+        'stage_filter': stage_filter,
+        'assigned_only': assigned_only,
+        'stages': project.stages.all(),
     })
     return _htmx_tab(request, 'project/detail.html', 'project/_critical_index.html', ctx)
 
@@ -1179,8 +1265,9 @@ def task_delete(request, pk, tid):
 
 @permission_required('issue', 'add', project_param='pk')
 def issue_create(request, pk):
-    project = get_object_or_404(Project, pk=pk)
-    task_id = request.GET.get('task_id')
+    project = get_object_or_404(Project.objects.prefetch_related('stages', 'tasks'), pk=pk)
+    task_id = request.GET.get('task_id') or request.POST.get('task_id')
+    return_to = request.GET.get('return_to') or request.POST.get('return_to')
     initial = {}
     if task_id:
         try:
@@ -1198,29 +1285,60 @@ def issue_create(request, pk):
             issue.save()
             form.save_m2m()
             if request.htmx:
-                return HttpResponse(headers={'HX-Redirect': request.META.get('HTTP_REFERER', f'/project/{pk}/critical-index/')})
+                if return_to == 'task-modal' and task_id:
+                    return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/tasks/{task_id}/issues/'})
+                return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/critical-index/'})
+            if return_to == 'task-modal' and task_id:
+                return redirect('task-issues-modal', pk=pk, tid=task_id)
             return redirect('project-critical-index', pk=pk)
     else:
         form = IssueForm(project=project, initial=initial)
-    return render(request, 'forms/_issue_form.html', {'form': form, 'project': project})
+    # Task hierarchy data for cascading dropdowns
+    stages = list(project.stages.all().values('pk', 'name', 'color'))
+    all_tasks = list(project.tasks.filter(visibility__in=['all', 'customer']).select_related('stage', 'parent').values('pk', 'name', 'stage_id', 'parent_id', 'is_summary'))
+    parent_tasks = [t for t in all_tasks if t['is_summary'] or not t['parent_id']]
+    leaf_tasks = [t for t in all_tasks if not t['is_summary']]
+    return render(request, 'forms/_issue_form.html', {
+        'form': form, 'project': project, 'task_id': task_id, 'return_to': return_to,
+        'stages': stages, 'parent_tasks': parent_tasks, 'leaf_tasks': leaf_tasks,
+    })
 
 
 @login_required
 def issue_edit(request, pk, iid):
-    project = get_object_or_404(Project, pk=pk)
+    project = get_object_or_404(Project.objects.prefetch_related('stages', 'tasks'), pk=pk)
     issue = get_object_or_404(Issue, pk=iid, project=project)
     if not can_edit_issue(request.user, issue):
         return forbidden_response(request, "You don't have permission to edit this issue.")
+    return_to = request.GET.get('return_to') or request.POST.get('return_to')
+    task_id = request.POST.get('task_id')
+    if not task_id and return_to == 'task-modal' and issue.linked_tasks.exists():
+        task_id = issue.linked_tasks.first().pk
     if request.method == 'POST':
         form = IssueForm(request.POST, instance=issue, project=project)
         if form.is_valid():
             form.save()
             if request.htmx:
+                if return_to == 'task-modal' and task_id:
+                    return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/tasks/{task_id}/issues/'})
                 return HttpResponse(headers={'HX-Redirect': f'/project/{pk}/critical-index/'})
+            if return_to == 'task-modal' and task_id:
+                return redirect('task-issues-modal', pk=pk, tid=task_id)
             return redirect('project-critical-index', pk=pk)
     else:
         form = IssueForm(instance=issue, project=project)
-    return render(request, 'forms/_issue_form.html', {'form': form, 'project': project, 'issue': issue})
+    # Task hierarchy data for cascading dropdowns
+    stages = list(project.stages.all().values('pk', 'name', 'color'))
+    all_tasks = list(project.tasks.filter(visibility__in=['all', 'customer']).select_related('stage', 'parent').values('pk', 'name', 'stage_id', 'parent_id', 'is_summary'))
+    parent_tasks = [t for t in all_tasks if t['is_summary'] or not t['parent_id']]
+    leaf_tasks = [t for t in all_tasks if not t['is_summary']]
+    # Get currently linked tasks for edit form
+    initial_tasks = list(issue.linked_tasks.values_list('pk', flat=True)) if issue else []
+    return render(request, 'forms/_issue_form.html', {
+        'form': form, 'project': project, 'issue': issue, 'return_to': return_to, 'task_id': task_id,
+        'stages': stages, 'parent_tasks': parent_tasks, 'leaf_tasks': leaf_tasks,
+        'initial': {'linked_tasks': initial_tasks},
+    })
 
 
 # Example using new permission system
@@ -1333,7 +1451,7 @@ def task_issues_modal(request, pk, tid):
     if not can_view_project(request.user, project):
         return forbidden_response(request, "You don't have permission to view this project.")
     task = get_object_or_404(Task, pk=tid, project=project)
-    issues = task.linked_issues.exclude(status='resolved')
+    issues = task.linked_issues.filter(project=project).exclude(status='resolved')
     return render(request, 'forms/_task_issues_modal.html', {
         'project': project,
         'task': task,

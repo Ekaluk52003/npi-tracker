@@ -1,6 +1,127 @@
 <!-- Portfolio Build Plan Gantt -->
-<section class="mb-6">
-    <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Build Plan Timeline</h2>
+{{ all_milestones|json_script:"all-milestones-list" }}
+{{ all_stages|json_script:"all-stages-list" }}
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('portfolioGantt', () => ({
+        selectedMilestones: [],
+        selectedStages: [],
+        allMilestones: [],
+        allStages: [],
+        init() {
+            const msData = document.getElementById('all-milestones-list');
+            if (msData) {
+                this.allMilestones = JSON.parse(msData.textContent);
+            }
+            const stageData = document.getElementById('all-stages-list');
+            if (stageData) {
+                this.allStages = JSON.parse(stageData.textContent);
+            }
+        },
+        get filteredRows() {
+            const dataEl = document.getElementById('portfolio-gantt-data');
+            if (!dataEl) return [];
+            const data = JSON.parse(dataEl.textContent);
+            let rows = data.rows;
+            // Filter by stages
+            if (this.selectedStages.length) {
+                rows = rows.filter(row => this.selectedStages.includes(row.stage_name));
+            }
+            // Filter by milestones
+            if (this.selectedMilestones.length) {
+                rows = rows.map(row => ({
+                    ...row,
+                    milestones: row.milestones.filter(m => this.selectedMilestones.includes(m.name))
+                })).filter(row => row.milestones.length > 0);
+            }
+            return rows;
+        },
+        get hasFilter() { return this.selectedMilestones.length > 0 || this.selectedStages.length > 0; },
+        clearFilter() {
+            this.selectedMilestones = [];
+            this.selectedStages = [];
+            this.renderGantt();
+        },
+        toggleMilestone(name) {
+            if (this.selectedMilestones.includes(name)) {
+                this.selectedMilestones = this.selectedMilestones.filter(m => m !== name);
+            } else {
+                this.selectedMilestones.push(name);
+            }
+            this.renderGantt();
+        },
+        toggleStage(name) {
+            if (this.selectedStages.includes(name)) {
+                this.selectedStages = this.selectedStages.filter(s => s !== name);
+            } else {
+                this.selectedStages.push(name);
+            }
+            this.renderGantt();
+        },
+        renderGantt() {
+            const dataEl = document.getElementById('portfolio-gantt-data');
+            if (!dataEl) return;
+            const data = JSON.parse(dataEl.textContent);
+            const filteredData = { ...data, rows: this.filteredRows };
+            // Create filtered data element
+            let tempEl = document.getElementById('portfolio-gantt-data-filtered');
+            if (!tempEl) {
+                tempEl = document.createElement('script');
+                tempEl.type = 'application/json';
+                tempEl.id = 'portfolio-gantt-data-filtered';
+                document.body.appendChild(tempEl);
+            }
+            tempEl.textContent = JSON.stringify(filteredData);
+            renderPortfolioGantt('portfolio-gantt-container', 'portfolio-gantt-data-filtered');
+        }
+    }));
+});
+</script>
+<section class="mb-6" x-data="portfolioGantt()" x-init="init()">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">Build Plan Timeline</h2>
+        
+        <!-- Filters -->
+        <div class="flex items-center gap-2">
+            <!-- Stage Filter -->
+            <div class="relative">
+                <button @click="$refs.stageDropdown.classList.toggle('hidden')" 
+                        class="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs hover:border-[var(--accent)] transition flex items-center gap-2">
+                    <span>Filter Stages</span>
+                    <span x-show="selectedStages.length" x-text="selectedStages.length" class="bg-[var(--accent)] text-white text-[10px] px-1.5 py-0.5 rounded-full"></span>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-ref="stageDropdown" class="hidden absolute right-0 top-full mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg z-10 min-w-[150px] max-h-[200px] overflow-y-auto">
+                    {% for stage_name in all_stages %}
+                    <label class="flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--surface2)] cursor-pointer whitespace-nowrap">
+                        <input type="checkbox" :checked="selectedStages.includes('{{ stage_name|escapejs }}')" @change="toggleStage('{{ stage_name|escapejs }}')" class="rounded border-[var(--border)]">
+                        <span>{{ stage_name }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Milestone Filter -->
+            <div class="relative">
+                <button @click="$refs.msDropdown.classList.toggle('hidden')" 
+                        class="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs hover:border-[var(--accent)] transition flex items-center gap-2">
+                    <span>Filter Milestones</span>
+                    <span x-show="selectedMilestones.length" x-text="selectedMilestones.length" class="bg-[var(--accent)] text-white text-[10px] px-1.5 py-0.5 rounded-full"></span>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-ref="msDropdown" class="hidden absolute right-0 top-full mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg z-10 min-w-[150px] max-h-[200px] overflow-y-auto">
+                    {% for ms_name in all_milestones %}
+                    <label class="flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--surface2)] cursor-pointer whitespace-nowrap">
+                        <input type="checkbox" :checked="selectedMilestones.includes('{{ ms_name|escapejs }}')" @change="toggleMilestone('{{ ms_name|escapejs }}')" class="rounded border-[var(--border)]">
+                        <span>{{ ms_name }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <button x-show="hasFilter" @click="clearFilter()" x-transition class="text-xs text-[var(--accent)] hover:underline">Clear All</button>
+        </div>
+    </div>
     <div class="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">
         {{ portfolio_gantt_data|json_script:"portfolio-gantt-data" }}
         <div id="portfolio-gantt-container" class="min-h-[120px]"></div>

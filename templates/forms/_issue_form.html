@@ -10,6 +10,8 @@
         <form hx-post="{% if issue %}{% url 'issue-edit' project.pk issue.pk %}{% else %}{% url 'issue-create' project.pk %}{% endif %}"
               hx-target="#modal-container" hx-swap="innerHTML" class="p-5 space-y-4">
             {% csrf_token %}
+            {% if task_id %}<input type="hidden" name="task_id" value="{{ task_id }}">{% endif %}
+            {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
             {% for field in form %}
             {% if field.name == 'assigned_to' %}
             <div x-data="{
@@ -115,21 +117,71 @@
                 {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
             </div>
             {% elif field.name == 'linked_tasks' %}
-            <div x-data="{ taskFilter: '', tasks: [{% for checkbox in field %}{ label: '{{ checkbox.choice_label|escapejs }}', id: {{ checkbox.data.value }} },{% endfor %}], get visibleCount() { if (!this.taskFilter) return this.tasks.length; const q = this.taskFilter.toLowerCase(); return this.tasks.filter(t => t.label.toLowerCase().includes(q)).length; } }">
-                <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">{{ field.label }}</label>
-                <input type="text" x-model="taskFilter"
-                       placeholder="Type to filter tasks…"
-                       class="w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none mb-2">
-                <div class="max-h-48 overflow-y-auto rounded-md border border-[var(--border)] bg-[var(--surface2)] p-2 space-y-1">
-                    {% for checkbox in field %}
-                    <label x-show="taskFilter === '' || '{{ checkbox.choice_label|escapejs }}'.toLowerCase().includes(taskFilter.toLowerCase())"
-                           class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--border)]/40 cursor-pointer text-sm text-[var(--text)] transition-colors">
-                        {{ checkbox.tag }}
-                        <span class="truncate">{{ checkbox.choice_label }}</span>
-                    </label>
-                    {% endfor %}
-                    <div x-show="visibleCount === 0 && taskFilter !== ''"
-                         class="text-xs text-[var(--text-muted)] text-center py-2">No tasks match</div>
+            <!-- Cascading Task Linker -->
+            <script>
+                window.taskLinkerData = {
+                    initialTasks: {{ initial.linked_tasks|default:'[]' }},
+                    stages: {{ stages|json_safe }},
+                    parentTasks: {{ parent_tasks|json_safe }},
+                    leafTasks: {{ leaf_tasks|json_safe }}
+                };
+            </script>
+            <div x-data="taskLinker()" x-init="initFromGlobal()">
+                <!-- Enable Linking Checkbox -->
+                <label class="flex items-center gap-2 cursor-pointer mb-3">
+                    <input type="checkbox" x-model="linkTask" class="w-4 h-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]">
+                    <span class="text-sm font-medium text-[var(--text)]">Link to task(s)</span>
+                </label>
+
+                <!-- Cascading Dropdowns -->
+                <div x-show="linkTask" x-transition class="space-y-3 pl-6 border-l-2 border-[var(--border)]">
+                    <!-- Stage Filter -->
+                    <div>
+                        <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">Build Stage</label>
+                        <select x-model="selectedStage" @change="selectedParent = ''"
+                                class="w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none">
+                            <option value="">All Stages</option>
+                            <template x-for="stage in stages" :key="stage.pk">
+                                <option :value="stage.pk" x-text="stage.name"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Parent Task Filter -->
+                    <div>
+                        <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">Deliverable / Parent Task</label>
+                        <select x-model="selectedParent"
+                                class="w-full bg-[var(--surface2)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--accent)] focus:outline-none">
+                            <option value="">All Deliverables</option>
+                            <template x-for="task in filteredParents" :key="task.pk">
+                                <option :value="task.pk" x-text="task.name"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Task Selection -->
+                    <div>
+                        <label class="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                            Select Tasks
+                            <span x-show="selectedTasks.length > 0" class="ml-1 text-[var(--accent)]" x-text="'(' + selectedTasks.length + ' selected)'"></span>
+                        </label>
+                        <div class="max-h-40 overflow-y-auto rounded-md border border-[var(--border)] bg-[var(--surface2)] p-2 space-y-1">
+                            <template x-for="task in filteredTasks" :key="task.pk">
+                                <label class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--border)]/40 cursor-pointer text-sm text-[var(--text)] transition-colors">
+                                    <input type="checkbox"
+                                           :checked="isSelected(task.pk)"
+                                           @change="toggleTask(task.pk)"
+                                           :name="'linked_tasks'"
+                                           :value="task.pk"
+                                           class="w-4 h-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]">
+                                    <span class="truncate" x-text="task.name"></span>
+                                </label>
+                            </template>
+                            <div x-show="filteredTasks.length === 0" class="text-xs text-[var(--text-muted)] text-center py-2">
+                                No tasks match filters
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
             </div>
@@ -155,3 +207,50 @@
         </form>
     </div>
 </div>
+
+<script>
+function taskLinker() {
+    return {
+        linkTask: false,
+        selectedStage: '',
+        selectedParent: '',
+        selectedTasks: [],
+        stages: [],
+        parentTasks: [],
+        leafTasks: [],
+        initFromGlobal() {
+            const data = window.taskLinkerData || {};
+            this.selectedTasks = data.initialTasks || [];
+            this.stages = data.stages || [];
+            this.parentTasks = data.parentTasks || [];
+            this.leafTasks = data.leafTasks || [];
+            this.linkTask = this.selectedTasks.length > 0;
+        },
+        get filteredParents() {
+            if (!this.selectedStage) return this.parentTasks;
+            const stageId = parseInt(this.selectedStage);
+            return this.parentTasks.filter(t => t.stage_id === stageId);
+        },
+        get filteredTasks() {
+            let tasks = this.leafTasks;
+            if (this.selectedStage) {
+                const stageId = parseInt(this.selectedStage);
+                tasks = tasks.filter(t => t.stage_id === stageId);
+            }
+            if (this.selectedParent) {
+                const parentId = parseInt(this.selectedParent);
+                tasks = tasks.filter(t => t.parent_id === parentId || t.pk === parentId);
+            }
+            return tasks;
+        },
+        toggleTask(id) {
+            const idx = this.selectedTasks.indexOf(id);
+            if (idx > -1) this.selectedTasks.splice(idx, 1);
+            else this.selectedTasks.push(id);
+        },
+        isSelected(id) {
+            return this.selectedTasks.includes(id);
+        }
+    };
+}
+</script>

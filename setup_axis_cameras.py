@@ -13,7 +13,10 @@ django.setup()
 
 from datetime import date, timedelta
 from django.contrib.auth import get_user_model
-from core.models import Project, Milestone, BuildStage, Task, TeamMember, Issue
+from core.models import (
+    Project, Milestone, BuildStage, Task, TeamMember, Issue, Customer,
+    Role, RolePermission, UserRoleAssignment,
+)
 
 User = get_user_model()
 
@@ -34,6 +37,10 @@ with connection.cursor() as cursor:
     cursor.execute("DELETE FROM core_milestone;")
     cursor.execute("DELETE FROM core_buildstage;")
     cursor.execute("DELETE FROM core_project;")
+    cursor.execute("DELETE FROM core_customer;")
+    cursor.execute("DELETE FROM core_userroleassignment;")
+    cursor.execute("DELETE FROM core_rolepermission;")
+    cursor.execute("DELETE FROM core_role;")
     cursor.execute("DELETE FROM sqlite_sequence WHERE name LIKE 'core_%';")
     cursor.execute("PRAGMA foreign_keys = ON;")
 print("   Data cleared.")
@@ -61,7 +68,63 @@ test_users = {
 }
 print(f"   Created: engineer, quality, pm (password: pass123)")
 
-def create_camera_project(name, product_code, color, start_day_offset=0, users=None):
+# Create customer
+print("\n2b. Creating customer...")
+customer_axis = Customer.objects.create(name='Axis Communications')
+print(f"   Created customer: {customer_axis.name}")
+
+# Create Roles, Permissions, and Assignments
+print("\n2c. Creating roles & permissions...")
+
+all_models = [
+    'project', 'buildstage', 'milestone', 'task', 'issue',
+    'teammember', 'nreitem', 'gatechecklistitem', 'projectplanversion',
+    'tasktemplateset', 'webhookconfig',
+]
+
+# --- PM role: full CRUD on everything ---
+role_pm = Role.objects.create(
+    name='Project Manager', key='pm',
+    description='Full access to all project data',
+    is_internal=True, is_superuser=False,
+)
+for model in all_models:
+    for action in ['view', 'add', 'change', 'delete']:
+        RolePermission.objects.create(role=role_pm, model_name=model, action=action)
+
+# --- Engineer role: view all, add/edit tasks & issues ---
+role_engineer = Role.objects.create(
+    name='Engineer', key='engineer',
+    description='View all, create/edit tasks and issues',
+    is_internal=True, is_superuser=False,
+)
+for model in all_models:
+    RolePermission.objects.create(role=role_engineer, model_name=model, action='view')
+for model in ['task', 'issue']:
+    for action in ['add', 'change']:
+        RolePermission.objects.create(role=role_engineer, model_name=model, action=action)
+
+# --- Customer role: read-only on project, task, issue ---
+role_customer = Role.objects.create(
+    name='Customer', key='customer',
+    description='View-only access to projects, tasks, and issues',
+    is_internal=False, is_superuser=False,
+)
+for model in ['project', 'task', 'issue']:
+    RolePermission.objects.create(role=role_customer, model_name=model, action='view')
+
+print(f"   Roles created: PM ({role_pm.permissions.count()} perms), "
+      f"Engineer ({role_engineer.permissions.count()} perms), "
+      f"Customer ({role_customer.permissions.count()} perms)")
+
+# Assign roles to users (global scope)
+UserRoleAssignment.objects.create(user=test_users['pm'], role=role_pm)
+UserRoleAssignment.objects.create(user=test_users['engineer'], role=role_engineer)
+UserRoleAssignment.objects.create(user=test_users['quality'], role=role_engineer)  # quality also gets engineer perms
+UserRoleAssignment.objects.create(user=admin_user, role=role_pm)  # admin gets PM role too
+print("   Role assignments: pm→PM, engineer→Engineer, quality→Engineer, admin→PM")
+
+def create_camera_project(name, product_code, color, start_day_offset=0, users=None, customer=None):
     """Create a camera project with ETB, Pre-series, FAA stages."""
     base_date = date.today() + timedelta(days=start_day_offset)
 
@@ -71,26 +134,21 @@ def create_camera_project(name, product_code, color, start_day_offset=0, users=N
         start_date=base_date,
         end_date=base_date + timedelta(days=90),
         color=color,
-        pgm=admin_user
+        pgm=admin_user,
+        customer=customer
     )
 
-    # Add team members with roles
+    # Add team members with roles (name derived from User model)
     if users:
-        TeamMember.objects.create(
-            project=project, user=users['engineer'], member_type='internal',
-            role='Engineer', name='John Engineer'
-        )
-        TeamMember.objects.create(
-            project=project, user=users['quality'], member_type='internal',
-            role='Quality Manager', name='Sarah Quality'
-        )
-        TeamMember.objects.create(
-            project=project, user=users['pm'], member_type='internal',
-            role='Program Manager', name='Mike PM'
-        )
+        for role_key, role_label in [('engineer', 'Engineer'), ('quality', 'Quality Manager'), ('pm', 'Program Manager')]:
+            u = users[role_key]
+            TeamMember.objects.create(
+                project=project, user=u, member_type='internal',
+                role=role_label, name=u.get_full_name() or u.username
+            )
         TeamMember.objects.create(
             project=project, user=admin_user, member_type='internal',
-            role='Admin', name='Admin User'
+            role='Admin', name=admin_user.get_full_name() or admin_user.username
         )
 
     # 3 Milestones per project
@@ -506,7 +564,7 @@ project_summaries = []
 
 for name, code, color, offset in projects_data:
     print(f"\n3. Creating {name}...")
-    project, milestones, stages, base_date = create_camera_project(name, code, color, offset, test_users)
+    project, milestones, stages, base_date = create_camera_project(name, code, color, offset, test_users, customer=customer_axis)
     task_count, issue_count = create_tasks_for_project(project, milestones, stages, base_date, test_users)
     total_tasks += task_count
     total_issues += issue_count

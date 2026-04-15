@@ -1,43 +1,54 @@
 <div id="cis-container"
-     x-data="issueTrackerBoard()"
+     x-data="issueTracker()"
      x-init="init()"
-     hx-get="{% url 'project-critical-index' project.pk %}?filter={{ filter_mode }}&show_resolved={% if show_resolved %}1{% else %}0{% endif %}"
+     hx-get="{% url 'project-critical-index' project.pk %}?stage={{ stage_filter }}&assigned={% if assigned_only %}me{% endif %}&show_resolved={% if show_resolved %}1{% else %}0{% endif %}"
      hx-trigger="issueSaved from:body"
      hx-target="#cis-container"
      hx-swap="outerHTML">
 
-<!-- Simple Toolbar: 3 filters -->
+<!-- Toolbar: Issue tracking filters -->
 <div class="flex items-center gap-2 px-4 py-2 border-b border-[var(--border)] bg-[var(--surface)] flex-wrap">
-    <span class="text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-medium">View:</span>
+    <span class="text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-medium">Issues:</span>
 
-    <!-- All -->
-    <a href="?filter=all" class="del-filter-btn {% if filter_mode == 'all' %}del-filter-active{% endif %}">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-        All Work
-    </a>
+    <!-- Stage Filter -->
+    <select onchange="window.location.href='?stage=' + this.value + '{% if assigned_only %}&assigned=me{% endif %}{% if show_resolved %}&show_resolved=1{% endif %}'"
+            class="px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text)]">
+        <option value="">All Stages</option>
+        {% for stage in stages %}
+        <option value="{{ stage.pk }}" {% if stage_filter == stage.pk|stringformat:"s" %}selected{% endif %}>{{ stage.name }}</option>
+        {% endfor %}
+    </select>
 
-    <!-- My Work -->
-    <a href="?filter=my_work" class="del-filter-btn {% if filter_mode == 'my_work' %}del-filter-active{% endif %}">
+    <!-- Assigned to Me Filter -->
+    <a href="?{% if stage_filter %}stage={{ stage_filter }}&{% endif %}assigned={% if assigned_only %}{% else %}me{% endif %}{% if show_resolved %}&show_resolved=1{% endif %}"
+       class="del-filter-btn {% if assigned_only %}del-filter-active bg-blue-500/10 text-blue-500 border-blue-500{% endif %}">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-        My Work
+        Assigned to Me
     </a>
-
-    <!-- Blocked -->
-    <a href="?filter=blocked" class="del-filter-btn {% if filter_mode == 'blocked' %}del-filter-active{% endif %} {% if filter_mode == 'blocked' %}text-red-500 border-red-500{% endif %}">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-        Blocked
-    </a>
-
-    <div class="flex-1"></div>
 
     <!-- Show Resolved Toggle -->
-    <a href="?filter={{ filter_mode }}&show_resolved={% if show_resolved %}0{% else %}1{% endif %}"
+    <a href="?{% if stage_filter %}stage={{ stage_filter }}&{% endif %}{% if assigned_only %}assigned=me&{% endif %}show_resolved={% if show_resolved %}0{% else %}1{% endif %}"
        class="del-filter-btn {% if show_resolved %}del-filter-active bg-emerald-500/10 text-emerald-500 border-emerald-500{% endif %}">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         Show Resolved {% if resolved_count > 0 %}({{ resolved_count }}){% endif %}
     </a>
 
     <div class="w-px h-6 bg-[var(--border)] mx-1"></div>
+
+    <!-- Sort Controls (Client-side) -->
+    <select x-model="sortBy"
+            class="px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--text)]">
+        <option value="created_at">Open Date</option>
+        <option value="due">Due Date</option>
+        <option value="severity">Severity</option>
+    </select>
+    <button @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
+            class="del-filter-btn" title="Toggle sort order">
+        <svg x-show="sortOrder === 'asc'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
+        <svg x-show="sortOrder === 'desc'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h5m4 0l4 4m0 0l4-4m-4 4v-12"/></svg>
+    </button>
+
+    <div class="flex-1"></div>
 
     <!-- Legend -->
     <div class="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
@@ -48,8 +59,52 @@
     </div>
 </div>
 
+<!-- Issues Data Script -->
+{{ all_issues|json_script:"issuesData" }}
+<script>
+    function issueTracker() {
+        return {
+            selectedIssue: null,
+            selectedTaskIds: [],
+            selectedDeliverableIds: [],
+            expandedDeliverableIds: [],
+            sortBy: 'created_at',
+            sortOrder: 'desc',
+            issues: [],
+            init() {
+                const el = document.getElementById('issuesData');
+                if (el) {
+                    this.issues = JSON.parse(el.textContent);
+                }
+            },
+            get sortedIssues() {
+                const SEVERITY_ORDER = {critical: 0, high: 1, medium: 2, low: 3};
+                let sorted = [...this.issues];
+                if (this.sortBy === 'severity') {
+                    sorted.sort((a, b) => {
+                        const diff = (SEVERITY_ORDER[a.severity] || 99) - (SEVERITY_ORDER[b.severity] || 99);
+                        if (diff !== 0) return this.sortOrder === 'asc' ? diff : -diff;
+                        return this.sortOrder === 'asc' ? new Date(a.created_at) - new Date(b.created_at) : new Date(b.created_at) - new Date(a.created_at);
+                    });
+                } else if (this.sortBy === 'due') {
+                    sorted.sort((a, b) => {
+                        const aDue = a.due ? new Date(a.due).getTime() : (this.sortOrder === 'asc' ? Infinity : -Infinity);
+                        const bDue = b.due ? new Date(b.due).getTime() : (this.sortOrder === 'asc' ? Infinity : -Infinity);
+                        return this.sortOrder === 'asc' ? aDue - bDue : bDue - aDue;
+                    });
+                } else {
+                    sorted.sort((a, b) => {
+                        return this.sortOrder === 'asc' ? new Date(a.created_at) - new Date(b.created_at) : new Date(b.created_at) - new Date(a.created_at);
+                    });
+                }
+                return sorted;
+            }
+        };
+    }
+</script>
+
 <!-- ── Two Panel Layout ────────────────────────────────────────────── -->
-<div class="flex" style="height: calc(100vh - 140px); max-height: calc(100vh - 140px);" x-data="{ selectedIssue: null, selectedTaskIds: [], selectedDeliverableIds: [], expandedDeliverableIds: [] }">
+<div class="flex" style="height: calc(100vh - 140px); max-height: calc(100vh - 140px);">
 
     <!-- LEFT PANEL: All Issues (Larger - ~65%) -->
     <div class="flex-[0.65] min-w-0 flex flex-col border-r border-[var(--border)] bg-[var(--surface2)]/30 h-full">
@@ -65,52 +120,97 @@
 
         <!-- Issues List (Scrollable) -->
         <div class="flex-1 p-4 overflow-y-auto cis-col-body min-h-0">
-            {% if all_issues %}
-                {% for issue in all_issues %}
-                <div class="issue-card mb-3 cursor-pointer transition-all group"
-                     :class="{ 'ring-2 ring-[var(--accent)] bg-[var(--accent)]/5': selectedIssue === {{ issue.pk }} }"
-                     @click="selectedIssue = {{ issue.pk }}; selectedTaskIds = [{% for info in issue.linked_tasks_info %}{% if not forloop.first %},{% endif %}{{ info.task_id }}{% endfor %}]; selectedDeliverableIds = [{% for info in issue.linked_tasks_info %}{% if not forloop.first %},{% endif %}{{ info.deliverable_id }}{% endfor %}]; expandedDeliverableIds = [{% for info in issue.linked_tasks_info %}{% if not forloop.first %},{% endif %}{{ info.deliverable_id }}{% endfor %}]"
-                     x-data="{ hovered: false }"
-                     @mouseenter="hovered = true"
-                     @mouseleave="hovered = false">
-                    <div class="bg-[var(--surface)] border-l-4 {% if issue.severity == 'critical' %}border-red-500{% elif issue.severity == 'high' %}border-amber-500{% elif issue.severity == 'medium' %}border-blue-400{% else %}border-gray-400{% endif %} {% if issue.status == 'resolved' %}opacity-60{% endif %} rounded-r p-3 shadow-sm hover:shadow-md transition-all relative">
-                        <!-- Severity & Status + Edit Button -->
-                        <div class="flex items-center gap-1.5 mb-2">
-                            <span class="cis-sev-pill cis-sev-pill-{{ issue.severity }}">{{ issue.severity }}</span>
-                            <span class="text-[10px] text-[var(--text-muted)]">{{ issue.get_status_display }}</span>
-                            {% if issue.status == 'resolved' %}
-                            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-medium">✓ Resolved</span>
-                            {% else %}
-                            <!-- Edit Button -->
-                            <button class="ml-auto p-1 rounded hover:bg-[var(--surface2)] text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
-                                    @click.stop
-                                    hx-get="{% url 'issue-edit' project.pk issue.pk %}"
-                                    hx-target="#modal-container"
-                                    hx-swap="innerHTML">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-                            </button>
-                            {% endif %}
+            <template x-if="sortedIssues.length > 0">
+                <div>
+                    <template x-for="issue in sortedIssues" :key="issue.pk">
+                        <div class="issue-card mb-3 cursor-pointer transition-all group"
+                             :class="{ 'ring-2 ring-[var(--accent)] bg-[var(--accent)]/5': selectedIssue === issue.pk }"
+                             @click="selectedIssue = issue.pk; selectedTaskIds = issue.linked_tasks_info?.map(t => t.task_id) || []; selectedDeliverableIds = issue.linked_tasks_info?.map(t => t.deliverable_id) || []; expandedDeliverableIds = issue.linked_tasks_info?.map(t => t.deliverable_id) || []"
+                             x-data="{ hovered: false }"
+                             @mouseenter="hovered = true"
+                             @mouseleave="hovered = false">
+                            <div class="bg-[var(--surface)] border-l-4 rounded-r p-3 shadow-sm hover:shadow-md transition-all relative"
+                                 :class="{
+                                     'border-red-500': issue.severity === 'critical',
+                                     'border-amber-500': issue.severity === 'high',
+                                     'border-blue-400': issue.severity === 'medium',
+                                     'border-gray-400': issue.severity === 'low',
+                                     'opacity-60': issue.status === 'resolved'
+                                 }">
+                                <!-- Severity & Status + Edit Button -->
+                                <div class="flex items-center gap-1.5 mb-2">
+                                    <span class="cis-sev-pill" :class="'cis-sev-pill-' + issue.severity" x-text="issue.severity"></span>
+                                    <span class="text-[10px] text-[var(--text-muted)]" x-text="issue.status_label || issue.status"></span>
+                                    <template x-if="issue.status === 'resolved'">
+                                        <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-medium">✓ Resolved</span>
+                                    </template>
+                                    <template x-if="issue.status !== 'resolved'">
+                                        <button class="ml-auto p-1 rounded hover:bg-[var(--surface2)] text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+                                                @click.stop
+                                                :hx-get="'/project/{{ project.pk }}/issues/' + issue.pk + '/edit/'"
+                                                hx-target="#modal-container"
+                                                hx-swap="innerHTML">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                        </button>
+                                    </template>
+                                </div>
+                                <!-- Issue Title -->
+                                <div class="text-sm font-medium leading-snug mb-2"
+                                     :class="{ 'line-through text-[var(--text-muted)]': issue.status === 'resolved' }"
+                                     x-text="issue.title"></div>
+                                <!-- Days Open, Stage, Category & Due Date -->
+                                <div class="flex items-center gap-2 mb-2 text-[11px] flex-wrap">
+                                    <span class="text-[var(--text-muted)]" x-text="issue.time_since"></span>
+                                    <span class="text-[var(--border)]">|</span>
+                                    <template x-if="issue.stage">
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                              x-text="issue.stage.name"
+                                              :style="'background-color: ' + (issue.stage.color + '20') + '; color: ' + issue.stage.color"></span>
+                                    </template>
+                                    <span class="px-1.5 py-0.5 rounded bg-[var(--surface2)] text-[var(--text-muted)]" x-text="issue.category_label"></span>
+                                    <template x-if="issue.due">
+                                        <span :class="(new Date(issue.due) < new Date() && issue.status !== 'resolved') ? 'text-red-500' : 'text-[var(--text-muted)]'">
+                                            <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                            <span x-text="issue.due_label"></span>
+                                        </span>
+                                    </template>
+                                </div>
+                                <!-- Description -->
+                                <div x-show="issue.desc" x-text="issue.desc_truncated" class="text-[11px] text-[var(--text-muted)] mb-2 line-clamp-2"></div>
+                                <!-- Resolution (for resolved issues) -->
+                                <div x-show="issue.status === 'resolved' && issue.resolution" class="text-[11px] text-emerald-600 mb-2 line-clamp-2">
+                                    <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span x-text="issue.resolution_truncated"></span>
+                                </div>
+                                <!-- Assigned To & Linked Tasks -->
+                                <div class="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                                    <div class="flex items-center gap-1.5">
+                                        <template x-if="issue.assigned_to">
+                                            <span class="flex items-center gap-1">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                <span x-text="issue.assigned_to_name"></span>
+                                            </span>
+                                        </template>
+                                        <template x-if="!issue.assigned_to">
+                                            <span class="text-amber-500">Unassigned</span>
+                                        </template>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                        <span x-text="(issue.linked_tasks_info || []).length"></span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <!-- Issue Title -->
-                        <div class="text-sm font-medium leading-snug mb-2 {% if issue.status == 'resolved' %}line-through text-[var(--text-muted)]{% endif %}">
-                            {{ issue.title }}
-                        </div>
-                        <!-- Linked Tasks Count -->
-                        <div class="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
-                            <span>{{ issue.linked_tasks_info|length }} task{{ issue.linked_tasks_info|length|pluralize:"s" }}</span>
-                        </div>
-                    </div>
+                    </template>
                 </div>
-                {% endfor %}
-            {% else %}
-                <div class="p-8 text-center text-[12px] text-[var(--text-muted)]">
-                    <svg class="w-10 h-10 mx-auto mb-3 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    No issues found
-                </div>
-            {% endif %}
+            </template>
+            <div x-show="sortedIssues.length === 0" class="p-8 text-center text-[12px] text-[var(--text-muted)]">
+                <svg class="w-10 h-10 mx-auto mb-3 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                No issues found
+            </div>
         </div>
     </div>
 
@@ -142,11 +242,12 @@
                      }
                  })">
                 <!-- Deliverable Header (Clickable Toggle) -->
-                <div @click="expandedDeliverableIds.includes({{ del.parent.pk|default:0 }}) 
+                <div @click="expandedDeliverableIds.includes({{ del.parent.pk|default:0 }})
                              ? expandedDeliverableIds = expandedDeliverableIds.filter(id => id !== {{ del.parent.pk|default:0 }})
                              : expandedDeliverableIds = [...expandedDeliverableIds, {{ del.parent.pk|default:0 }}]"
                      class="p-2.5 rounded cursor-pointer transition-all hover:bg-[var(--surface2)] border border-[var(--border)]"
-                     :class="{ 'bg-[var(--surface2)] border-[var(--accent)]': expandedDeliverableIds.includes({{ del.parent.pk|default:0 }}), 'bg-[var(--surface)]': !expandedDeliverableIds.includes({{ del.parent.pk|default:0 }}), 'ring-1 ring-[var(--accent)]': selectedDeliverableIds.includes({{ del.parent.pk|default:0 }}) }">
+                     :class="{ 'bg-[var(--surface2)] border-[var(--accent)]': expandedDeliverableIds.includes({{ del.parent.pk|default:0 }}), 'bg-[var(--surface)]': !expandedDeliverableIds.includes({{ del.parent.pk|default:0 }}), 'ring-1 ring-[var(--accent)]': selectedDeliverableIds.includes({{ del.parent.pk|default:0 }}) }"
+                     {% if del.parent and del.parent.stage %}style="background-color: {{ del.parent.stage.color }}15"{% endif %}>
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-2">
                             <!-- Toggle Icon -->
@@ -176,7 +277,7 @@
                 <div x-show="expandedDeliverableIds.includes({{ del.parent.pk|default:0 }})" x-collapse class="mt-2 space-y-2">
                     {% for task in del.subtasks %}
                     <div class="task-card cis-card del-subtask {% if task.critical_count > 0 %}blocked{% elif task.status == 'done' %}done{% elif task.status == 'inprogress' %}inprogress{% else %}open{% endif %}
-                                transition-all"
+                                transition-all ml-4"
                          :class="{ 'ring-2 ring-[var(--accent)] bg-[var(--accent)]/10': selectedTaskIds.includes({{ task.pk }}) }">
                         <!-- Status row -->
                         <div class="flex items-center gap-1.5 mb-1">
@@ -209,39 +310,5 @@
         </div>
     </div>
 </div>
-
-<!-- Toast -->
-<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--surface)] border border-[var(--accent)] rounded-lg px-4 py-2.5 text-sm text-[var(--accent)] shadow-2xl flex items-center gap-2"
-     x-show="toast" x-cloak x-transition>
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-    <span x-text="toast"></span>
 </div>
-
-</div>
-
-<script>
-function issueTrackerBoard() {
-    return {
-        toast: '',
-        selectedIssue: null,
-        selectedTaskIds: [],
-        selectedDeliverableIds: [],
-        expandedDeliverableIds: [],
-
-        init() {},
-
-        selectIssue(issueId, taskIds, deliverableIds) {
-            this.selectedIssue = issueId;
-            this.selectedTaskIds = taskIds;
-            this.selectedDeliverableIds = deliverableIds;
-            this.expandedDeliverableIds = deliverableIds;
-        },
-
-        showToast(msg) {
-            this.toast = msg;
-            setTimeout(() => { this.toast = ''; }, 2500);
-        }
-    }
-}
-</script>
 

@@ -1,5 +1,7 @@
 """Template tags for permission checking."""
+import json
 from django import template
+from django.utils.safestring import mark_safe
 from core.permissions import can_view, can_add, can_change, can_delete
 
 register = template.Library()
@@ -131,3 +133,17 @@ def multiply(value, multiplier):
         return value * multiplier
     except TypeError:
         return 0
+
+
+@register.filter
+def json_safe(value):
+    """Serialize value to JSON for safe use in JavaScript.
+    
+    Usage: {{ my_data|json_safe }}
+    """
+    if value is None:
+        return mark_safe('null')
+    try:
+        return mark_safe(json.dumps(value))
+    except (TypeError, ValueError):
+        return mark_safe('null')
