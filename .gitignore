@@ -35,3 +35,8 @@ assets/
 .DS_Store
 Thumbs.db
 spec.md
+
+#test file
+/scripts
+/services
+predefine-tasks.txt
