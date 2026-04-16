@@ -11,22 +11,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # assigned_to_id already exists in core_task DB — only update state
-        migrations.SeparateDatabaseAndState(
-            database_operations=[],
-            state_operations=[
-                migrations.AddField(
-                    model_name='task',
-                    name='assigned_to',
-                    field=models.ForeignKey(
-                        blank=True,
-                        null=True,
-                        on_delete=django.db.models.deletion.SET_NULL,
-                        related_name='assigned_tasks',
-                        to=settings.AUTH_USER_MODEL,
-                    ),
-                ),
-            ],
+        migrations.AddField(
+            model_name='task',
+            name='assigned_to',
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name='assigned_tasks',
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         # assigned_to_id does NOT yet exist in core_issue — add normally
         migrations.AddField(
