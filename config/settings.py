@@ -1,14 +1,21 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production-!@#$%^&*()')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError('SECRET_KEY environment variable is not set. See .env.example.')
 
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 _allowed_hosts = os.environ.get('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',') if h.strip()] or []
+
+if DEBUG:
+    ALLOWED_HOSTS += ['localhost', '127.0.0.1']
 
 _csrf_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(',') if o.strip()]
@@ -130,11 +137,15 @@ DJANGO_VITE = {
     }
 }
 
-ONEDRIVE_CLIENT_ID     = env("ONEDRIVE_CLIENT_ID")
-ONEDRIVE_TENANT_ID     = env("ONEDRIVE_TENANT_ID")
-ONEDRIVE_CLIENT_SECRET = env("ONEDRIVE_CLIENT_SECRET")
-ONEDRIVE_REFRESH_TOKEN = env("ONEDRIVE_REFRESH_TOKEN")
+ONEDRIVE_CLIENT_ID     = os.environ.get("ONEDRIVE_CLIENT_ID", "")
+ONEDRIVE_TENANT_ID     = os.environ.get("ONEDRIVE_TENANT_ID", "")
+ONEDRIVE_CLIENT_SECRET = os.environ.get("ONEDRIVE_CLIENT_SECRET", "")
+ONEDRIVE_REFRESH_TOKEN = os.environ.get("ONEDRIVE_REFRESH_TOKEN", "")
 
 ONEDRIVE_INBOUND_FOLDER   = "NPI-Queue/inbound"
 ONEDRIVE_PROCESSED_FOLDER = "NPI-Queue/processed"
 ONEDRIVE_OUTBOUND_FOLDER  = "NPI-Queue/outbound"
+
+OPENAI_API_KEY   = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_MODEL     = os.environ.get("OPENAI_MODEL", "gpt-4o")
+AI_AGENT_ENABLED = os.environ.get("AI_AGENT_ENABLED", "False") == "True"

@@ -204,7 +204,7 @@ def _handle_create_task(project, payload):
     task = Task.objects.create(
         project=project,
         name=name,
-        section=section,
+        milestone=section,
         who=payload.get('who', 'TBD'),
         start=start,
         end=end,
@@ -214,6 +214,62 @@ def _handle_create_task(project, payload):
         sort_order=project.tasks.count(),
     )
     return {'task_id': task.pk, 'action': 'create_task'}
+
+
+def _handle_update_issue(project, payload):
+    """
+    Expected payload:
+    {
+        "issue_id": 3,                       # or "issue_title": "IC U3 shortage"
+        "status": "resolved",                # open | investigating | resolved
+        "severity": "high",                  # critical | high | medium | low
+        "resolution": "Alternative part found",
+        "owner": "John Doe",
+        "impact": "Updated: delay reduced to 2 weeks"
+    }
+    """
+    issue_id = payload.get('issue_id')
+    if issue_id:
+        try:
+            issue = Issue.objects.get(pk=int(issue_id), project=project)
+        except (Issue.DoesNotExist, ValueError, TypeError):
+            raise ValueError(f'Issue {issue_id} not found in project {project.name}')
+    else:
+        title = payload.get('issue_title', '').strip()
+        if not title:
+            raise ValueError('issue_id or issue_title is required')
+        issue = Issue.objects.filter(project=project, title__icontains=title).first()
+        if not issue:
+            raise ValueError(f'Issue "{title}" not found in project {project.name}')
+
+    update_fields = []
+    if 'status' in payload:
+        s = payload['status'].lower()
+        if s in ('open', 'investigating', 'resolved'):
+            issue.status = s
+            update_fields.append('status')
+    if 'severity' in payload:
+        sv = payload['severity'].lower()
+        if sv in ('critical', 'high', 'medium', 'low'):
+            issue.severity = sv
+            update_fields.append('severity')
+    if 'resolution' in payload:
+        issue.resolution = payload['resolution']
+        update_fields.append('resolution')
+    if 'owner' in payload:
+        issue.owner = payload['owner']
+        update_fields.append('owner')
+    if 'impact' in payload:
+        issue.impact = payload['impact']
+        update_fields.append('impact')
+
+    if update_fields:
+        if issue.status == 'resolved' and 'resolved_at' not in update_fields:
+            issue.resolved_at = timezone.now()
+            update_fields.append('resolved_at')
+        issue.save(update_fields=update_fields)
+
+    return {'issue_id': issue.pk, 'action': 'update_issue', 'updated_fields': update_fields}
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -312,6 +368,7 @@ def _record_error(webhook, msg):
 # Handler registry
 _HANDLERS = {
     'create_issue': _handle_create_issue,
+    'update_issue': _handle_update_issue,
     'update_task_status': _handle_update_task_status,
     'update_stage_status': _handle_update_stage_status,
     'create_task': _handle_create_task,

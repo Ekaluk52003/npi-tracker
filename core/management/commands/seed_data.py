@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from django.core.management.base import BaseCommand
-from core.models import Project, BuildStage, GateChecklistItem, Task, Issue, TeamMember, NREItem
+from django.contrib.auth.models import User
+from core.models import Project, BuildStage, GateChecklistItem, Task, Issue, TeamMember, NREItem, Customer, Milestone
 
 
 class Command(BaseCommand):
@@ -9,12 +10,32 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('Seeding database...')
 
+        # Resolve or create PM users
+        def get_user(username):
+            user, _ = User.objects.get_or_create(
+                username=username,
+                defaults={'first_name': username, 'is_staff': False},
+            )
+            return user
+
+        u_ekaluk   = get_user('Ekaluk')
+        u_natthida = get_user('Natthida')
+        u_somchai  = get_user('Somchai')
+
+        def get_customer(name):
+            c, _ = Customer.objects.get_or_create(name=name)
+            return c
+
+        c_axis   = get_customer('Axis')
+        c_hanwha = get_customer('Hanwha')
+        c_bosch  = get_customer('Bosch')
+
         # Clear existing data
         Project.objects.all().delete()
 
         # ── Project 1: Greenland ─────────────────────────────────────
         p1 = Project.objects.create(
-            name='Greenland', pgm='Ekaluk', customer='Axis',
+            name='Greenland', pgm=u_ekaluk, customer=c_axis,
             start_date=date(2025, 10, 1), end_date=date(2026, 6, 30),
             color='#34B27B', annual_volume=50000, annual_revenue=25000000, currency='THB',
         )
@@ -100,10 +121,11 @@ class Command(BaseCommand):
         ]
         order = 0
         task_map = {}
-        for milestone, items in tasks_data:
+        for ms_name, items in tasks_data:
+            ms_obj, _ = Milestone.objects.get_or_create(project=p1, name=ms_name, defaults={'sort_order': order})
             for name, who, days, start, end, status, stage, remark in items:
                 t = Task.objects.create(
-                    project=p1, name=name, milestone=milestone, who=who, days=days,
+                    project=p1, name=name, milestone=ms_obj, who=who, days=days,
                     start=start, end=end, status=status, stage=stage, remark=remark,
                     sort_order=order,
                 )
@@ -155,7 +177,7 @@ class Command(BaseCommand):
 
         # ── Project 2: Voltaren ──────────────────────────────────────
         p2 = Project.objects.create(
-            name='Voltaren', pgm='Natthida', customer='Hanwha',
+            name='Voltaren', pgm=u_natthida, customer=c_hanwha,
             start_date=date(2026, 1, 1), end_date=date(2026, 9, 30),
             color='#f59e0b', annual_volume=20000, annual_revenue=12000000, currency='THB',
         )
@@ -198,10 +220,11 @@ class Command(BaseCommand):
             ]),
         ]
         order = 0
-        for milestone, items in v_tasks:
+        for ms_name, items in v_tasks:
+            ms_obj, _ = Milestone.objects.get_or_create(project=p2, name=ms_name, defaults={'sort_order': order})
             for name, who, days, start, end, status, stage, remark in items:
                 Task.objects.create(
-                    project=p2, name=name, milestone=milestone, who=who, days=days,
+                    project=p2, name=name, milestone=ms_obj, who=who, days=days,
                     start=start, end=end, status=status, stage=stage, remark=remark,
                     sort_order=order,
                 )
@@ -224,7 +247,7 @@ class Command(BaseCommand):
 
         # ── Project 3: Sentinel ──────────────────────────────────────
         p3 = Project.objects.create(
-            name='Sentinel', pgm='Somchai', customer='Bosch',
+            name='Sentinel', pgm=u_somchai, customer=c_bosch,
             start_date=date(2026, 3, 1), end_date=date(2026, 12, 31),
             color='#06b6d4', annual_volume=30000, annual_revenue=18000000, currency='THB',
         )
@@ -257,10 +280,11 @@ class Command(BaseCommand):
             ]),
         ]
         order = 0
-        for milestone, items in s_tasks:
+        for ms_name, items in s_tasks:
+            ms_obj, _ = Milestone.objects.get_or_create(project=p3, name=ms_name, defaults={'sort_order': order})
             for name, who, days, start, end, status, stage, remark in items:
                 Task.objects.create(
-                    project=p3, name=name, milestone=milestone, who=who, days=days,
+                    project=p3, name=name, milestone=ms_obj, who=who, days=days,
                     start=start, end=end, status=status, stage=stage, remark=remark,
                     sort_order=order,
                 )

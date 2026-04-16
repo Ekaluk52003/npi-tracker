@@ -45,9 +45,12 @@ with connection.cursor() as cursor:
     cursor.execute("PRAGMA foreign_keys = ON;")
 print("   Data cleared.")
 
+SEED_ADMIN_PW = os.environ.get('SEED_ADMIN_PASSWORD', 'admin123')
+SEED_USER_PW  = os.environ.get('SEED_USER_PASSWORD', 'pass123')
+
 admin_user = User.objects.filter(is_staff=True).first()
 if not admin_user:
-    admin_user = User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
+    admin_user = User.objects.create_superuser('admin', 'admin@example.com', SEED_ADMIN_PW)
 
 # Create test users with different roles
 print("\n2. Creating test users...")
@@ -62,11 +65,11 @@ def get_or_create_user(username, email, password, **kwargs):
     return user
 
 test_users = {
-    'engineer': get_or_create_user('engineer', 'engineer@example.com', 'pass123', first_name='John', last_name='Engineer'),
-    'quality': get_or_create_user('quality', 'quality@example.com', 'pass123', first_name='Sarah', last_name='Quality'),
-    'pm': get_or_create_user('pm', 'pm@example.com', 'pass123', first_name='Mike', last_name='PM'),
+    'engineer': get_or_create_user('engineer', 'engineer@example.com', SEED_USER_PW, first_name='John', last_name='Engineer'),
+    'quality': get_or_create_user('quality', 'quality@example.com', SEED_USER_PW, first_name='Sarah', last_name='Quality'),
+    'pm': get_or_create_user('pm', 'pm@example.com', SEED_USER_PW, first_name='Mike', last_name='PM'),
 }
-print(f"   Created: engineer, quality, pm (password: pass123)")
+print(f"   Created: engineer, quality, pm (password set via SEED_USER_PASSWORD env var)")
 
 # Create customer
 print("\n2b. Creating customer...")
@@ -584,10 +587,11 @@ for name, code, t_count, i_count in project_summaries:
 
 print(f"\nTOTAL: {total_tasks} tasks, {total_issues} issues across 3 projects")
 print("\nTest Users Created:")
-print("  - engineer / pass123 (Engineer role)")
-print("  - quality / pass123 (Quality Manager role)")
-print("  - pm / pass123 (Program Manager role)")
-print("  - admin / admin123 (Admin role)")
+print("  - engineer (Engineer role)")
+print("  - quality (Quality Manager role)")
+print("  - pm (Program Manager role)")
+print("  - admin (Admin role)")
+print("  Passwords set via SEED_ADMIN_PASSWORD / SEED_USER_PASSWORD env vars")
 print("\nNext steps:")
 print("1. Visit http://127.0.0.1:8000/my-tasks/")
 print("2. Login as any test user to see My Tasks")

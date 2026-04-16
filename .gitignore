@@ -40,3 +40,5 @@ spec.md
 /scripts
 /services
 predefine-tasks.txt
+
+.env.example
