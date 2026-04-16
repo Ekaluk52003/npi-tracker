@@ -28,21 +28,23 @@ print("=" * 60)
 print("\n1. Clearing existing data...")
 from django.db import connection
 with connection.cursor() as cursor:
-    cursor.execute("PRAGMA foreign_keys = OFF;")
-    cursor.execute("DELETE FROM core_taskduedatechange;")
-    cursor.execute("DELETE FROM core_projectplanversion;")
-    cursor.execute("DELETE FROM core_task_depends_on;")
-    cursor.execute("DELETE FROM core_task;")
-    cursor.execute("DELETE FROM core_issue;")
-    cursor.execute("DELETE FROM core_milestone;")
-    cursor.execute("DELETE FROM core_buildstage;")
-    cursor.execute("DELETE FROM core_project;")
-    cursor.execute("DELETE FROM core_customer;")
-    cursor.execute("DELETE FROM core_userroleassignment;")
-    cursor.execute("DELETE FROM core_rolepermission;")
-    cursor.execute("DELETE FROM core_role;")
-    cursor.execute("DELETE FROM sqlite_sequence WHERE name LIKE 'core_%';")
-    cursor.execute("PRAGMA foreign_keys = ON;")
+    db_engine = connection.vendor  # 'sqlite' or 'postgresql'
+    if db_engine == 'sqlite':
+        cursor.execute("PRAGMA foreign_keys = OFF;")
+    tables = [
+        'core_taskduedatechange', 'core_projectplanversion',
+        'core_task_depends_on', 'core_task', 'core_issue',
+        'core_milestone', 'core_buildstage', 'core_project',
+        'core_customer', 'core_userroleassignment',
+        'core_rolepermission', 'core_role',
+    ]
+    if db_engine == 'postgresql':
+        cursor.execute(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE;")
+    else:
+        for t in tables:
+            cursor.execute(f"DELETE FROM {t};")
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name LIKE 'core_%';")
+        cursor.execute("PRAGMA foreign_keys = ON;")
 print("   Data cleared.")
 
 SEED_ADMIN_PW = os.environ.get('SEED_ADMIN_PASSWORD', 'admin123')
