@@ -8,7 +8,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0019_project_product_code'),
+        ('core', '0030_remove_buildstage_location_bom_yield_fields'),
     ]
 
     operations = [
